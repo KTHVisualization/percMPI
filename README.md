@@ -16,4 +16,4 @@ Runs out-of-the-box on a linux machine with the following packages installed:
     gdb
     CMake
     MPI
-
+    clang-format

@@ -16,7 +16,7 @@
         {
             "taskName": "CMake & make & run",
             "args": [
-                "mkdir -p build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ..; pwd; make -j 8; mpirun -np 8 ./PercMPI /home/anke/Documents/Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
+                "mkdir -p build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ..; pwd; make -j 8; mpirun -np 8 ./PercMPI ../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
             ],
             "isBuildCommand": true
         },

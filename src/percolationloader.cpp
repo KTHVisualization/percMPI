@@ -132,9 +132,7 @@ double* PercolationLoader::normalizedFromComponents(const std::array<double*, 3>
 
     double* scalar = new double[numElements];
 
-    //#pragma omp parallel for
-    double sum = 0;
-    double normSum = 0;
+#pragma omp parallel for
     for (ind xyz = 0; xyz < numElements; ++xyz) {
         ind xy = xyz % numStatElements;
         // Raw data pointer to write to.
@@ -144,8 +142,6 @@ double* PercolationLoader::normalizedFromComponents(const std::array<double*, 3>
             components[n] = velocity[n][xyz];
             normComponents[n] = fabs(velocity[n][xyz] - average[n][xy]);
             normComponents[n] = std::isfinite(normComponents[n]) ? normComponents[n] : 0;
-            normSum += normComponents[n];
-            sum += components[n];
         }
         scalar[xyz] = rms[xy] > 0 ? RmsFunction(normComponents, components) / rms[xy] : 0;
     }

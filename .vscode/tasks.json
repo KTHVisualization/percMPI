@@ -5,7 +5,7 @@
     "command": "sh",
     "isShellCommand": true,
     "args": [
-    "args": ["-c"],
+        "-c"
     ],
     "showOutput": "always",
     "suppressTaskName": true,
@@ -23,13 +23,13 @@
         {
             "taskName": "cmake",
             "args": [
-            "args": ["cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug .."]     
+                "cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug .."
             ]
         },
         {
             "taskName": "make",
             "args": [
-            "args": ["make -j 8"],
+                "make -j 8"
             ],
             "isBuildCommand": true
         }

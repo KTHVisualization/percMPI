@@ -8,7 +8,7 @@
             "name": "Debug",
             "type": "gdb",
             "request": "launch",
-            "target": "./build/HelloWorld",
+            "target": "./build/PercMPI",
             "cwd": "${workspaceRoot}"
         }
     ]

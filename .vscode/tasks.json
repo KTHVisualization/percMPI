@@ -4,7 +4,9 @@
     "version": "0.1.0",
     "command": "sh",
     "isShellCommand": true,
+    "args": [
     "args": ["-c"],
+    ],
     "showOutput": "always",
     "suppressTaskName": true,
     "options": {
@@ -14,18 +16,22 @@
         {
             "taskName": "CMake & make & run",
             "args": [
-                "mkdir -p build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ..; pwd; make -j 8; mpirun -np 4 ./HelloWorld"
+                "mkdir -p build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ..; pwd; make -j 8; mpirun -np 8 ./PercMPI /home/anke/Documents/Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
             ],
-            "isBuildCommand": true            
+            "isBuildCommand": true
         },
         {
             "taskName": "cmake",
+            "args": [
             "args": ["cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug .."]     
+            ]
         },
         {
             "taskName": "make",
+            "args": [
             "args": ["make -j 8"],
-            "isBuildCommand": true            
+            ],
+            "isBuildCommand": true
         }
     ]
 }

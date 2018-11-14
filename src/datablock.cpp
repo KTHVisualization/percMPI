@@ -6,6 +6,11 @@
 
 namespace perc {
 
+DataBlock::~DataBlock() {
+    delete[] Scalar;
+    delete[] Volume;
+}
+
 bool DataBlock::loadData(ind timeSlice, const std::string& directory,
                          const std::string& rmsFilename) {
 

@@ -10,7 +10,23 @@ class UnionFindSubBlock {
 public:
     UnionFindSubBlock(const vec3i& size, const vec3i& offset, const vec3i& total,
                       UnionFindBlock& parent)
-        : Data(size, offset, total), PointerBlock(size, offset, total), Parent(parent) {}
+        : PointerBlock(size, offset, total), Parent(parent), CurrentWatershedIndex(-1) {}
+
+    ~UnionFindSubBlock() { delete Data; }
+
+    void loadData() {
+        assert(!Data && "Data was already set.");
+        Data =
+            new DataBlock(PointerBlock.BlockSize, PointerBlock.BlockOffset, PointerBlock.TotalSize);
+
+        CurrentWatershedIndex = 0;
+        Data->sort();
+    }
+
+    void doWatershed(double maxVal) {
+        if (!Data) return;
+        // TODO
+    }
 
     ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) {
         vec3i curIdx = idx;
@@ -18,7 +34,6 @@ public:
         ID* firstPointer = PointerBlock.getPointer(idx);
         ID* curPointer = firstPointer;
         vec3i lastPointer = idx;
-        //.toIndexOfTotal(PointerBlock.TotalSize);
 
         ClusterID* finalID;
         while (curPointer && curPointer->isVertex()) {
@@ -44,9 +59,10 @@ public:
     bool contains(const vec3i& idx) { return PointerBlock.contains(idx); }
 
 public:
-    DataBlock Data;
+    DataBlock* Data;
     UnionFind PointerBlock;
     UnionFindBlock& Parent;
+    ind CurrentWatershedIndex;
 };
 
 }  // namespace perc

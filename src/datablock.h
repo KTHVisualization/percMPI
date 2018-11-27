@@ -11,12 +11,12 @@ public:
     ~DataBlock();
 
     bool loadData(ind timeSlice, const std::string& directory, const std::string& rmsFilename);
+    void sort() {}  // TODO
 
 public:
     double *Scalar, *Volume;
     int* Indices;
     vec3i BlockSize, BlockOffset, TotalSize;
-    // TODO: Neighboring node ids
 };
 
 }  // namespace perc

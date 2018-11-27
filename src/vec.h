@@ -47,6 +47,9 @@ union vec3i {
 
     vec3i operator*(const vec3i& v) const { return vec3i(x * v.x, y * v.y, z * v.z); }
 
+    bool operator==(const vec3i& v) const { return x == v.x && y == v.y && z == v.z; }
+    bool operator!=(const vec3i& v) const { return !(*this == v); }
+
     bool liesWithin(const vec3i& lower, const vec3i& upper) const {
         return x >= lower.x && x < upper.x && y >= lower.y && y < upper.y && z >= lower.z &&
                z < upper.z;

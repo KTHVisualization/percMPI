@@ -5,7 +5,7 @@
 #include <array>
 #include <ostream>
 
-using ind = long long;
+using ind = signed int;
 
 union vec3i {
     ind data[3];
@@ -46,6 +46,11 @@ union vec3i {
     }
 
     vec3i operator*(const vec3i& v) const { return vec3i(x * v.x, y * v.y, z * v.z); }
+
+    bool liesWithin(const vec3i& lower, const vec3i& upper) const {
+        return x >= lower.x && x < upper.x && y >= lower.y && y < upper.y && z >= lower.z &&
+               z < upper.z;
+    }
 
     vec3i static min(const vec3i& u, const vec3i& v) {
         return vec3i(std::min(u.x, v.x), std::min(u.y, v.y), std::min(u.z, v.z));

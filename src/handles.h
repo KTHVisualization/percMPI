@@ -23,6 +23,7 @@ struct ID {
 struct ClusterID : public ID {
     static const ind GLOBAL_FLAG = 1 << (sizeof(ind) * 8 - 3);
     ClusterID(ind id) : ID(id) {}
+    ClusterID() {}
 
     bool isGlobal() { return RawID & GLOBAL_FLAG; }
     ind localID() { return baseID() & ~GLOBAL_FLAG; }
@@ -30,6 +31,7 @@ struct ClusterID : public ID {
 
 struct VertexID : public ID {
     VertexID(ind id) : ID(id) {}
+    VertexID() {}
 };
 
 }  // namespace perc

@@ -7,8 +7,8 @@
 namespace perc {
 
 DataBlock::~DataBlock() {
-    delete[] Scalar;
-    delete[] Volume;
+    delete[] Scalars;
+    delete[] Volumes;
 }
 
 bool DataBlock::loadData(ind timeSlice, const std::string& directory,
@@ -16,16 +16,27 @@ bool DataBlock::loadData(ind timeSlice, const std::string& directory,
 
     // Init loader with size.
     PercolationLoader loader(BlockSize, BlockOffset, TotalSize);
-    Scalar = loader.loadScalarData(timeSlice, directory + "/VELOCITY/", directory + "/STAT/",
-                                   directory + "/ZEXPORT_STAT_wall_correction/" + rmsFilename,
-                                   directory + "/STAT/");
-    if (!Scalar) return false;
+    Scalars = loader.loadScalarData(timeSlice, directory + "/VELOCITY/", directory + "/STAT/",
+                                    directory + "/ZEXPORT_STAT_wall_correction/" + rmsFilename,
+                                    directory + "/STAT/");
+    if (!Scalars) return false;
 
     // Volume just set to uniform for now.
-    Volume = new double[BlockSize.prod()];
-    std::fill_n(Volume, BlockSize.prod(), 1.0);
+    Volumes = new double[BlockSize.prod()];
+    std::fill_n(Volumes, BlockSize.prod(), 1.0);
 
     return true;
+}
+
+void DataBlock::sort() {
+    delete[] Indices;
+
+    // Create Indices, fill with [0, numElements) and sort by Scalar value.
+    ind numElements = BlockSize.prod();
+    Indices = new ind[numElements];
+    std::iota(Indices, Indices + numElements, 0);
+    std::sort(Indices, Indices + numElements,
+              [this](ind a, ind b) { return Scalars[a] > Scalars[b]; });
 }
 
 }  // namespace perc

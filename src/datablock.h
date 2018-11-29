@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <numeric>
 #include "vec.h"
 
 namespace perc {
@@ -11,11 +12,11 @@ public:
     ~DataBlock();
 
     bool loadData(ind timeSlice, const std::string& directory, const std::string& rmsFilename);
-    void sort() {}  // TODO
+    void sort();
 
 public:
-    double *Scalar, *Volume;
-    int* Indices;
+    double *Scalars, *Volumes;
+    ind* Indices;
     vec3i BlockSize, BlockOffset, TotalSize;
 };
 

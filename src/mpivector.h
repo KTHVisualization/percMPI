@@ -39,8 +39,7 @@ public:
 
     int Send(int dest, int tag, MPI_Comm comm);
 
-    template <class U>
-    friend std::ostream& operator<<(std::ostream& os, const MPIVector<U>& vector) {
+    friend std::ostream& operator<<(std::ostream& os, const MPIVector& vector) {
         os << "vector with " << vector.size() << " elements and " << vector.capacity()
            << " capacity " << std::endl;
         return os;
@@ -51,12 +50,12 @@ public:
     static T* extractDataFromPointer(void* pointer) {
         // Cast to ind-pointer so we can increment by one ind (that saves the number of elements
         // currently in the vector), then cast result to T pointer
-        reinterpret_cast<T*>(static_cast<ind*>(pointer) + 1);
+        return reinterpret_cast<T*>(reinterpret_cast<ind*>(pointer) + 1);
     }
 
     static ind extractSizeFromPointer(void* pointer) {
         // Size of the vector is saved in the first position
-        return static_cast<ind*>(pointer)[0];
+        return reinterpret_cast<ind*>(pointer)[0];
     }
 
     static ind calculatePointerSize(ind capacity) {
@@ -66,7 +65,7 @@ public:
     }
 
     static void setSizeinPointer(void* pointer, ind newSize) {
-        static_cast<ind*>(pointer)[0] = newSize;
+        reinterpret_cast<ind*>(pointer)[0] = newSize;
     }
 
 private:
@@ -124,7 +123,8 @@ MPIVector<T>::MPIVector(const MPIVector<T>& vector) {
 // Move copy constructor
 template <class T>
 MPIVector<T>::MPIVector(MPIVector<T>&& vector) : SizeAndData(nullptr), Capacity(0) {
-    SizeAndData = std::move(vector.SizeAndData);
+    SizeAndData = vector.SizeAndData;
+    vector.SizeAndData = nullptr;
     Capacity = vector.capacity;
     vector.Capacity = 0;
 };
@@ -161,8 +161,10 @@ MPIVector<T>& MPIVector<T>::operator=(const MPIVector& other) {
 template <class T>
 MPIVector<T>& MPIVector<T>::operator=(MPIVector&& other) {
     if (this != &other) {
-        SizeAndData = std::move(other.SizeAndData);
+        SizeAndData = other.SizeAndData;
+        other.SizeAndData = nullptr;
         Capacity = other.Capacity;
+        other.Capacity = 0;
     }
     return *this;
 };

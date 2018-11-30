@@ -10,13 +10,13 @@
     "showOutput": "always",
     "suppressTaskName": true,
     "options": {
-        "cwd": "${workspaceRoot}/build"
+        "cwd": "${workspaceRoot}"
     },
     "tasks": [
         {
             "taskName": "CMake & make & run",
             "args": [
-                "mkdir -p build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ..; pwd; make -j 8; mpirun -np 8 ./PercMPI ../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
+                "mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ..; pwd; make -j 8; mpirun -np 8 ./PercMPI ../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
             ],
             "isBuildCommand": true
         },
@@ -32,6 +32,13 @@
                 "make -j 8"
             ],
             "isBuildCommand": true
-        }
+        },
+        {
+            "taskName": "CMake Test & make & run",
+            "args": [
+                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-DTEST' ..; echo Testing; pwd; make -j 8; mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
+            ],
+            "isBuildCommand": true
+        },
     ]
 }

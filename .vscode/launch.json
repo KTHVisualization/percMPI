@@ -8,7 +8,8 @@
             "name": "Debug",
             "type": "gdb",
             "request": "launch",
-            "target": "./build/PercMPI",
+            "target": "./buildtest/PercMPI",
+            "arguments": "../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500",
             "cwd": "${workspaceRoot}"
         }
     ]

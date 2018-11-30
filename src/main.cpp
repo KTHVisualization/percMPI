@@ -7,8 +7,47 @@
 #include <cmath>
 #include "vec.h"
 #include "datablock.h"
+#include "mpivector.h"
+#include "performancetimer.h"
 
 using namespace perc;
+
+void testingMPIVectors() {
+    // MPI init
+    MPI_Init(NULL, NULL);
+
+    int numProcesses;
+    MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
+
+    int currProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
+
+    // Processor 0 is just testing some basic things before sending anything
+    if (currProcess == 0) {
+        // Initially empty vector
+        MPIVector<double> doubleVector;
+        std::cout << doubleVector;
+        doubleVector.push_back(5.0);
+        doubleVector.push_back(5.0);
+        doubleVector.push_back(6.0);
+        std::cout << doubleVector;
+        doubleVector.pop_back();
+        std::cout << doubleVector;
+
+        MPIVector<int> intVector(5, 9);
+        std::cout << intVector;
+        intVector.push_back(4);
+        std::cout << intVector;
+    }
+
+    MPI_Finalize();
+}
+
+void percolationSequential() { std::cout << "Running percolation in a single node" << std::endl; }
+
+void percolation() {}
+
+void percolationDistributed() {}
 
 // Input args:
 // - path:        folder with data
@@ -16,6 +55,12 @@ using namespace perc;
 // - xT, yT, zT:  total size
 // - xB, yB, zB:  block size
 int main(int argc, char** argv) {
+
+#ifdef TEST
+
+    testingMPIVectors();
+
+#else
 
     // Directory path and sizes from args
     if (argc < 9) {
@@ -63,4 +108,6 @@ int main(int argc, char** argv) {
 
     // Finalize the MPI environment. No more MPI calls can be made after this
     MPI_Finalize();
+
+#endif
 }

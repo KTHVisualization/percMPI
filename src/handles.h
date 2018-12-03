@@ -4,6 +4,7 @@
 namespace perc {
 
 struct ClusterID;
+struct VertexID;
 
 struct ID {
     static const ind CLUSTER_FLAG = 1 << (sizeof(ind) * 8 - 2);
@@ -11,12 +12,15 @@ struct ID {
     ID(ind id) : RawID(id) {}
     ID() : RawID(-1) {}
 
-    bool isCluster() { return RawID & CLUSTER_FLAG; }
-    bool isVertex() { return !isCluster(); }
-    bool isValid() { return RawID >= 0; }
+    bool isCluster() const { return RawID & CLUSTER_FLAG; }
+    bool isVertex() const { return !isCluster(); }
+    bool isValid() const { return RawID >= 0; }
     ClusterID* asCluster() { return isCluster() ? reinterpret_cast<ClusterID*>(this) : nullptr; }
+    const ClusterID* asCluster() const {
+        return isCluster() ? reinterpret_cast<const ClusterID*>(this) : nullptr;
+    }
 
-    ind baseID() { return RawID & ~CLUSTER_FLAG; }
+    ind baseID() const { return RawID & ~CLUSTER_FLAG; }
     ind RawID;
 };
 
@@ -25,13 +29,25 @@ struct ClusterID : public ID {
     ClusterID(ind id) : ID(id) {}
     ClusterID() {}
 
-    bool isGlobal() { return RawID & GLOBAL_FLAG; }
-    ind localID() { return baseID() & ~GLOBAL_FLAG; }
+    bool isGlobal() const { return RawID & GLOBAL_FLAG; }
+    ind localID() const { return baseID() & ~GLOBAL_FLAG; }
 };
 
 struct VertexID : public ID {
     VertexID(ind id) : ID(id) {}
     VertexID() {}
 };
+
+inline bool operator==(const ID& a, const ID& b) { return a.RawID == b.RawID; }
+inline bool operator==(const ClusterID& a, const ID& b) { return a.RawID == b.RawID; }
+inline bool operator==(const ClusterID& a, const ClusterID& b) { return a.RawID == b.RawID; }
+inline bool operator==(const VertexID& a, const ID& b) { return a.RawID == b.RawID; }
+inline bool operator==(const VertexID& a, const VertexID& b) { return a.RawID == b.RawID; }
+
+inline bool operator!=(const ID& a, const ID& b) { return a.RawID != b.RawID; }
+inline bool operator!=(const ClusterID& a, const ID& b) { return a.RawID != b.RawID; }
+inline bool operator!=(const ClusterID& a, const ClusterID& b) { return a.RawID != b.RawID; }
+inline bool operator!=(const VertexID& a, const ID& b) { return a.RawID != b.RawID; }
+inline bool operator!=(const VertexID& a, const VertexID& b) { return a.RawID != b.RawID; }
 
 }  // namespace perc

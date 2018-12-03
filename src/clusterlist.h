@@ -14,40 +14,45 @@ struct Cluster {
 
 class ClusterList {
 public:
-    ClusterList(ind size = 100) : Indices(size), Volumes(size) {}
+    ClusterList(ind size = 100) : Indices(size), Volumes(size), TotalVolume(0) {}
 
     Cluster getCluster(ClusterID cluster) {
         return Cluster(Indices[cluster.localID()], Volumes[cluster.localID()]);
     }
-    inline ClusterID addCluster(VertexID id);
+    inline ClusterID addCluster(VertexID id, double volume);
     inline void removeCluster(ClusterID cluster);
     inline void mergeClusters(ClusterID from, ClusterID onto);
+    void extendCluster(ClusterID id, double volume);
 
-    void clearVolumes() { std::fill(Volumes.data(), Volumes.data() + Volumes.size(), 0); }
+    void clearVolumes();
+    ind numClusters() { return Indices.size() - Holes.size(); }
 
 private:
     std::vector<VertexID> Indices;
     std::vector<double> Volumes;
     std::vector<size_t> Holes;
+    double TotalVolume;
 };
 
 // ========= Inline Definitions ========= //
 
-ClusterID ClusterList::addCluster(VertexID id) {
+ClusterID ClusterList::addCluster(VertexID id, double volume) {
+    TotalVolume += volume;
     if (Holes.empty()) {
         Indices.push_back(id);
-        Volumes.push_back(0.0);
+        Volumes.push_back(volume);
         return ClusterID(Indices.size() - 1);
     } else {
         size_t holeIdx = Holes.back();
         Holes.pop_back();
         Indices[holeIdx] = id;
-        Volumes[holeIdx] = 0.0;
+        Volumes[holeIdx] = volume;
         return ClusterID(holeIdx);
     }
 }
 void ClusterList::removeCluster(ClusterID cluster) {
     ind locID = cluster.localID();
+    TotalVolume -= Volumes[locID];
     if (locID == Indices.size() - 1) {
         Indices.pop_back();
         Volumes.pop_back();
@@ -62,6 +67,16 @@ inline void ClusterList::mergeClusters(ClusterID from, ClusterID onto) {
 
     Volumes[locOnto] += Volumes[locFrom];
     removeCluster(locFrom);
+}
+
+inline void ClusterList::extendCluster(ClusterID id, double volume) {
+    Volumes[id.localID()] += volume;
+    TotalVolume += volume;
+}
+
+inline void ClusterList::clearVolumes() {
+    std::fill(Volumes.data(), Volumes.data() + Volumes.size(), 0);
+    TotalVolume = 0;
 }
 
 }  // namespace perc

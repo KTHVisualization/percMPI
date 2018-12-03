@@ -7,7 +7,7 @@
 #include <cmath>
 #include "vec.h"
 #include "datablock.h"
-#include "mpivector.h"
+#include "mpicommuncation.h"
 #include "performancetimer.h"
 
 using namespace perc;
@@ -25,56 +25,33 @@ void testingMPIVectors() {
     // Processor 0 is just testing some basic things before sending anything
     if (currProcess == 0) {
         // Initially empty vector, push some elements
-        MPIVector<double> doubleVector;
-        std::cout << doubleVector;
+        std::vector<double> doubleVector;
         doubleVector.push_back(5.0);
         doubleVector.push_back(5.0);
         doubleVector.push_back(6.0);
-        std::cout << doubleVector[2] << std::endl;
         doubleVector.push_back(4.5);
-        std::cout << doubleVector[3] << std::endl;
-        std::cout << doubleVector;
-        doubleVector.printContents();
-        doubleVector.pop_back();
-        std::cout << doubleVector;
 
-        MPIVector<int> intVector(7, 9);
-        std::cout << intVector;
-        intVector.printContents();
+        std::vector<int> intVector(7, 9);
         intVector.push_back(4);
-        intVector.pop_back();
-        intVector.pop_back();
-        intVector.printContents();
-        std::cout << intVector;
-
-        // Move constructor test
-        MPIVector<double> a;
-        MPIVector<double> b(std::move(a));
-
-        // Move assignment
-        MPIVector<double> c;
-        c = std::move(b);
-
-        // Copy constructor
-        MPIVector<int> d;
-        MPIVector<int> e(d);
-
-        // Copy assignment
-        MPIVector<int> f;
-        f = d;
 
         // Send a int vector
-        if (numProcesses > 1) {
-            intVector.Send(1, 0, MPI_COMM_WORLD);
+        if (numProcesses > 2) {
+            MPI_Request* requests = new MPI_Request[2];
+            MPICommunication::IsendVector(intVector, 1, 0, MPI_COMM_WORLD, requests);
+            MPICommunication::IsendVector(doubleVector, 2, 1, MPI_COMM_WORLD, &requests[1]);
+
+            // Wait for all messages to be finished
+            MPI_Waitall(1, requests, MPI_STATUSES_IGNORE);
         }
 
     } else if (currProcess == 1) {
-        MPIVector<int> received;
+        std::vector<int> received;
         MPI_Status status;
-        received.Recv(0, 0, MPI_COMM_WORLD, &status);
-        std::cout << received;
-        received.printContents();
-        std::cout << "Received data" << std::endl;
+        MPICommunication::RecvVectorUknownSize(received, 0, 0, MPI_COMM_WORLD, &status);
+    } else if (currProcess == 2) {
+        std::vector<double> received;
+        MPI_Status status;
+        MPICommunication::RecvVectorUknownSize(received, 0, 1, MPI_COMM_WORLD, &status);
     }
 
     MPI_Finalize();

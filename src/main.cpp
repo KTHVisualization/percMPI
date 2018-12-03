@@ -24,20 +24,56 @@ void testingMPIVectors() {
 
     // Processor 0 is just testing some basic things before sending anything
     if (currProcess == 0) {
-        // Initially empty vector
+        // Initially empty vector, push some elements
         MPIVector<double> doubleVector;
         std::cout << doubleVector;
         doubleVector.push_back(5.0);
         doubleVector.push_back(5.0);
         doubleVector.push_back(6.0);
+        std::cout << doubleVector[2] << std::endl;
+        doubleVector.push_back(4.5);
+        std::cout << doubleVector[3] << std::endl;
         std::cout << doubleVector;
+        doubleVector.printContents();
         doubleVector.pop_back();
         std::cout << doubleVector;
 
-        MPIVector<int> intVector(5, 9);
+        MPIVector<int> intVector(7, 9);
         std::cout << intVector;
+        intVector.printContents();
         intVector.push_back(4);
+        intVector.pop_back();
+        intVector.pop_back();
+        intVector.printContents();
         std::cout << intVector;
+
+        // Move constructor test
+        MPIVector<double> a;
+        MPIVector<double> b(std::move(a));
+
+        // Move assignment
+        MPIVector<double> c;
+        c = std::move(b);
+
+        // Copy constructor
+        MPIVector<int> d;
+        MPIVector<int> e(d);
+
+        // Copy assignment
+        MPIVector<int> f;
+        f = d;
+
+        // Send a int vector
+        if (numProcesses > 1) {
+            intVector.Send(1, 0, MPI_COMM_WORLD);
+        }
+
+    } else if (currProcess == 1) {
+        MPIVector<int> received;
+        MPI_Status status;
+        received.Recv(sizeof(ind) + 6 * sizeof(int), 0, 0, MPI_COMM_WORLD, &status);
+        std::cout << received;
+        received.printContents();
     }
 
     MPI_Finalize();

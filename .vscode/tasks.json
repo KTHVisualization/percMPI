@@ -36,7 +36,14 @@
         {
             "taskName": "CMake Test & make & run",
             "args": [
-                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-DTEST' ..; echo Testing; pwd; make -j 8; mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
+                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-DTEST' ..; echo Testing MPIVectors; pwd; make -j 8; mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
+            ],
+            "isBuildCommand": true
+        },
+        {
+            "taskName": "CMake Test Communication & make & run",
+            "args": [
+                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-DTEST' ..; echo Testing MPIVectors; pwd; make -j 8; mpirun -np 2 ./PercMPI ../../Data/Percolation/P3 uv_000 194 193 1000 97 97 500"
             ],
             "isBuildCommand": true
         },

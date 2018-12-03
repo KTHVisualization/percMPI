@@ -4,7 +4,7 @@
 #include <string.h>
 #include <cassert>
 
-const unsigned int DEFAULT_CAPACITY = 2;
+const unsigned int DEFAULT_CAPACITY = 16;
 const float CAPACITY_MULTIPLIER = 2.0;
 
 using ind = signed int;
@@ -30,6 +30,7 @@ public:
     ind size() const;
     ind capacity() const;
     T* data();
+    const T* data() const;
     T& operator[](ind index);
 
     /* Modifiers */
@@ -38,12 +39,15 @@ public:
     void resize(ind newCapacity);
 
     int Send(int dest, int tag, MPI_Comm comm);
+    int Recv(ind size, int src, int tag, MPI_Comm comm, MPI_Status* status);
 
     friend std::ostream& operator<<(std::ostream& os, const MPIVector& vector) {
         os << "vector with " << vector.size() << " elements and " << vector.capacity()
            << " capacity " << std::endl;
         return os;
     }
+
+    void printContents() const;
 
     /* ----- Helper functions ---- */
 
@@ -81,14 +85,14 @@ template <class T>
 MPIVector<T>::MPIVector() : Capacity(DEFAULT_CAPACITY) {
     SizeAndData = malloc(calculatePointerSize(Capacity));
     setSizeinPointer(SizeAndData, 0);
-};
+}
 
 // This does not do any default construction of type T, memory is garbage after construction
 template <class T>
 MPIVector<T>::MPIVector(ind capacity) : Capacity(capacity) {
     SizeAndData = malloc(calculatePointerSize(Capacity));
     setSizeinPointer(SizeAndData, Capacity);
-};
+}
 
 template <class T>
 MPIVector<T>::MPIVector(ind capacity, const T& value) : Capacity(capacity) {
@@ -100,11 +104,14 @@ MPIVector<T>::MPIVector(ind capacity, const T& value) : Capacity(capacity) {
     for (ind i = 0; i < Capacity; i++) {
         vectorData[i] = value;
     }
-};
+}
 
 // Copy constructor
 template <class T>
 MPIVector<T>::MPIVector(const MPIVector<T>& vector) {
+#ifdef TEST
+    std::cout << "Called copy construction." << std::endl;
+#endif
     Capacity = vector.capacity();
     SizeAndData = malloc(calculatePointerSize(Capacity));
     ind vectorSize = vector.size();
@@ -112,31 +119,46 @@ MPIVector<T>::MPIVector(const MPIVector<T>& vector) {
 
     // Overwrite the current data content
     T* currentData = data();
-    T* vectorData = vector.data();
+    const T* vectorData = vector.data();
     memcpy(currentData, vectorData, vectorSize * sizeof(T));
     /* Equivalent to
     for (ind i = 0; i < vectorSize; i++) {
         currentData[i] = vectorData[i];
     } */
-};
+}
 
 // Move copy constructor
 template <class T>
 MPIVector<T>::MPIVector(MPIVector<T>&& vector) : SizeAndData(nullptr), Capacity(0) {
+#ifdef TEST
+    std::cout << "Called move constructor." << std::endl;
+#endif
     SizeAndData = vector.SizeAndData;
     vector.SizeAndData = nullptr;
-    Capacity = vector.capacity;
+
+    Capacity = vector.Capacity;
     vector.Capacity = 0;
-};
+}
 
 template <class T>
 MPIVector<T>::~MPIVector() {
-    free(SizeAndData);
-};
+#ifdef TEST
+    std::cout << "Destructing";
+    if (SizeAndData)
+        std::cout << " a " << *this;
+    else
+        std::cout << " a vector that holds no data anymore." << std::endl;
+    // Could be a null pointer due to move construction
+    if (SizeAndData) free(SizeAndData);
+#endif
+}
 
 // Copy Assignment
 template <class T>
 MPIVector<T>& MPIVector<T>::operator=(const MPIVector& other) {
+#ifdef TEST
+    std::cout << "Called copy assignment." << std::endl;
+#endif
     // Detect self-assignment
     if (this != &other) {
         // Allocate memory for size and size number of T´s in other
@@ -147,7 +169,7 @@ MPIVector<T>& MPIVector<T>::operator=(const MPIVector& other) {
 
         // Set data
         T* tempData = extractDataFromPointer(tempSizeAndData);
-        T* otherData = other.data();
+        const T* otherData = other.data();
         memcpy(tempData, otherData, otherSize * sizeof(T));
 
         // Out with the old, in with the new (capacity already set)
@@ -155,40 +177,49 @@ MPIVector<T>& MPIVector<T>::operator=(const MPIVector& other) {
         SizeAndData = tempSizeAndData;
     }
     return *this;
-};
+}
 
 // Move Assignment
 template <class T>
 MPIVector<T>& MPIVector<T>::operator=(MPIVector&& other) {
+#ifdef TEST
+    std::cout << "Called move assignment." << std::endl;
+#endif
     if (this != &other) {
         SizeAndData = other.SizeAndData;
         other.SizeAndData = nullptr;
+
         Capacity = other.Capacity;
         other.Capacity = 0;
     }
     return *this;
-};
+}
 
 template <class T>
 ind MPIVector<T>::size() const {
     return extractSizeFromPointer(SizeAndData);
-};
+}
 
 template <class T>
 ind MPIVector<T>::capacity() const {
     return Capacity;
-};
+}
 
 template <class T>
 T* MPIVector<T>::data() {
     return extractDataFromPointer(SizeAndData);
-};
+}
+
+template <class T>
+const T* MPIVector<T>::data() const {
+    return extractDataFromPointer(SizeAndData);
+}
 
 template <class T>
 T& MPIVector<T>::operator[](ind index) {
     assert(index < size() && "Index out of bounds.");
     return data()[index];
-};
+}
 
 template <class T>
 void MPIVector<T>::push_back(const T& value) {
@@ -198,7 +229,7 @@ void MPIVector<T>::push_back(const T& value) {
     }
     data()[currSize] = value;
     setSizeinPointer(SizeAndData, currSize + 1);
-};
+}
 
 template <class T>
 void MPIVector<T>::pop_back() {
@@ -208,10 +239,13 @@ void MPIVector<T>::pop_back() {
     setSizeinPointer(SizeAndData, currSize - 1);
     // For now omitted: Making the array smaller if number of elements in the vector falls below
     // 1/CAPACITY_MULTIPLIER * Capacity
-};
+}
 
 template <class T>
 void MPIVector<T>::resize(ind newCapacity) {
+#ifdef TEST
+    std::cout << "Resizing from " << Capacity << " to " << newCapacity << "." << std::endl;
+#endif
     // We already have the desired capacity
     if (newCapacity == Capacity) return;
 
@@ -230,9 +264,32 @@ void MPIVector<T>::resize(ind newCapacity) {
     free(SizeAndData);
     Capacity = newCapacity;
     SizeAndData = tempSizeAndData;
-};
+}
 
 template <class T>
-int MPIVector<T>::Send(int dest, int tag, MPI_Comm comm){};
+int MPIVector<T>::Send(int dest, int tag, MPI_Comm comm) {
+    // Use MPI_BYTE to send data, capacity is not sent, will be set to size by receiver
+    std::cout << size() << " " << Capacity << " " << calculatePointerSize(size()) << std::endl;
+    return MPI_Send(SizeAndData, calculatePointerSize(size()), MPI_BYTE, dest, tag, comm);
+}
+
+template <class T>
+int MPIVector<T>::Recv(ind messageSize, int src, int tag, MPI_Comm comm, MPI_Status* status) {
+    // Resize if we cannot hold the data to be received
+    ind vectorSize = (messageSize - sizeof(ind)) / sizeof(T);
+    if (Capacity < vectorSize) resize(vectorSize);
+    MPI_Recv(SizeAndData, messageSize, MPI_BYTE, src, tag, comm, status);
+}
+
+template <class T>
+void MPIVector<T>::printContents() const {
+    std::cout << "[";
+    ind vectorSize = size();
+    const T* vectorData = data();
+    for (ind i = 0; i < vectorSize - 1; i++) {
+        std::cout << vectorData[i] << ",";
+    }
+    std::cout << vectorData[vectorSize - 1] << "]" << std::endl;
+}
 
 }  // namespace perc

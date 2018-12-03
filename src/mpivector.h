@@ -148,9 +148,9 @@ MPIVector<T>::~MPIVector() {
         std::cout << " a " << *this;
     else
         std::cout << " a vector that holds no data anymore." << std::endl;
+#endif
     // Could be a null pointer due to move construction
     if (SizeAndData) free(SizeAndData);
-#endif
 }
 
 // Copy Assignment
@@ -269,7 +269,6 @@ void MPIVector<T>::resize(ind newCapacity) {
 template <class T>
 int MPIVector<T>::Send(int dest, int tag, MPI_Comm comm) {
     // Use MPI_BYTE to send data, capacity is not sent, will be set to size by receiver
-    std::cout << size() << " " << Capacity << " " << calculatePointerSize(size()) << std::endl;
     return MPI_Send(SizeAndData, calculatePointerSize(size()), MPI_BYTE, dest, tag, comm);
 }
 
@@ -277,11 +276,12 @@ template <class T>
 int MPIVector<T>::Recv(int src, int tag, MPI_Comm comm, MPI_Status* status) {
     // Resize if we cannot hold the data to be received
     int err = MPI_Probe(src, tag, comm, status);
+    if (err != MPI_SUCCESS) return err;
     int messageSize;
     MPI_Get_count(status, MPI_BYTE, &messageSize);
     ind vectorSize = (messageSize - sizeof(ind)) / sizeof(T);
     if (Capacity < vectorSize) resize(vectorSize);
-    MPI_Recv(SizeAndData, messageSize, MPI_BYTE, src, tag, comm, MPI_STATUS_IGNORE);
+    return MPI_Recv(SizeAndData, messageSize, MPI_BYTE, src, tag, comm, MPI_STATUS_IGNORE);
 }
 
 template <class T>

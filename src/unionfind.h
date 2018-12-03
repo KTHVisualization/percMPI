@@ -12,9 +12,14 @@ public:
     ~UnionFind() { delete[] PointerBlock; }
 
     bool contains(const vec3i& idx) { return idx.liesWithin(BlockOffset, BlockOffset + BlockSize); }
+
     ID* getPointer(const vec3i& idx) {
         assert(contains(idx) && "Index not within this block. Please check before!\n");
-        ID* ptr = PointerBlock + (idx - BlockOffset).toIndexOfTotal(TotalSize);
+        return getPointerLocal(idx - BlockOffset);
+    }
+
+    ID* getPointerLocal(const vec3i& locIdx) {
+        ID* ptr = PointerBlock + locIdx.toIndexOfTotal(TotalSize);
         return ptr->isValid() ? ptr : nullptr;
     }
 

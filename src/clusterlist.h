@@ -19,9 +19,9 @@ public:
     Cluster getCluster(ClusterID cluster) {
         return Cluster(Indices[cluster.localID()], Volumes[cluster.localID()]);
     }
-    inline ClusterID addCluster(VertexID id, double volume);
-    inline void removeCluster(ClusterID cluster);
-    inline void mergeClusters(ClusterID from, ClusterID onto);
+    ClusterID addCluster(VertexID id, double volume);
+    void removeCluster(ClusterID cluster);
+    void mergeClusters(ClusterID from, ClusterID onto);
     void extendCluster(ClusterID id, double volume);
 
     void clearVolumes();
@@ -36,7 +36,7 @@ private:
 
 // ========= Inline Definitions ========= //
 
-ClusterID ClusterList::addCluster(VertexID id, double volume) {
+inline ClusterID ClusterList::addCluster(VertexID id, double volume) {
     TotalVolume += volume;
     if (Holes.empty()) {
         Indices.push_back(id);
@@ -50,7 +50,7 @@ ClusterID ClusterList::addCluster(VertexID id, double volume) {
         return ClusterID(holeIdx);
     }
 }
-void ClusterList::removeCluster(ClusterID cluster) {
+inline void ClusterList::removeCluster(ClusterID cluster) {
     ind locID = cluster.localID();
     TotalVolume -= Volumes[locID];
     if (locID == Indices.size() - 1) {

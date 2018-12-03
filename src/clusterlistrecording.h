@@ -17,11 +17,14 @@ public:
     ClusterListRecording(ind size = 100) : Clusters(size), Merges(20) {}
 
     Cluster getCluster(ClusterID cluster) { return Clusters.getCluster(cluster); }
-    inline ClusterID addCluster(VertexID id) { return Clusters.addCluster(id); }
-    inline void removeCluster(ClusterID cluster) { Clusters.removeCluster(cluster); }
-    inline void mergeClusters(ClusterID from, ClusterID onto);
+    void addClusters(ind numNewCLusters);
+    void removeCluster(ClusterID cluster) { Clusters.removeCluster(cluster); }
+    void mergeClusters(ClusterID from, ClusterID onto);
+    void mergeClustersForReal(ClusterID from, ClusterID onto);
+    void extendCluster(ClusterID id, double volume) { Clusters.extendCluster(id, volume); }
 
-    inline void clearVolumesAndMerges();
+    void clearVolumesAndMerges();
+    ind numClusters() { return Clusters.numClusters(); }
 
 private:
     ClusterList Clusters;
@@ -34,9 +37,17 @@ inline void ClusterListRecording::mergeClusters(ClusterID from, ClusterID onto) 
     Merges.push_back(ClusterMerge(from, onto));
 }
 
+inline void ClusterListRecording::mergeClustersForReal(ClusterID from, ClusterID onto) {
+    Clusters.mergeClusters(from, onto);
+}
+
 inline void ClusterListRecording::clearVolumesAndMerges() {
     Clusters.clearVolumes();
     Merges.clear();
+}
+
+inline void ClusterListRecording::addClusters(ind numNewClusters) {
+    for (ind n = 0; n < numNewClusters; ++n) Clusters.addCluster(VertexID(-1), 0.0);
 }
 
 }  // namespace perc

@@ -39,7 +39,7 @@ public:
     void resize(ind newCapacity);
 
     int Send(int dest, int tag, MPI_Comm comm);
-    int Recv(ind size, int src, int tag, MPI_Comm comm, MPI_Status* status);
+    int Recv(int src, int tag, MPI_Comm comm, MPI_Status* status);
 
     friend std::ostream& operator<<(std::ostream& os, const MPIVector& vector) {
         os << "vector with " << vector.size() << " elements and " << vector.capacity()
@@ -274,11 +274,14 @@ int MPIVector<T>::Send(int dest, int tag, MPI_Comm comm) {
 }
 
 template <class T>
-int MPIVector<T>::Recv(ind messageSize, int src, int tag, MPI_Comm comm, MPI_Status* status) {
+int MPIVector<T>::Recv(int src, int tag, MPI_Comm comm, MPI_Status* status) {
     // Resize if we cannot hold the data to be received
+    int err = MPI_Probe(src, tag, comm, status);
+    int messageSize;
+    MPI_Get_count(status, MPI_BYTE, &messageSize);
     ind vectorSize = (messageSize - sizeof(ind)) / sizeof(T);
     if (Capacity < vectorSize) resize(vectorSize);
-    MPI_Recv(SizeAndData, messageSize, MPI_BYTE, src, tag, comm, status);
+    MPI_Recv(SizeAndData, messageSize, MPI_BYTE, src, tag, comm, MPI_STATUS_IGNORE);
 }
 
 template <class T>

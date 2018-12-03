@@ -71,9 +71,10 @@ void testingMPIVectors() {
     } else if (currProcess == 1) {
         MPIVector<int> received;
         MPI_Status status;
-        received.Recv(sizeof(ind) + 6 * sizeof(int), 0, 0, MPI_COMM_WORLD, &status);
+        received.Recv(0, 0, MPI_COMM_WORLD, &status);
         std::cout << received;
         received.printContents();
+        std::cout << "Received data" << std::endl;
     }
 
     MPI_Finalize();

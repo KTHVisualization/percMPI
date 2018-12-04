@@ -24,7 +24,7 @@ public:
     }
 
 public:
-    vec3i BlockSize, BlockOffset, TotalSize;
+    const vec3i BlockSize, BlockOffset, TotalSize;
     ID* PointerBlock;
 };
 

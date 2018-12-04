@@ -18,7 +18,7 @@ public:
 public:
     double *Scalars, *Volumes;
     ind* Indices;
-    vec3i BlockSize, BlockOffset, TotalSize;
+    const vec3i BlockSize, BlockOffset, TotalSize;
 };
 
 }  // namespace perc

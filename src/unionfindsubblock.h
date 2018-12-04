@@ -1,4 +1,5 @@
 #pragma once
+#include <unordered_set>
 #include "vec.h"
 #include "datablock.h"
 #include "unionfind.h"
@@ -9,52 +10,13 @@ namespace perc {
 class UnionFindSubBlock {
 public:
     UnionFindSubBlock(const vec3i& size, const vec3i& offset, const vec3i& total,
-                      UnionFindBlock& parent)
-        : PointerBlock(size, offset, total), Parent(parent), CurrentWatershedIndex(-1) {}
+                      UnionFindBlock& parent);
 
     ~UnionFindSubBlock() { delete Data; }
+    void loadData();
+    void doWatershed(double maxVal);
 
-    void loadData() {
-        assert(!Data && "Data was already set.");
-        Data =
-            new DataBlock(PointerBlock.BlockSize, PointerBlock.BlockOffset, PointerBlock.TotalSize);
-
-        CurrentWatershedIndex = 0;
-        Data->sort();
-    }
-
-    void doWatershed(double maxVal) {
-        if (!Data) return;
-        // TODO
-    }
-
-    ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) {
-        vec3i curIdx = idx;
-        assert(contains(idx) && "First index is expected to be in here.");
-        ID* firstPointer = PointerBlock.getPointer(idx);
-        ID* curPointer = firstPointer;
-        vec3i lastPointer = idx;
-
-        ClusterID* finalID;
-        while (curPointer && curPointer->isVertex()) {
-            curIdx = vec3i::fromIndexOfTotal(curPointer->RawID, PointerBlock.TotalSize);
-
-            if (!PointerBlock.contains(curIdx)) break;
-            lastPointer = curIdx;
-
-            ID* curPointer = PointerBlock.getPointer(curIdx);
-            if (curPointer->isCluster()) {
-                finalID = curPointer->asCluster();
-                break;
-            }
-        }
-        if (curPointer->isVertex()) finalID = Parent.findClusterID(idx, lastPointer);
-
-        assert(finalID && finalID->baseID() >= 0 && "Invalid result of union find.");
-        *firstPointer = lastPointer.toIndexOfTotal(PointerBlock.TotalSize);
-
-        return finalID;
-    }
+    ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID);
 
     bool contains(const vec3i& idx) { return PointerBlock.contains(idx); }
 
@@ -63,6 +25,17 @@ public:
     UnionFind PointerBlock;
     UnionFindBlock& Parent;
     ind CurrentWatershedIndex;
+
+    struct Neighbor {
+        Neighbor(ClusterID cluster, VertexID representative)
+            : Cluster(cluster), Representative(representative) {}
+        ClusterID Cluster;
+        VertexID Representative;
+    };
+
+private:
+    mutable std::vector<Neighbor> NeighborCache;
+    //    mutable std::unordered_set<ClusterID> NeighborClusterCache;
 };
 
 }  // namespace perc

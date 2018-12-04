@@ -13,6 +13,7 @@ public:
 
     bool loadData(ind timeSlice, const std::string& directory, const std::string& rmsFilename);
     void sort();
+    vec3i toGlobalIndex(ind locIdx);
 
 public:
     double *Scalars, *Volumes;

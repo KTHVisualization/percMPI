@@ -37,6 +37,8 @@
         "tuple": "cpp",
         "utility": "cpp",
         "cassert": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "numeric": "cpp",
+        "unordered_set": "cpp"
     }
 }

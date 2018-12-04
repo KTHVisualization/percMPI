@@ -39,4 +39,10 @@ void DataBlock::sort() {
               [this](ind a, ind b) { return Scalars[a] > Scalars[b]; });
 }
 
+vec3i DataBlock::toGlobalIndex(ind locIdx) {
+    assert(locIdx >= 0 && locIdx < BlockSize.prod() && "Index outside the block size.");
+    vec3i relIdx = vec3i::fromIndexOfTotal(locIdx, BlockSize);
+    return BlockOffset + relIdx;
+}
+
 }  // namespace perc

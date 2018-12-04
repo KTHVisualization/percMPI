@@ -9,12 +9,13 @@ namespace perc {
 
 struct ClusterMerge {
     ClusterMerge(ClusterID from, ClusterID onto) : From(from), Onto(onto) {}
+
     ClusterID From, Onto;
 };
 
 class ClusterListRecording {
 public:
-    ClusterListRecording(ind size = 100) : Clusters(size), Merges(20) {}
+    ClusterListRecording(ind size = 100) : Clusters(size), Merges() { Merges.reserve(20); }
 
     Cluster getCluster(ClusterID cluster) { return Clusters.getCluster(cluster); }
     void addClusters(ind numNewCLusters);

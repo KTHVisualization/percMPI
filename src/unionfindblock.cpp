@@ -1,5 +1,6 @@
 #include "unionfindblock.h"
 #include "unionfindsubblock.h"
+#include "localprocessor.h"
 
 namespace perc {
 
@@ -13,6 +14,8 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
         min[d] = min[d] > 0 ? min[d]++ : 0;
         max[d] = max[d] == totalSize[d] ? max[d] - 2 : totalSize[d];
     }
+    UnionFindSubBlock<LocalLocalProcessor> example(min, max - min, totalSize, *this,
+                                                   LocalLocalProcessor(LOLs, LOGs));
 }
 
 void LocalBlock::doWatershed(double maxVal) {

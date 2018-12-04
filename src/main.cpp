@@ -9,6 +9,7 @@
 #include "datablock.h"
 #include "mpicommuncation.h"
 #include "performancetimer.h"
+#include "unionfindblock.h"
 
 using namespace perc;
 
@@ -114,11 +115,11 @@ int main(int argc, char** argv) {
     vec3i blockOffset = blockSize * idxNode;
     blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
-    DataBlock data(blockSize, blockOffset, totalSize);
-    bool result = data.loadData(1, baseFolder, rmsFilename);
     // Print status
     std::cout << "Processor " << currProcess << ", index " << idxNode << ", size " << blockSize
-              << (result ? " - Worked!\n" : " - Nope :(\n") << std::endl;
+              << std::endl;
+
+    LocalBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
 
     // Finalize the MPI environment. No more MPI calls can be made after this
     MPI_Finalize();

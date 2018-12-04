@@ -38,6 +38,13 @@ struct VertexID : public ID {
     VertexID() {}
 };
 
+struct Neighbor {
+    Neighbor(ClusterID cluster, const vec3i& representative)
+        : Cluster(cluster), Representative(representative) {}
+    ClusterID Cluster;
+    vec3i Representative;
+};
+
 inline bool operator==(const ID& a, const ID& b) { return a.RawID == b.RawID; }
 inline bool operator==(const ClusterID& a, const ID& b) { return a.RawID == b.RawID; }
 inline bool operator==(const ClusterID& a, const ClusterID& b) { return a.RawID == b.RawID; }

@@ -7,10 +7,13 @@
 
 namespace perc {
 
+template <typename ClusterProcessor>
 class UnionFindSubBlock {
 public:
-    UnionFindSubBlock(const vec3i& size, const vec3i& offset, const vec3i& total,
-                      UnionFindBlock& parent);
+    friend ClusterProcessor;
+
+    UnionFindSubBlock<ClusterProcessor>(const vec3i& size, const vec3i& offset, const vec3i& total,
+                                        UnionFindBlock& parent, ClusterProcessor&& neighProcessor);
 
     ~UnionFindSubBlock() { delete Data; }
     void loadData();
@@ -20,22 +23,21 @@ public:
 
     bool contains(const vec3i& idx) { return PointerBlock.contains(idx); }
 
+    const vec3i& blockSize() { return Data->BlockSize; }
+    const vec3i& blockOffset() { return Data->BlockOffset; }
+    const vec3i& totalSize() { return Data->TotalSize; }
+
 public:
     DataBlock* Data;
     UnionFind PointerBlock;
     UnionFindBlock& Parent;
     ind CurrentWatershedIndex;
 
-    struct Neighbor {
-        Neighbor(ClusterID cluster, VertexID representative)
-            : Cluster(cluster), Representative(representative) {}
-        ClusterID Cluster;
-        VertexID Representative;
-    };
-
 private:
     mutable std::vector<Neighbor> NeighborCache;
-    //    mutable std::unordered_set<ClusterID> NeighborClusterCache;
+    ClusterProcessor NeighborProcessor;
 };
 
 }  // namespace perc
+
+#include "unionfindsubblock.inl"

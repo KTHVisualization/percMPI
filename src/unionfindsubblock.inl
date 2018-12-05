@@ -25,14 +25,14 @@ void UnionFindSubBlock<ClusterProcessor>::loadData() {
 }
 
 template <typename ClusterProcessor>
-void UnionFindSubBlock<ClusterProcessor>::doWatershed(double maxVal) {
+void UnionFindSubBlock<ClusterProcessor>::doWatershed(double minVal) {
     if (!Data) return;
 
     NeighborCache.clear();
 
     // Watershed until a threshold is reached.
     ind dataIdx = Data->Indices[CurrentWatershedIndex];
-    while (Data->Scalars[dataIdx] <= maxVal) {
+    while (Data->Scalars[dataIdx] >= minVal) {
         // Get cluster ID and representative vertex for each neighbor.
         vec3i globIdx = Data->BlockOffset + vec3i::fromIndexOfTotal(dataIdx, Data->BlockSize);
         for (int dim = 0; dim < 3; ++dim)
@@ -44,10 +44,8 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(double maxVal) {
                 vec3i neighRep;
                 ClusterID* neighCluster = findClusterID(neighIdx, neighRep);
 
-                //
                 if (neighCluster) {
                     bool addCluster = true;
-                    //
                     for (Neighbor& neigh : NeighborCache)
                         if (neigh.Cluster == *neighCluster) {
                             addCluster = false;

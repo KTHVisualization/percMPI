@@ -6,8 +6,6 @@ namespace perc {
 
 LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize) {
     // TODO: Load subblocks into data
-    // (const vec3i& size, const vec3i& offset, const vec3i& total,
-    //                             UnionFindBlock& parent, const Watershedder& watershedder);
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
     for (ind d = 0; d < 3; ++d) {
@@ -18,7 +16,7 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
                                                    LocalLocalProcessor(LOLs, LOGs));
 }
 
-void LocalBlock::doWatershed(double maxVal) {
+void LocalBlock::doWatershed(double minVal) {
     // TODO: for each subblock....
 }
 ClusterID* LocalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {

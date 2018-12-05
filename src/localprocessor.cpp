@@ -36,10 +36,14 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
             if (log != neighClusters.end()) {
                 mergeDest = log->Representative.toIndexOfTotal(Parent->totalSize());
                 for (Neighbor& neigh : neighClusters) {
-                    if (neigh.Cluster == log->Cluster) continue;
-
+                    if (neigh.Cluster == log->Cluster)
+                        continue;  // TODO: Should that case not be already excluded?
                     if (neigh.Cluster.isGlobal()) {
                         LOGs.mergeClusters(neigh.Cluster, log->Cluster);
+                        *(Parent->PointerBlock.getPointer(neigh.Representative)) = mergeDest;
+                    } else {
+                        LOGs.extendCluster(log->Cluster, LOLs.getCluster(neigh.Cluster).Volume);
+                        LOLs.removeCluster(neigh.Cluster);
                         *(Parent->PointerBlock.getPointer(neigh.Representative)) = mergeDest;
                     }
                 }

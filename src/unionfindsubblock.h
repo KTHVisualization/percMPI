@@ -17,7 +17,7 @@ public:
 
     ~UnionFindSubBlock() { delete Data; }
     void loadData();
-    void doWatershed(double maxVal);
+    void doWatershed(double minVal);
 
     ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID);
 

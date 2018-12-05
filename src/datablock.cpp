@@ -35,6 +35,7 @@ void DataBlock::sort() {
     ind numElements = BlockSize.prod();
     Indices = new ind[numElements];
     std::iota(Indices, Indices + numElements, 0);
+    // Sorts from largest to smallest value.
     std::sort(Indices, Indices + numElements,
               [this](ind a, ind b) { return Scalars[a] > Scalars[b]; });
 }

@@ -1,16 +1,20 @@
 #pragma once
 #include <unordered_set>
+#include <vector>
 #include "vec.h"
 #include "datablock.h"
 #include "unionfind.h"
-#include "unionfindblock.h"
 
 namespace perc {
+
+class UnionFindBlock;
 
 template <typename ClusterProcessor>
 class UnionFindSubBlock {
 public:
     friend ClusterProcessor;
+
+    UnionFindSubBlock<ClusterProcessor>();
 
     UnionFindSubBlock<ClusterProcessor>(const vec3i& size, const vec3i& offset, const vec3i& total,
                                         UnionFindBlock& parent, ClusterProcessor&& neighProcessor);
@@ -31,6 +35,7 @@ public:
     DataBlock* Data;
     UnionFind PointerBlock;
     UnionFindBlock& Parent;
+    // Until which index we have watershedded in the sorted list.
     ind CurrentWatershedIndex;
 
 private:

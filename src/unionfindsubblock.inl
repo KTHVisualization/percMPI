@@ -1,4 +1,7 @@
+#pragma once
 #include "unionfindsubblock.h"
+#include "unionfindblock.h"
+
 namespace perc {
 
 template <typename ClusterProcessor>

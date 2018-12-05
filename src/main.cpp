@@ -9,7 +9,7 @@
 #include "datablock.h"
 #include "mpicommuncation.h"
 #include "performancetimer.h"
-#include "unionfindblock.h"
+#include "unionfindsubblock.h"
 
 using namespace perc;
 

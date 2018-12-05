@@ -14,7 +14,7 @@ struct Cluster {
 
 class ClusterList {
 public:
-    ClusterList(ind size = 100) : Indices(size), Volumes(size), TotalVolume(0) {}
+    ClusterList(ind size = 100) : Indices(size), Volumes(size), TotalVolume(0), MaxVolume(0) {}
 
     Cluster getCluster(ClusterID cluster) {
         return Cluster(Indices[cluster.localID()], Volumes[cluster.localID()]);
@@ -26,18 +26,26 @@ public:
 
     void clearVolumes();
     ind numClusters() { return Indices.size() - Holes.size(); }
+    double totalVolume() { return TotalVolume; }
+    double maxVolume() { return MaxVolume; }
 
 private:
     std::vector<VertexID> Indices;
     std::vector<double> Volumes;
     std::vector<size_t> Holes;
     double TotalVolume;
+    double MaxVolume;
 };
 
 // ========= Inline Definitions ========= //
 
 inline ClusterID ClusterList::addCluster(VertexID id, double volume) {
     TotalVolume += volume;
+    // The newly added cluster has a larger volume that other volumes so far.
+    if (volume > MaxVolume) {
+        MaxVolume = volume;
+    }
+    // Place the new cluster into a new hole or to the back when no holes exist.
     if (Holes.empty()) {
         Indices.push_back(id);
         Volumes.push_back(volume);
@@ -66,17 +74,24 @@ inline void ClusterList::mergeClusters(ClusterID from, ClusterID onto) {
     ind locOnto = onto.localID();
 
     Volumes[locOnto] += Volumes[locFrom];
+    if (Volumes[locOnto] > MaxVolume) {
+        MaxVolume = Volumes[locOnto];
+    }
     removeCluster(locFrom);
 }
 
 inline void ClusterList::extendCluster(ClusterID id, double volume) {
     Volumes[id.localID()] += volume;
     TotalVolume += volume;
+    if (Volumes[id.localID()] > MaxVolume) {
+        MaxVolume = Volumes[id.localID()];
+    }
 }
 
 inline void ClusterList::clearVolumes() {
     std::fill(Volumes.data(), Volumes.data() + Volumes.size(), 0);
     TotalVolume = 0;
+    MaxVolume = 0;
 }
 
 }  // namespace perc

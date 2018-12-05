@@ -22,7 +22,8 @@ template <typename ClusterProcessor>
 void UnionFindSubBlock<ClusterProcessor>::loadData() {
     assert(!Data && "Data was already set.");
     Data = new DataBlock(PointerBlock.BlockSize, PointerBlock.BlockOffset, PointerBlock.TotalSize);
-
+    // TODO: Hardcoded time slice and data directory for now
+    Data->loadData(1, "/home/wiebke/Data/Percolation/P3", "uv_000");
     CurrentWatershedIndex = 0;
     Data->sort();
 }
@@ -58,8 +59,10 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(double minVal) {
                 }
             }
 
-        *(PointerBlock.getPointer(globIdx)) =
-            NeighborProcessor.doWatershed(globIdx, Data->Volumes[dataIdx], NeighborCache);
+        ID newIdx = NeighborProcessor.doWatershed(globIdx.toIndexOfTotal(Data->TotalSize),
+                                                  Data->Volumes[dataIdx], NeighborCache);
+
+        PointerBlock.setPointer(globIdx, newIdx);
 
         // Watershed on.
         ind dataIdx = Data->Indices[++CurrentWatershedIndex];

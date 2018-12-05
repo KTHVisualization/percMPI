@@ -23,6 +23,16 @@ public:
         return ptr->isValid() ? ptr : nullptr;
     }
 
+    void setPointer(const vec3i& idx, const ID& id) {
+        assert(contains(idx) && "Index not within this block. Please check before!\n");
+        return setPointerLocal(idx - BlockOffset, id);
+    }
+
+    void setPointerLocal(const vec3i& locIdx, const ID& id) {
+        ID* ptr = PointerBlock + locIdx.toIndexOfTotal(TotalSize);
+        *ptr = id;
+    }
+
 public:
     const vec3i BlockSize, BlockOffset, TotalSize;
     ID* PointerBlock;

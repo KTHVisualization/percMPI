@@ -14,8 +14,6 @@ class UnionFindSubBlock {
 public:
     friend ClusterProcessor;
 
-    UnionFindSubBlock<ClusterProcessor>();
-
     UnionFindSubBlock<ClusterProcessor>(const vec3i& size, const vec3i& offset, const vec3i& total,
                                         UnionFindBlock& parent, ClusterProcessor&& neighProcessor);
 

@@ -40,11 +40,11 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                         continue;  // TODO: Should that case not be already excluded?
                     if (neigh.Cluster.isGlobal()) {
                         LOGs.mergeClusters(neigh.Cluster, log->Cluster);
-                        *(Parent->PointerBlock.getPointer(neigh.Representative)) = mergeDest;
+                        Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     } else {
                         LOGs.extendCluster(log->Cluster, LOLs.getCluster(neigh.Cluster).Volume);
                         LOLs.removeCluster(neigh.Cluster);
-                        *(Parent->PointerBlock.getPointer(neigh.Representative)) = mergeDest;
+                        Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     }
                 }
             }
@@ -57,7 +57,7 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                      ++neigh) {
 
                     LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
-                    *Parent->PointerBlock.getPointer(neigh->Representative) = mergeDest;
+                    Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
                 }
             }
             vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());

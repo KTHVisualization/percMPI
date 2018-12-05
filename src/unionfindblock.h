@@ -32,9 +32,9 @@ private:
     // The local local part for this block
     UnionFindSubBlock<LocalLocalProcessor>* LOLSubBlock;
     // TODO: The local global part for this block
-    // std::vector<UnionFindSubBlock<LocalGlobalProcessor>> LOGSubBlocks;
+    // std::vector<UnionFindSubBlock<LocalGlobalProcessor>*> LOGSubBlocks;
     // TODO: The global part for this block, this is only for lookup for the local node
-    // std::vector<UnionFindSubBlock<GlobalProcessor>> GOGSubBlocks;
+    // std::vector<UnionFindSubBlock<GlobalProcessor>*> GOGSubBlocks;
     // Local representations of local clusters.
     ClusterList LOLs;
     // Local representations of global clusters.

@@ -7,17 +7,26 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     // TODO: Load subblocks into data
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
+    // Data actually covered by this block:
+    // If min is global min there is no red or green,
+    // if not, offset by one (for red)
+    // if max is global max, there is no red or green,
+    // if not, offset by two (for red and green)
     for (ind d = 0; d < 3; ++d) {
         min[d] = min[d] > 0 ? min[d]++ : 0;
-        max[d] = max[d] == totalSize[d] ? max[d] - 2 : totalSize[d];
+        max[d] = max[d] < totalSize[d] ? max[d] - 2 : totalSize[d];
     }
-    LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(min, max - min, totalSize, *this,
+    // TODO: create IDBlock for all SubBlocks so that Pointers are together (need to be send)
+    LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(max - min, min, totalSize, *this,
                                                              LocalLocalProcessor(LOLs, LOGs));
+    LOLSubBlock->loadData();
 }
 
 void LocalBlock::doWatershed(double minVal) {
     // TODO: for each subblock....
+    LOLSubBlock->doWatershed(minVal);
 }
+
 ClusterID* LocalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     // TODO: Do this more cleverly, and for all types of subblocks:
     /*

@@ -121,6 +121,8 @@ int main(int argc, char** argv) {
 
     LocalBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
 
+    localBlockDoingAllTheStuff.doWatershed(385);
+
     // Finalize the MPI environment. No more MPI calls can be made after this
     MPI_Finalize();
 

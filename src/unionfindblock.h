@@ -11,7 +11,7 @@ namespace perc {
 
 class UnionFindBlock {
 public:
-    virtual void doWatershed(double minVal) = 0;
+    virtual void doWatershed(const double minVal) = 0;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) = 0;
     virtual void receiveData() = 0;
     virtual void sendData() = 0;
@@ -21,7 +21,7 @@ class LocalBlock : public UnionFindBlock {
 public:
     LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize);
 
-    virtual void doWatershed(double minVal) override;
+    virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
 
     // Sketch.

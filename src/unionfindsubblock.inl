@@ -29,7 +29,7 @@ void UnionFindSubBlock<ClusterProcessor>::loadData() {
 }
 
 template <typename ClusterProcessor>
-void UnionFindSubBlock<ClusterProcessor>::doWatershed(double minVal) {
+void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
     if (!Data) return;
 
     NeighborCache.clear();
@@ -65,7 +65,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(double minVal) {
         PointerBlock.setPointer(globIdx, newIdx);
 
         // Watershed on.
-        ind dataIdx = Data->Indices[++CurrentWatershedIndex];
+        dataIdx = Data->Indices[++CurrentWatershedIndex];
     }  // namespace perc
 }
 

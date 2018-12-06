@@ -22,7 +22,7 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     LOLSubBlock->loadData();
 }
 
-void LocalBlock::doWatershed(double minVal) {
+void LocalBlock::doWatershed(const double minVal) {
     // TODO: for each subblock....
     LOLSubBlock->doWatershed(minVal);
 }

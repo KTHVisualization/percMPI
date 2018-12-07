@@ -6,10 +6,10 @@
 
 namespace perc {
 
-class UnionFind {
+class IDBlock {
 public:
-    UnionFind(const vec3i& size, const vec3i& offset, const vec3i& total);
-    ~UnionFind() { delete[] PointerBlock; }
+    IDBlock(const vec3i& size, const vec3i& offset, const vec3i& total);
+    ~IDBlock() { delete[] PointerBlock; }
 
     bool contains(const vec3i& idx) { return idx.liesWithin(BlockOffset, BlockOffset + BlockSize); }
 

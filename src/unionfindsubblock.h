@@ -3,7 +3,7 @@
 #include <vector>
 #include "vec.h"
 #include "datablock.h"
-#include "unionfind.h"
+#include "idblock.h"
 
 namespace perc {
 
@@ -31,7 +31,7 @@ public:
 
 public:
     DataBlock* Data;
-    UnionFind PointerBlock;
+    IDBlock PointerBlock;
     UnionFindBlock& Parent;
     // Until which index we have watershedded in the sorted list.
     ind CurrentWatershedIndex;

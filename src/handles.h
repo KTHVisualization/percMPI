@@ -31,7 +31,7 @@ struct ClusterID : public ID {
     ClusterID(ind id, bool isLocal) : ID(id) {
         RawID = RawID | CLUSTER_FLAG;
         if (!isLocal) {
-            RawID | GLOBAL_FLAG;
+            RawID = RawID | GLOBAL_FLAG;
         }
     }
     ClusterID() : ID() {}

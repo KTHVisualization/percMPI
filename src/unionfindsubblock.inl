@@ -1,6 +1,7 @@
 #pragma once
 #include "unionfindsubblock.h"
 #include "unionfindblock.h"
+#include <iostream>
 
 namespace perc {
 
@@ -43,7 +44,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
             for (int sign = -1; sign <= 1; sign += 2) {
                 vec3i neighIdx = globIdx;
                 neighIdx[dim] += sign;
-                if (neighIdx[dim] < 0 || neighIdx[dim] > Data->BlockSize[dim]) continue;
+                if (neighIdx[dim] < 0 || neighIdx[dim] >= Data->BlockSize[dim]) continue;
 
                 vec3i neighRep;
                 ClusterID* neighCluster = findClusterID(neighIdx, neighRep);
@@ -79,28 +80,38 @@ ClusterID* UnionFindSubBlock<ClusterProcessor>::findClusterID(const vec3i& idx,
     assert(contains(idx) && "First index is expected to be in here.");
     ID* firstPointer = PointerBlock.getPointer(idx);
     ID* curPointer = firstPointer;
-    vec3i lastPointer = idx;
+    lastVertexID = idx;
 
-    ClusterID* finalID;
     while (curPointer && curPointer->isVertex()) {
         curIdx = vec3i::fromIndexOfTotal(curPointer->RawID, PointerBlock.TotalSize);
 
         if (!PointerBlock.contains(curIdx)) break;
-        lastPointer = curIdx;
+        lastVertexID = curIdx;
 
-        ID* curPointer = PointerBlock.getPointer(curIdx);
+        curPointer = PointerBlock.getPointer(curIdx);
         if (curPointer->isCluster()) {
-            finalID = curPointer->asCluster();
             break;
         }
     }
     // No cluster yet.
     if (!curPointer) return nullptr;
+
+    ClusterID* finalID;
     // Not there yet, give it back to parent block.
-    if (curPointer->isVertex()) finalID = Parent.findClusterID(idx, lastPointer);
+    if (curPointer->isVertex()) {
+        finalID = Parent.findClusterID(idx, lastVertexID);
+    }
+    // It is a cluster, set final ID
+    else {
+        finalID = curPointer->asCluster();
+    }
 
     assert(finalID && finalID->baseID() >= 0 && "Invalid result of union find.");
-    *firstPointer = lastPointer.toIndexOfTotal(PointerBlock.TotalSize);
+
+    // Path compression, if path compression to be done
+    if (firstPointer != curPointer) {
+        *firstPointer = lastVertexID.toIndexOfTotal(PointerBlock.TotalSize);
+    }
 
     return finalID;
 }

@@ -14,7 +14,10 @@ struct Cluster {
 
 class ClusterList {
 public:
-    ClusterList(ind size = 100) : Indices(size), Volumes(size), TotalVolume(0), MaxVolume(0) {}
+    ClusterList(ind size = 100) : TotalVolume(0), MaxVolume(0) {
+        Indices.reserve(100);
+        Volumes.reserve(100);
+    }
 
     Cluster getCluster(ClusterID cluster) {
         return Cluster(Indices[cluster.localID()], Volumes[cluster.localID()]);

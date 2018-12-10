@@ -58,6 +58,8 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
 
                     LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
                     Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
+                    // Extend by the volume of the voxel that has caused the merge
+                    LOLs.extendCluster(lol.Cluster, volume);
                 }
             }
             vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());

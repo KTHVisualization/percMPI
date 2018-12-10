@@ -40,6 +40,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
     while (Data->Scalars[dataIdx] >= minVal) {
         // Get cluster ID and representative vertex for each neighbor.
         vec3i globIdx = Data->BlockOffset + vec3i::fromIndexOfTotal(dataIdx, Data->BlockSize);
+        NeighborCache.clear();
         for (int dim = 0; dim < 3; ++dim)
             for (int sign = -1; sign <= 1; sign += 2) {
                 vec3i neighIdx = globIdx;
@@ -62,6 +63,9 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
 
         ID newIdx = NeighborProcessor.doWatershed(globIdx.toIndexOfTotal(Data->TotalSize),
                                                   Data->Volumes[dataIdx], NeighborCache);
+
+        // std::cout << "Voxel at " << globIdx << " is part of cluster " << newIdx.baseID() << "."
+        //          << std::endl;
 
         PointerBlock.setPointer(globIdx, newIdx);
 

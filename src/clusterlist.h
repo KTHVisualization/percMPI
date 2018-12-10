@@ -63,7 +63,6 @@ inline ClusterID ClusterList::addCluster(VertexID id, double volume) {
 }
 inline void ClusterList::removeCluster(ClusterID cluster) {
     ind locID = cluster.localID();
-    TotalVolume -= Volumes[locID];
     if (locID == Indices.size() - 1) {
         Indices.pop_back();
         Volumes.pop_back();

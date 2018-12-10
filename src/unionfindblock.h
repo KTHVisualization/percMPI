@@ -15,6 +15,9 @@ public:
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) = 0;
     virtual void receiveData() = 0;
     virtual void sendData() = 0;
+    virtual ind numClusters() = 0;
+    virtual double totalVolume() = 0;
+    virtual double maxVolume() = 0;
 };
 
 class LocalBlock : public UnionFindBlock {
@@ -27,6 +30,9 @@ public:
     // Sketch.
     virtual void receiveData() override;
     virtual void sendData() override;
+    virtual ind numClusters() override { return LOLs.numClusters(); }
+    virtual double totalVolume() override { return LOLs.totalVolume(); }
+    virtual double maxVolume() override { return LOLs.maxVolume(); }
 
 private:
     // The local local part for this block

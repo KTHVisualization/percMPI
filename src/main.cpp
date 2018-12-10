@@ -3,6 +3,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <iostream>
+#include <fstream>
 #include <cassert>
 #include <cmath>
 #include "vec.h"
@@ -119,9 +120,68 @@ int main(int argc, char** argv) {
     std::cout << "Processor " << currProcess << ", index " << idxNode << ", size " << blockSize
               << std::endl;
 
+    PerformanceTimer timer;
+    timer.Reset();
+    float timeElapsed;
+
     LocalBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
 
-    localBlockDoingAllTheStuff.doWatershed(385);
+    timeElapsed = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
+
+    // TODO, put settings in command line arguments
+    float hMin = 0.0;
+    float hMax = 2;
+    assert(hMax > hMin && "HMax needs to be larger than hMin.");
+    float hSamples = 10000;
+    float hStep = (hMax - hMin) / hSamples;
+
+    // Keep track of threshold h, number of components, volume largest component, volume total
+    std::vector<float> h;
+    h.reserve(hSamples);
+    std::vector<ind> numClusters;
+    numClusters.reserve(hSamples);
+    std::vector<float> maxVolumes;
+    maxVolumes.reserve(hSamples);
+    std::vector<float> totalVolumes;
+    totalVolumes.reserve(hSamples);
+
+    // localBlockDoingAllTheStuff.doWatershed(1.99956);
+
+    for (float currentH = hMax; currentH >= hMin; currentH -= hStep) {
+        // std::cout << currentH << std::endl;
+        localBlockDoingAllTheStuff.doWatershed(currentH);
+        h.push_back(currentH);
+        numClusters.push_back(localBlockDoingAllTheStuff.numClusters());
+        maxVolumes.push_back(localBlockDoingAllTheStuff.maxVolume());
+        totalVolumes.push_back(localBlockDoingAllTheStuff.totalVolume());
+    }
+
+    timeElapsed = timer.ElapsedTimeAndReset();
+    std::cout << "Watershedding took " << timeElapsed << " seconds." << std::endl;
+
+    const int maxClusters = *(std::max_element(numClusters.cbegin(), numClusters.cend()));
+
+    std::ofstream percFile;
+    std::string fileName = "percolation.csv";
+
+    percFile.open(fileName, std::ios::out);
+
+    if (percFile.is_open()) {
+        percFile << "H; Number of connected components; Maximum number of connected components; "
+                    "Number of connected components / Maximum number of connected components;  "
+                    "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
+                 << std::endl;
+        for (int line = 0; line < hSamples; line++) {
+            percFile << h[line] << ";" << float(numClusters[line]) << ";" << float(maxClusters)
+                     << ";" << float(numClusters[line]) / float(maxClusters) << ";"
+                     << maxVolumes[line] << ";" << totalVolumes[line] << ";"
+                     << maxVolumes[line] / totalVolumes[line] << ";" << std::endl;
+        }
+    }
+
+    timeElapsed = timer.ElapsedTime();
+    std::cout << "Writing statistics took " << timeElapsed << " seconds." << std::endl;
 
     // Finalize the MPI environment. No more MPI calls can be made after this
     MPI_Finalize();

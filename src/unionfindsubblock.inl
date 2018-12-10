@@ -33,11 +33,10 @@ template <typename ClusterProcessor>
 void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
     if (!Data) return;
 
-    NeighborCache.clear();
-
     // Watershed until a threshold is reached.
     ind dataIdx = Data->Indices[CurrentWatershedIndex];
-    while (Data->Scalars[dataIdx] >= minVal) {
+    ind finalWaterShedIndex = Data->TotalSize.prod();
+    while (Data->Scalars[dataIdx] >= minVal && CurrentWatershedIndex <= finalWaterShedIndex) {
         // Get cluster ID and representative vertex for each neighbor.
         vec3i globIdx = Data->BlockOffset + vec3i::fromIndexOfTotal(dataIdx, Data->BlockSize);
         NeighborCache.clear();
@@ -63,9 +62,6 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
 
         ID newIdx = NeighborProcessor.doWatershed(globIdx.toIndexOfTotal(Data->TotalSize),
                                                   Data->Volumes[dataIdx], NeighborCache);
-
-        // std::cout << "Voxel at " << globIdx << " is part of cluster " << newIdx.baseID() << "."
-        //          << std::endl;
 
         PointerBlock.setPointer(globIdx, newIdx);
 

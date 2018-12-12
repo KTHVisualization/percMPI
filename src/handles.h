@@ -9,8 +9,7 @@ struct VertexID;
 struct ID {
     static const ind CLUSTER_FLAG = 1 << (sizeof(ind) * 8 - 2);
 
-    ID(ind id) : RawID(id) {}
-    ID() : RawID(-1) {}
+    ID(ind id = -1) : RawID(id) {}
 
     bool isCluster() const { return RawID & CLUSTER_FLAG; }
     bool isVertex() const { return !isCluster(); }
@@ -27,8 +26,7 @@ struct ID {
 struct ClusterID : public ID {
     static const ind GLOBAL_FLAG = 1 << (sizeof(ind) * 8 - 3);
 
-    ClusterID(ind id) : ID(id) { RawID = RawID | CLUSTER_FLAG; }
-    ClusterID(ind id, bool isLocal) : ID(id) {
+    ClusterID(ind id = -1, bool isLocal = true) : ID(id) {
         RawID = RawID | CLUSTER_FLAG;
         if (!isLocal) {
             RawID = RawID | GLOBAL_FLAG;
@@ -41,8 +39,7 @@ struct ClusterID : public ID {
 };
 
 struct VertexID : public ID {
-    VertexID(ind id) : ID(id) {}
-    VertexID() {}
+    VertexID(ind id = -1) : ID(id) {}
 };
 
 struct Neighbor {

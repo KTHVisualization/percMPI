@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <stack>
+#include <cassert>
 #include "vec.h"
 #include "handles.h"
 
@@ -20,6 +21,8 @@ public:
     }
 
     Cluster getCluster(ClusterID cluster) {
+        assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
+               "Trying to access non-existent cluster.");
         return Cluster(Indices[cluster.localID()], Volumes[cluster.localID()]);
     }
     ClusterID addCluster(VertexID id, double volume);

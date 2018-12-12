@@ -1,9 +1,9 @@
-#include "unionfindsubblock.h"
+#include "whiteblock.h"
 #include "localprocessor.h"
 
 namespace perc {
 
-LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize) {
+WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize) {
     // TODO: Load subblocks into data
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
@@ -22,12 +22,12 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     LOLSubBlock->loadData();
 }
 
-void LocalBlock::doWatershed(const double minVal) {
+void WhiteBlock::doWatershed(const double minVal) {
     // TODO: for each subblock....
     LOLSubBlock->doWatershed(minVal);
 }
 
-ClusterID* LocalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
+ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     // TODO: Do this more cleverly, and for all types of subblocks:
     /*
     ClusterID* UnionFindBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
@@ -43,17 +43,17 @@ ClusterID* LocalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
 }
 
 // Sketch.
-void LocalBlock::receiveData() {
+void WhiteBlock::receiveData() {
     /*  TODO: Receive merge sets
      *      Merge locally
      *
      *  TODO: Receive numNewLOGs
      *      Do LOGs.addCluster() that often
      *      Go through CommPLOGS:
-     *          Add the representative to the respective LOG
+     *          Add the representative to the respective LOG (Reveive where my PLOGS are)
      */
 }
-void LocalBlock::sendData() {
+void WhiteBlock::sendData() {
     /*  TODO: Fill CommPLOGs:
      *      Move clusters into CommPLOGs
      *      Remove from LOL list, clear RefPLOGs

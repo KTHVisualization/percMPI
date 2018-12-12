@@ -10,7 +10,7 @@
 #include "datablock.h"
 #include "mpicommuncation.h"
 #include "performancetimer.h"
-#include "unionfindsubblock.h"
+#include "whiteblock.h"
 
 using namespace perc;
 
@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
     timer.Reset();
     float timeElapsed;
 
-    LocalBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
+    WhiteBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
 
     timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;

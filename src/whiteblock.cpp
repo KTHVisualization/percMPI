@@ -17,8 +17,8 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
         max[d] = max[d] < totalSize[d] ? max[d] - 2 : totalSize[d];
     }
     // TODO: create IDBlock for all SubBlocks so that Pointers are together (need to be send)
-    LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(max - min, min, totalSize, *this,
-                                                             LocalLocalProcessor(LOLs, LOGs));
+    LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
+        max - min, min, totalSize, *this, LocalLocalProcessor(LOLs, LOGs, RefPLOGs));
     LOLSubBlock->loadData();
 }
 

@@ -26,6 +26,7 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                 LOLs.extendCluster(neigh.Cluster, volume);
             return neigh.Representative.toIndexOfTotal(Parent->totalSize());
         }
+
         // Merge onto LOG, if any.
         default:
             auto log = std::find_if(neighClusters.begin(), neighClusters.end(),
@@ -35,15 +36,25 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
             VertexID mergeDest;
             if (log != neighClusters.end()) {
                 mergeDest = log->Representative.toIndexOfTotal(Parent->totalSize());
+                LOGs.extendCluster(log->Cluster, volume);
                 for (Neighbor& neigh : neighClusters) {
-                    if (neigh.Cluster == log->Cluster)
-                        continue;  // TODO: Should that case not be already excluded?
+                    // Don't merge log onto itself.
+                    if (neigh.Cluster == log->Cluster) continue;
+
+                    // LOG->LOG merge.
                     if (neigh.Cluster.isGlobal()) {
                         LOGs.mergeClusters(neigh.Cluster, log->Cluster);
-                        Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
-                    } else {
+                    } else {  // LOL->LOG merge.
                         LOGs.extendCluster(log->Cluster, LOLs.getCluster(neigh.Cluster).Volume);
                         LOLs.removeCluster(neigh.Cluster);
+
+                        // Remove possible appearance in PLOG list.
+                        auto found = std::find(PLOGs.begin(), PLOGs.end(), neigh.Cluster);
+                        if (found != PLOGs.end()) {
+                            *found = PLOGs[PLOGs.size() - 1];
+                            PLOGs.pop_back();
+                        }
+
                         Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     }
                 }
@@ -53,13 +64,24 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
             else {
                 auto lol = neighClusters[0];
                 mergeDest = lol.Representative.toIndexOfTotal(Parent->totalSize());
-                for (auto neigh = neighClusters.begin() + 1; neigh != neighClusters.end();
-                     ++neigh) {
-
+                bool lolIsPlog = std::find(PLOGs.begin(), PLOGs.end(), lol.Cluster) != PLOGs.end();
+                for (auto neigh = ++neighClusters.begin(); neigh != neighClusters.end(); ++neigh) {
                     LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
                     Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
                     // Extend by the volume of the voxel that has caused the merge
                     LOLs.extendCluster(lol.Cluster, volume);
+
+                    // Remove possible appearance in PLOG list.
+                    auto found = std::find(PLOGs.begin(), PLOGs.end(), neigh->Cluster);
+                    if (found != PLOGs.end()) {
+                        if (!lolIsPlog) {
+                            *found = lol.Cluster;
+                            lolIsPlog = true;
+                        } else {
+                            *found = PLOGs[PLOGs.size() - 1];
+                            PLOGs.pop_back();
+                        }
+                    }
                 }
             }
             vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());

@@ -25,4 +25,21 @@ private:
     std::vector<ClusterID>& PLOGs;
 };
 
+struct LocalGlobalProcessor {
+
+    LocalGlobalProcessor(ClusterList& lols, ClusterListRecording& logs,
+                         std::vector<ClusterID>& plogs)
+        : LOLs(lols), LOGs(logs), PLOGs(plogs), Parent(nullptr) {}
+
+    ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters);
+
+    void setParent(UnionFindSubBlock<LocalGlobalProcessor>* parent);
+
+private:
+    UnionFindSubBlock<LocalGlobalProcessor>* Parent;
+    ClusterList& LOLs;
+    ClusterListRecording& LOGs;
+    std::vector<ClusterID>& PLOGs;
+};
+
 }  // namespace perc

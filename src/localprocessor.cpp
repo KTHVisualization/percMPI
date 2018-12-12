@@ -90,4 +90,86 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
     }
 }
 
+// Local Global Processor //
+
+void LocalGlobalProcessor::setParent(UnionFindSubBlock<LocalGlobalProcessor>* parent) {
+    assert(!Parent && "Parent already set!");
+    assert(&(parent->NeighborProcessor) == this && "This is not our parent.");
+
+    Parent = parent;
+}
+
+ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
+                                     std::vector<Neighbor>& neighClusters) {
+    switch (neighClusters.size()) {
+        // New LOL that is directly marked as PLOG.
+        case 0: {
+            ClusterID plog = LOLs.addCluster(pos, volume);
+            PLOGs.push_back(plog);
+            return plog;
+        }
+
+        // Extend LOL/LOG, set pointer to representative.
+        case 1: {
+            Neighbor& neigh = neighClusters[0];
+            if (neigh.Cluster.isGlobal())
+                LOGs.extendCluster(neigh.Cluster, volume);
+            else {
+                LOLs.extendCluster(neigh.Cluster, volume);
+
+                // Mark as PLOG iff it isn't already. Make this the new representative.
+                if (std::find(PLOGs.begin(), PLOGs.end(), neigh.Cluster) == PLOGs.end()) {
+                    PLOGs.push_back(neigh.Cluster);
+                    // Make this position the cluster representative.
+                    ID* lolRep = Parent->PointerBlock.getPointer(neigh.Representative);
+                    *lolRep = pos;
+                    LOLs.getCluster(neigh.Cluster).Index = pos;
+                    return neigh.Cluster;
+                } else
+                    return neigh.Representative.toIndexOfTotal(Parent->totalSize());
+            }
+        }
+
+        // Merge onto LOG, if any.
+        default:
+            auto log = std::find_if(neighClusters.begin(), neighClusters.end(),
+                                    [](const Neighbor& neigh) { return neigh.Cluster.isGlobal(); });
+
+            // Merge all onto an random LOG.
+            VertexID mergeDest;
+            if (log != neighClusters.end()) {
+                mergeDest = log->Representative.toIndexOfTotal(Parent->totalSize());
+                LOGs.extendCluster(log->Cluster, volume);
+                for (Neighbor& neigh : neighClusters) {
+                    // Don't merge log onto itself.
+                    if (neigh.Cluster == log->Cluster) continue;
+                    if (neigh.Cluster.isGlobal()) {  // Merge LOG->LOG.
+                        LOGs.mergeClusters(neigh.Cluster, log->Cluster);
+                    } else {  // Merge LOL->LOG.
+                        LOGs.extendCluster(log->Cluster, LOLs.getCluster(neigh.Cluster).Volume);
+                        LOLs.removeCluster(neigh.Cluster);
+                        Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
+                    }
+                }
+            }
+
+            // No global cluster.
+            else {
+                auto lol = neighClusters[0];
+                mergeDest = lol.Representative.toIndexOfTotal(Parent->totalSize());
+                for (auto neigh = neighClusters.begin() + 1; neigh != neighClusters.end();
+                     ++neigh) {
+
+                    LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
+                    Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
+                    // Extend by the volume of the voxel that has caused the merge
+                    LOLs.extendCluster(lol.Cluster, volume);
+                }
+            }
+            vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());
+            return mergeDest;
+            break;
+    }
+}
+
 }  // namespace perc

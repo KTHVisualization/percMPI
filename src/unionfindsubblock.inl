@@ -24,7 +24,7 @@ void UnionFindSubBlock<ClusterProcessor>::loadData() {
     assert(!Data && "Data was already set.");
     Data = new DataBlock(PointerBlock.BlockSize, PointerBlock.BlockOffset, PointerBlock.TotalSize);
     // TODO: Hardcoded time slice and data directory for now
-    Data->loadData(1, "/home/wiebke/Data/Percolation/P3", "uv_000");
+    Data->loadData(1, "../../Data/Percolation/P3", "uv_000");
     CurrentWatershedIndex = 0;
     Data->sort();
 }

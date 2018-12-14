@@ -28,6 +28,7 @@ public:
     void removeCluster(ClusterID cluster) { Clusters.removeCluster(cluster); }
     void mergeClusters(ClusterID from, ClusterID onto);
     void mergeClustersForReal(ClusterID from, ClusterID onto);
+    void mergeClusterFromList(std::vector<ind>& connectedComps);
     void extendCluster(ClusterID id, double volume) { Clusters.extendCluster(id, volume); }
 
     void clearVolumesAndMerges();
@@ -48,6 +49,16 @@ inline void ClusterListRecording<CL>::mergeClusters(ClusterID from, ClusterID on
 template <typename CL>
 inline void ClusterListRecording<CL>::mergeClustersForReal(ClusterID from, ClusterID onto) {
     Clusters.mergeClusters(from, onto);
+}
+
+template <typename CL>
+inline void ClusterListRecording<CL>::mergeClusterFromList(std::vector<ind>& connComps) {
+
+    for (auto it = connComps.begin(); it != connComps.end(); ++it) {
+        ind compSize = *it;
+        ind onto = *(++it);
+        for (ind c = 0; c < compSize - 1; ++c) mergeClustersForReal(*(++it), onto);
+    }
 }
 
 template <typename CL>

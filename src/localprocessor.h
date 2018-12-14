@@ -10,7 +10,7 @@ class UnionFindSubBlock;
 
 struct LocalLocalProcessor {
 
-    LocalLocalProcessor(ClusterList& lols, ClusterListRecording& logs,
+    LocalLocalProcessor(ClusterList& lols, ClusterListRecording<ClusterList>& logs,
                         std::vector<ClusterID>& plogs)
         : LOLs(lols), LOGs(logs), PLOGs(plogs), Parent(nullptr) {}
 
@@ -21,13 +21,13 @@ struct LocalLocalProcessor {
 private:
     UnionFindSubBlock<LocalLocalProcessor>* Parent;
     ClusterList& LOLs;
-    ClusterListRecording& LOGs;
+    ClusterListRecording<ClusterList>& LOGs;
     std::vector<ClusterID>& PLOGs;
 };
 
 struct LocalGlobalProcessor {
 
-    LocalGlobalProcessor(ClusterList& lols, ClusterListRecording& logs,
+    LocalGlobalProcessor(ClusterList& lols, ClusterListRecording<ClusterList>& logs,
                          std::vector<ClusterID>& plogs)
         : LOLs(lols), LOGs(logs), PLOGs(plogs), Parent(nullptr) {}
 
@@ -38,7 +38,7 @@ struct LocalGlobalProcessor {
 private:
     UnionFindSubBlock<LocalGlobalProcessor>* Parent;
     ClusterList& LOLs;
-    ClusterListRecording& LOGs;
+    ClusterListRecording<ClusterList>& LOGs;
     std::vector<ClusterID>& PLOGs;
 };
 

@@ -45,7 +45,7 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                     if (neigh.Cluster.isGlobal()) {
                         LOGs.mergeClusters(neigh.Cluster, log->Cluster);
                     } else {  // LOL->LOG merge.
-                        LOGs.extendCluster(log->Cluster, LOLs.getCluster(neigh.Cluster).Volume);
+                        LOGs.extendCluster(log->Cluster, LOLs.getClusterVolume(neigh.Cluster));
                         LOLs.removeCluster(neigh.Cluster);
 
                         // Remove possible appearance in PLOG list.
@@ -123,7 +123,7 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
                     // Make this position the cluster representative.
                     ID* lolRep = Parent->PointerBlock.getPointer(neigh.Representative);
                     *lolRep = pos;
-                    LOLs.getCluster(neigh.Cluster).Index = pos;
+                    LOLs.setRepresentative(neigh.Cluster, pos);
                     return neigh.Cluster;
                 } else
                     return neigh.Representative.toIndexOfTotal(Parent->totalSize());
@@ -146,7 +146,7 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
                     if (neigh.Cluster.isGlobal()) {  // Merge LOG->LOG.
                         LOGs.mergeClusters(neigh.Cluster, log->Cluster);
                     } else {  // Merge LOL->LOG.
-                        LOGs.extendCluster(log->Cluster, LOLs.getCluster(neigh.Cluster).Volume);
+                        LOGs.extendCluster(log->Cluster, LOLs.getClusterVolume(neigh.Cluster));
                         LOLs.removeCluster(neigh.Cluster);
                         Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     }

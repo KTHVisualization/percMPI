@@ -1,7 +1,7 @@
 #include "datablock.h"
 #include <algorithm>
 #include <cmath>
-#include <iostream>
+//#include <iostream>
 #include "percolationloader.h"
 
 namespace perc {
@@ -38,6 +38,9 @@ void DataBlock::sort() {
     // Sorts from largest to smallest value.
     std::sort(Indices, Indices + numElements,
               [this](ind a, ind b) { return Scalars[a] > Scalars[b]; });
+
+    // std::cout << "Data within range = [" << Scalars[Indices[0]] << ","
+    //          << Scalars[Indices[numElements - 1]] << "]" << std::endl;
 }
 
 vec3i DataBlock::toGlobalIndex(ind locIdx) {

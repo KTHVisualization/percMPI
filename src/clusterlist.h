@@ -20,15 +20,17 @@ public:
         Volumes.reserve(100);
     }
 
-    Cluster getCluster(ClusterID cluster) {
+    double getClusterVolume(ClusterID cluster) {
         assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
                "Trying to access non-existent cluster.");
-        return Cluster(Indices[cluster.localID()], Volumes[cluster.localID()]);
+        return Volumes[cluster.localID()];
     }
-    ClusterID addCluster(VertexID id, double volume);
+    void setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
+                           vec3i* parentOffset = nullptr);
+    ClusterID addCluster(VertexID id, double volume, vec3i* parentOffset = nullptr);
     void removeCluster(ClusterID cluster);
     void mergeClusters(ClusterID from, ClusterID onto);
-    void extendCluster(ClusterID id, double volume);
+    void extendCluster(ClusterID id, double volume, vec3i* parentOffset = nullptr);
 
     void clearVolumes();
     ind numClusters() { return Indices.size() - Holes.size(); }
@@ -45,7 +47,13 @@ private:
 
 // ========= Inline Definitions ========= //
 
-inline ClusterID ClusterList::addCluster(VertexID id, double volume) {
+inline void ClusterList::setRepresentative(ClusterID cluster, VertexID newID, bool, vec3i*) {
+    assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
+           "Trying to access non-existent cluster.");
+    Indices[cluster.localID()] = newID;
+}
+
+inline ClusterID ClusterList::addCluster(VertexID id, double volume, vec3i*) {
     TotalVolume += volume;
     // The newly added cluster has a larger volume that other volumes so far.
     if (volume > MaxVolume) {
@@ -85,7 +93,7 @@ inline void ClusterList::mergeClusters(ClusterID from, ClusterID onto) {
     removeCluster(locFrom);
 }
 
-inline void ClusterList::extendCluster(ClusterID id, double volume) {
+inline void ClusterList::extendCluster(ClusterID id, double volume, vec3i*) {
     Volumes[id.localID()] += volume;
     TotalVolume += volume;
     if (Volumes[id.localID()] > MaxVolume) {

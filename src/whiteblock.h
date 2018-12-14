@@ -33,7 +33,7 @@ private:
     // Local representations of local clusters.
     ClusterList LOLs;
     // Local representations of global clusters.
-    ClusterListRecording LOGs;
+    ClusterListRecording<ClusterList> LOGs;
     // Potential LOGs: LOLs that touch the boundary.
     std::vector<ClusterID> RefPLOGs;
     // List of PLOGS that will be used for sending and receiving data.

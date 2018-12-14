@@ -11,6 +11,7 @@
 #include "mpicommuncation.h"
 #include "performancetimer.h"
 #include "whiteblock.h"
+#include "clusterlistrecording.h"
 
 using namespace perc;
 
@@ -65,6 +66,33 @@ void percolation() {}
 
 void percolationDistributed() {}
 
+void testClusterMerges() {
+    ind numMerges = 15;
+    ind numClusters = 20;
+
+    std::vector<std::vector<ClusterMerge>> merges(2);
+    for (auto& g : merges)
+        for (ind merge = 0; merge < numMerges / 2; ++merge) {
+            ind f = rand() % numClusters;
+            ind o = rand() % numClusters;
+            g.push_back(ClusterMerge(f, o));
+            std::cout << f << " -> " << o << '\n';
+        }
+
+    // Graph from the edge list.
+    auto graphs = ClusterMerge::mergeClustersFromLists(merges);
+    std::cout << "\nGraphs:\n";
+    for (auto& g : graphs) {
+        for (ind n : g) std::cout << ID(n).baseID() << " - ";
+        std::cout << '\n';
+    }
+
+    // Into one single vector for transfer.
+    std::cout << "\nAs one vector\n";
+    auto graphAsOne = ClusterMerge::mergeClusterAsList(graphs);
+    for (ind n : graphAsOne) std::cout << ID(n).baseID() << ", ";
+}
+
 // Input args:
 // - path:        folder with data
 // - rms:         name of rms file
@@ -74,7 +102,8 @@ int main(int argc, char** argv) {
 
 #ifdef TEST
 
-    testingMPIVectors();
+    // testingMPIVectors();
+    testClusterMerges();
 
 #else
 

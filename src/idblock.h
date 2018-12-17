@@ -8,10 +8,13 @@ namespace perc {
 
 class IDBlock {
 public:
-    IDBlock(const vec3i& size, const vec3i& offset, const vec3i& total);
-    ~IDBlock() { delete[] PointerBlock; }
+    IDBlock(const vec3i& size, const vec3i& offset, const vec3i& total, ID* memory = nullptr);
+    ~IDBlock();
 
-    bool contains(const vec3i& idx) { return idx.liesWithin(BlockOffset, BlockOffset + BlockSize); }
+    bool contains(const vec3i& idx) {
+        vec3i max = BlockOffset + BlockSize;
+        return idx.liesWithin(BlockOffset, max);
+    }
 
     ID* getPointer(const vec3i& idx) {
         assert(contains(idx) && "Index not within this block. Please check before!\n");
@@ -36,6 +39,7 @@ public:
 public:
     const vec3i BlockSize, BlockOffset, TotalSize;
     ID* PointerBlock;
+    bool ownsMemory;
 };
 
 }  // namespace perc

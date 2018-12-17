@@ -24,7 +24,8 @@ public:
     ClusterListRecording(ind size = 100) : Clusters(size), Merges() { Merges.reserve(20); }
 
     double getClusterVolume(ClusterID cluster) { return Clusters.getClusterVolume(cluster); }
-    void addClusters(ind numNewCLusters);
+    void addClusters(ind numNewClusters);
+    ClusterID addCluster();
     void removeCluster(ClusterID cluster) { Clusters.removeCluster(cluster); }
     void mergeClusters(ClusterID from, ClusterID onto);
     void mergeClustersForReal(ClusterID from, ClusterID onto);
@@ -34,10 +35,18 @@ public:
     void clearVolumesAndMerges();
     ind numClusters() { return Clusters.numClusters(); }
 
-private:
+protected:
     CL Clusters;
 
     std::vector<ClusterMerge> Merges;
+};
+
+class ClusterListRecordingSingle : public ClusterListRecording<ClusterList> {
+    friend class WhiteBlock;
+
+public:
+    ClusterListRecordingSingle(ind size = 100) : ClusterListRecording<ClusterList>(size) {}
+    Cluster getCluster(ClusterID id) { return Clusters.getCluster(id); }
 };
 
 // ========= Inline Definitions ========= //
@@ -70,6 +79,11 @@ inline void ClusterListRecording<CL>::clearVolumesAndMerges() {
 template <typename CL>
 inline void ClusterListRecording<CL>::addClusters(ind numNewClusters) {
     for (ind n = 0; n < numNewClusters; ++n) Clusters.addCluster(VertexID(-1), 0.0);
+}
+
+template <typename CL>
+inline ClusterID ClusterListRecording<CL>::addCluster() {
+    return Clusters.addCluster(VertexID(-1), 0.0);
 }
 
 std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(

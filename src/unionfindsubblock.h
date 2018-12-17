@@ -15,7 +15,8 @@ public:
     friend ClusterProcessor;
 
     UnionFindSubBlock<ClusterProcessor>(const vec3i& size, const vec3i& offset, const vec3i& total,
-                                        UnionFindBlock& parent, ClusterProcessor&& neighProcessor);
+                                        UnionFindBlock& parent, ClusterProcessor&& neighProcessor,
+                                        ID* memory = nullptr);
 
     ~UnionFindSubBlock() { delete Data; }
     void loadData();

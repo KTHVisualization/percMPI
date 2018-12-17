@@ -13,6 +13,12 @@ struct Cluster {
     double& Volume;
 };
 
+struct ClusterData {
+    ClusterData(VertexID& idx, double& vol) : Index(idx), Volume(vol) {}
+    VertexID Index;
+    double Volume;
+};
+
 class ClusterList {
 public:
     ClusterList(ind size = 100) : TotalVolume(0), MaxVolume(0) {
@@ -31,6 +37,7 @@ public:
     void removeCluster(ClusterID cluster);
     void mergeClusters(ClusterID from, ClusterID onto);
     void extendCluster(ClusterID id, double volume, vec3i* parentOffset = nullptr);
+    Cluster getCluster(ClusterID id) { return Cluster(Indices[id.baseID()], Volumes[id.baseID()]); }
 
     void clearVolumes();
     ind numClusters() { return Indices.size() - Holes.size(); }

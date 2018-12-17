@@ -68,7 +68,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
 
         // Watershed on.
         dataIdx = Data->Indices[++CurrentWatershedIndex];
-    }  // namespace perc
+    }
 }
 
 /* Return final cluster ID (or nullptr if none yet).

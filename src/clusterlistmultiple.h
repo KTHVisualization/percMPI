@@ -13,9 +13,9 @@ class GlobalProcessor;
 struct GOG {
     VertexID ID;
     // TODO: Is a pointer to the parent better here?
-    vec3i* ParentOffset;
+    const vec3i* ParentOffset;
 
-    GOG(VertexID idx, vec3i* offset) : ID(idx), ParentOffset(offset){};
+    GOG(VertexID idx, const vec3i* offset) : ID(idx), ParentOffset(offset){};
 };
 
 class ClusterListMultiple {
@@ -31,14 +31,14 @@ public:
         return Volumes[cluster.localID()];
     }
 
-    void setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
-                           vec3i* parentOffset = nullptr);
+    VertexID setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
+                               const vec3i* parentOffset = nullptr);
 
-    ClusterID addCluster(VertexID id, double volume, vec3i* parentOffset = nullptr);
+    ClusterID addCluster(VertexID id, double volume, const vec3i* parentOffset = nullptr);
     void removeCluster(ClusterID cluster);
     void mergeClusters(ClusterID from, ClusterID onto);
 
-    void extendCluster(ClusterID id, double volume, vec3i* parentOffset = nullptr);
+    void extendCluster(ClusterID id, double volume, const vec3i* parentOffset = nullptr);
 
     void clearVolumes();
     ind numClusters() { return IndicesPerCluster.size() - Holes.size(); }
@@ -55,8 +55,8 @@ private:
 
 // ========= Inline Definitions ========= //
 
-void ClusterListMultiple::setRepresentative(ClusterID cluster, VertexID newID, bool replace,
-                                            vec3i* parentOffset) {
+inline VertexID ClusterListMultiple::setRepresentative(ClusterID cluster, VertexID newID,
+                                                       bool replace, const vec3i* parentOffset) {
     assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
            "Trying to access non-existent cluster.");
     assert(parentOffset && "No parent given.");
@@ -71,28 +71,35 @@ void ClusterListMultiple::setRepresentative(ClusterID cluster, VertexID newID, b
     }
 
     if (it != GOGs.end() && replace) {
-        *it = {newID, parentOffset};
+        if (replace) {
+            *it = {newID, parentOffset};
+        } else {
+            return it->ID;
+        }
+
     } else {
         GOGs.emplace_back(newID, parentOffset);
     }
+    return newID;
 }
 
-inline ClusterID ClusterListMultiple::addCluster(VertexID id, double volume, vec3i* parentOffset) {
+inline ClusterID ClusterListMultiple::addCluster(VertexID id, double volume,
+                                                 const vec3i* parentOffset) {
     TotalVolume += volume;
     // The newly added cluster has a larger volume that other volumes so far.
     if (volume > MaxVolume) {
         MaxVolume = volume;
     }
+    std::vector<GOG> newGOG = {GOG(id, parentOffset)};
+    std::move(newGOG);
     // Place the new cluster into a new hole or to the back when no holes exist.
     if (Holes.empty()) {
-        IndicesPerCluster.emplace_back(id, parentOffset);
+        IndicesPerCluster.push_back(newGOG);
         Volumes.push_back(volume);
         return ClusterID(IndicesPerCluster.size() - 1);
     } else {
         size_t holeIdx = Holes.back();
         Holes.pop_back();
-        std::vector<GOG> newGOG = {{id, parentOffset}};
-        std::move(newGOG);
         IndicesPerCluster[holeIdx] = newGOG;
         Volumes[holeIdx] = volume;
         return ClusterID(holeIdx);
@@ -127,7 +134,8 @@ inline void ClusterListMultiple::mergeClusters(ClusterID from, ClusterID onto) {
     removeCluster(locFrom);
 }
 
-inline void ClusterListMultiple::extendCluster(ClusterID id, double volume, vec3i* parentOffset) {
+inline void ClusterListMultiple::extendCluster(ClusterID id, double volume,
+                                               const vec3i* parentOffset) {
     Volumes[id.localID()] += volume;
     TotalVolume += volume;
     if (Volumes[id.localID()] > MaxVolume) {

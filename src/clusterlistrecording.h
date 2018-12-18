@@ -38,6 +38,8 @@ public:
 
     void clearVolumesAndMerges();
     ind numClusters() { return Clusters.numClusters(); }
+    double totalVolume() { return Clusters.totalVolume(); };
+    double maxVolume() { return Clusters.maxVolume(); };
 
 protected:
     CL Clusters;

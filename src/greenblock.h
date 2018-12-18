@@ -5,6 +5,7 @@
 #include "clusterlist.h"
 #include "clusterlistrecording.h"
 #include "globalprocessor.h"
+#include "localprocessor.h"
 #include "unionfindsubblock.h"
 
 namespace perc {
@@ -19,21 +20,17 @@ public:
     // Sketch.
     virtual void receiveData() override;
     virtual void sendData() override;
-    virtual ind numClusters() override;
-    virtual double totalVolume() override;
-    virtual double maxVolume() override;
+    virtual ind numClusters() override { return GOGs.numClusters(); };
+    virtual double totalVolume() override { return GOGs.totalVolume(); };
+    virtual double maxVolume() override { return GOGs.maxVolume(); };
 
 private:
-    // The local local part for this block
-    // std::vector<UnionFindSubBlock<GlobalGlobalProcessor>*> GOGSubBlocks;
-    // TODO: The local global part for this block
-    // std::vector<UnionFindSubBlock<LocalGlobalProcessor>*> LOGSubBlocks;
-    // TODO: The global part for this block, this is only for lookup for the local node
-    // std::vector<UnionFindSubBlock<GlobalProcessor>*> GOGSubBlocks;
+    // The global (actual) part for this block
+    std::vector<UnionFindSubBlock<GlobalProcessor>*> GOGSubBlocks;
+    // The local global part for this block, just for lookup
+    std::vector<UnionFindSubBlock<LocalGlobalProcessor>*> LOGSubBlocks;
     // Local representations of local clusters.
-    // ClusterListMultiple LOLs;
-
-    std::vector<ClusterMerge> Merges;
-};
+    ClusterListRecordingMultiple GOGs;
+};  // namespace perc
 
 }  // namespace perc

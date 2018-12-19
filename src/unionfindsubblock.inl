@@ -100,7 +100,8 @@ ClusterID* UnionFindSubBlock<ClusterProcessor>::findClusterID(const vec3i& idx,
     ClusterID* finalID;
     // Not there yet, give it back to parent block.
     if (curPointer->isVertex()) {
-        finalID = Parent.findClusterID(idx, lastVertexID);
+        finalID = Parent.findClusterID(curIdx, lastVertexID);
+        assert(finalID && "Vertex is pointed to but not pointing to anything.");
     }
     // It is a cluster, set final ID
     else {

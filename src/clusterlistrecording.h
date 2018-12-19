@@ -110,7 +110,7 @@ template <typename CL>
 inline VertexID ClusterListRecording<CL>::setRepresentative(ClusterID cluster, VertexID newID,
                                                             bool replace,
                                                             const vec3i* parentOffset) {
-    Clusters.setRepresentative(cluster, newID, replace, parentOffset);
+    return Clusters.setRepresentative(cluster, newID, replace, parentOffset);
 }
 
 std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(

@@ -12,6 +12,7 @@ namespace perc {
 class WhiteBlock : public UnionFindBlock {
 public:
     WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize);
+    ~WhiteBlock() { delete[] MemoryLOG; }
 
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
@@ -26,18 +27,25 @@ public:
 private:
     // The local local part for this block
     UnionFindSubBlock<LocalLocalProcessor>* LOLSubBlock;
-    // TODO: The local global part for this block
-    // std::vector<UnionFindSubBlock<LocalGlobalProcessor>*> LOGSubBlocks;
+
+    // Memory for LOG ID blocks.
+    ID* MemoryLOG;
+    // The local global part for this block
+    std::vector<UnionFindSubBlock<LocalGlobalProcessor>> LOGSubBlocks;
+
     // TODO: The global part for this block, this is only for lookup for the local node
-    // std::vector<UnionFindSubBlock<GlobalProcessor>*> GOGSubBlocks;
+    // std::vector<UnionFindSubBlock<GlobalProcessor>> GOGSubBlocks;
+
     // Local representations of local clusters.
     ClusterList LOLs;
     // Local representations of global clusters.
-    ClusterListRecording<ClusterList> LOGs;
+    ClusterListRecordingSingle LOGs;
     // Potential LOGs: LOLs that touch the boundary.
     std::vector<ClusterID> RefPLOGs;
     // List of PLOGS that will be used for sending and receiving data.
-    std::vector<Cluster> CommPLOGs;
+    std::vector<ClusterData> CommPLOGs;
+
+    const vec3i TotalSize;
 };
 
 }  // namespace perc

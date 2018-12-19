@@ -27,9 +27,9 @@ public:
     double getClusterVolume(ClusterID cluster) { return Clusters.getClusterVolume(cluster); }
     void addClusters(ind numNewClusters);
     ClusterID addCluster();
-    ClusterID addCluster(VertexID id, double volume, const vec3i* parentOffset);
+    ClusterID addCluster(VertexID id, double volume, void* parentBlock);
     VertexID setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
-                               const vec3i* parentOffset = nullptr);
+                               void* parentBlock = nullptr);
     void removeCluster(ClusterID cluster) { Clusters.removeCluster(cluster); }
     void mergeClusters(ClusterID from, ClusterID onto);
     void mergeClustersForReal(ClusterID from, ClusterID onto);
@@ -61,6 +61,14 @@ class ClusterListRecordingMultiple : public ClusterListRecording<ClusterListMult
 public:
     ClusterListRecordingMultiple(ind size = 100)
         : ClusterListRecording<ClusterListMultiple>(size) {}
+
+    const std::vector<GOG> getRepresentatives(ClusterID cluster) {
+        return Clusters.getRepresentatives(cluster);
+    }
+
+    const std::vector<VertexID> mergeRepresentatives(ClusterID from, ClusterID onto) {
+        return Clusters.mergeRepresentatives(from, onto);
+    }
 };
 
 // ========= Inline Definitions ========= //
@@ -102,15 +110,14 @@ inline ClusterID ClusterListRecording<CL>::addCluster() {
 
 template <typename CL>
 inline ClusterID ClusterListRecording<CL>::addCluster(VertexID id, double volume,
-                                                      const vec3i* parentOffset) {
-    return Clusters.addCluster(id, volume, parentOffset);
+                                                      void* parentBlock) {
+    return Clusters.addCluster(id, volume, parentBlock);
 }
 
 template <typename CL>
 inline VertexID ClusterListRecording<CL>::setRepresentative(ClusterID cluster, VertexID newID,
-                                                            bool replace,
-                                                            const vec3i* parentOffset) {
-    return Clusters.setRepresentative(cluster, newID, replace, parentOffset);
+                                                            bool replace, void* parentBlock) {
+    return Clusters.setRepresentative(cluster, newID, replace, parentBlock);
 }
 
 std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(

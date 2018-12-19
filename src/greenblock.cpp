@@ -25,13 +25,35 @@ void GreenBlock::doWatershed(const double minVal) {
     for (UnionFindSubBlock<GlobalProcessor>* gogBlock : GOGSubBlocks) {
         gogBlock->doWatershed(minVal);
     }
-    // TODO: Apply merge list
-    std::vector<ind> clusterMergeList =
+
+    // Merges have only been recorded
+    // TODO: Include received merges here
+    std::vector<ind> connComps =
         ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists({GOGs.Merges}));
-    // For each cluster merge
-    ind from, onto;
-    GOGs.mergeClustersForReal(from, onto);
-    // Do all of the messy repointering and representative merging
+
+    // Do the representatives merge and repointering first
+    for (auto it = connComps.begin(); it != connComps.end(); ++it) {
+        ind compSize = *it;
+        ind onto = *(++it);
+        for (ind c = 0; c < compSize - 1; ++c) {
+            int from = *(++it);
+            const std::vector<GOG>& oldRepsFrom = GOGs.getRepresentatives(from);
+            const std::vector<VertexID> newRepsFrom = GOGs.mergeRepresentatives(from, onto);
+            assert(oldRepsFrom.size() == newRepsFrom.size() &&
+                   "Size mismatch between old and new representatives");
+            auto itOld = oldRepsFrom.begin();
+            for (auto itNew = newRepsFrom.begin();
+                 itNew != newRepsFrom.end() && itOld != oldRepsFrom.end(); itOld++, itNew++) {
+                UnionFindSubBlock<GlobalProcessor>* parent =
+                    reinterpret_cast<UnionFindSubBlock<GlobalProcessor>*>(itOld->ParentBlock);
+                parent->PointerBlock.setPointer(
+                    vec3i::fromIndexOfTotal(itOld->ID.baseID(), parent->totalSize()), *itNew);
+            }
+        }
+    }
+
+    // Merge Clusters and Representatives in the list
+    GOGs.mergeClusterFromList(connComps);
 
     // All merges are processed, clear for next step
     GOGs.Merges.clear();

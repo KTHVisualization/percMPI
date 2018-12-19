@@ -15,7 +15,7 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
 
         // Completely new GOG.
         case 0: {
-            return GOGs.addCluster(pos, volume, &Parent->blockOffset());
+            return GOGs.addCluster(pos, volume, Parent);
         }
         // Extend GOG
         case 1: {
@@ -24,8 +24,7 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
             // representative
             if (!Parent->contains(neighClusters[0].Representative)) {
                 // Will either be us or the representative in the parent block
-                VertexID rep = GOGs.setRepresentative(neighClusters[0].Cluster, pos, false,
-                                                      &Parent->blockOffset());
+                VertexID rep = GOGs.setRepresentative(neighClusters[0].Cluster, pos, false, Parent);
                 // We are the new rep for the block, point to cluster directly
                 if (rep == pos) {
                     return neighClusters[0].Cluster;
@@ -54,8 +53,7 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
             // TODO: The cluster we are merging from might already have reps in this block?
             if (!Parent->contains(gog.Representative)) {
                 // Will either be us or the representative in the parent block
-                VertexID rep =
-                    GOGs.setRepresentative(gog.Cluster, pos, false, &Parent->blockOffset());
+                VertexID rep = GOGs.setRepresentative(gog.Cluster, pos, false, Parent);
                 // We are the new rep for the block, point to cluster directly
                 if (rep == pos) {
                     return neighClusters[0].Cluster;

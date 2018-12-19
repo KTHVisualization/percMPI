@@ -32,11 +32,11 @@ public:
         return Volumes[cluster.localID()];
     }
     VertexID setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
-                               const vec3i* parentOffset = nullptr);
-    ClusterID addCluster(VertexID id, double volume, const vec3i* parentOffset = nullptr);
+                               void* parentBlock = nullptr);
+    ClusterID addCluster(VertexID id, double volume, void* parentBlock = nullptr);
     void removeCluster(ClusterID cluster);
     void mergeClusters(ClusterID from, ClusterID onto);
-    void extendCluster(ClusterID id, double volume, const vec3i* parentOffset = nullptr);
+    void extendCluster(ClusterID id, double volume, void* parentBlock = nullptr);
     Cluster getCluster(ClusterID id) { return Cluster(Indices[id.baseID()], Volumes[id.baseID()]); }
 
     void clearVolumes();
@@ -55,7 +55,7 @@ private:
 // ========= Inline Definitions ========= //
 
 inline VertexID ClusterList::setRepresentative(ClusterID cluster, VertexID newID, bool replace,
-                                               const vec3i*) {
+                                               void*) {
     assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
            "Trying to access non-existent cluster.");
     if (replace) {
@@ -66,7 +66,7 @@ inline VertexID ClusterList::setRepresentative(ClusterID cluster, VertexID newID
     }
 }
 
-inline ClusterID ClusterList::addCluster(VertexID id, double volume, const vec3i*) {
+inline ClusterID ClusterList::addCluster(VertexID id, double volume, void*) {
     TotalVolume += volume;
     // The newly added cluster has a larger volume that other volumes so far.
     if (volume > MaxVolume) {
@@ -106,7 +106,7 @@ inline void ClusterList::mergeClusters(ClusterID from, ClusterID onto) {
     removeCluster(locFrom);
 }
 
-inline void ClusterList::extendCluster(ClusterID id, double volume, const vec3i*) {
+inline void ClusterList::extendCluster(ClusterID id, double volume, void*) {
     Volumes[id.localID()] += volume;
     TotalVolume += volume;
     if (Volumes[id.localID()] > MaxVolume) {

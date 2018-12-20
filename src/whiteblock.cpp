@@ -42,20 +42,21 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
         max - min, min, totalSize, *this, LocalLocalProcessor(LOLs, LOGs, RefPLOGs));
     LOLSubBlock->loadData();
 
-    MemoryLOG = new ID[blockSize.y * blockSize.z * 3];
-    vec3i sliceSize = vec3i(1, blockSize.y, blockSize.z);
+    MemoryLOG = new ID[blockSize.prod() * 3];
 
+    LOGSubBlocks.reserve(4);
     // Left slice.
     LOGSubBlocks.emplace_back(sliceSize, blockOffset, totalSize, *this,
                               LocalGlobalProcessor(LOLs, LOGs, RefPLOGs), MemoryLOG);
 
     // Two slices right.
-    LOGSubBlocks.emplace_back(sliceSize, max, totalSize, *this,
+    LOGSubBlocks.emplace_back(sliceSize, vec3i(max.x, 0, 0), totalSize, *this,
                               LocalGlobalProcessor(LOLs, LOGs, RefPLOGs),
                               MemoryLOG + sliceSize.prod());
-    LOGSubBlocks.emplace_back(sliceSize, max + sliceSize, totalSize, *this,
+    LOGSubBlocks.emplace_back(sliceSize, vec3i(max.x + sliceSize.x, 0, 0), totalSize, *this,
                               LocalGlobalProcessor(LOLs, LOGs, RefPLOGs),
                               MemoryLOG + 2 * sliceSize.prod());
+    for (auto& red : LOGSubBlocks) red.loadData();
 }
 
 #endif

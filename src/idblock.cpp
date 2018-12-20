@@ -12,7 +12,7 @@ IDBlock::IDBlock(const vec3i& size, const vec3i& offset, const vec3i& total, ID*
         PointerBlock = new ID[BlockSize.prod()];
         ownsMemory = true;
     }
-    std::fill_n(PointerBlock, BlockSize.prod(), -1);
+    std::fill_n(PointerBlock, BlockSize.prod(), ind(-1));
 }
 
 IDBlock::~IDBlock() {

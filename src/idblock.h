@@ -22,7 +22,7 @@ public:
     }
 
     ID* getPointerLocal(const vec3i& locIdx) {
-        ID* ptr = PointerBlock + locIdx.toIndexOfTotal(TotalSize);
+        ID* ptr = PointerBlock + locIdx.toIndexOfTotal(BlockSize);
         return ptr->isValid() ? ptr : nullptr;
     }
 
@@ -32,7 +32,7 @@ public:
     }
 
     void setPointerLocal(const vec3i& locIdx, const ID& id) {
-        ID* ptr = PointerBlock + locIdx.toIndexOfTotal(TotalSize);
+        ID* ptr = PointerBlock + locIdx.toIndexOfTotal(BlockSize);
         *ptr = id;
     }
 

@@ -9,6 +9,7 @@ namespace perc {
 DataBlock::~DataBlock() {
     delete[] Scalars;
     delete[] Volumes;
+    delete[] Indices;
 }
 
 bool DataBlock::loadData(ind timeSlice, const std::string& directory,
@@ -29,7 +30,7 @@ bool DataBlock::loadData(ind timeSlice, const std::string& directory,
 }
 
 void DataBlock::sort() {
-    delete[] Indices;
+    assert(!Indices && "Was already sorted?");
 
     // Create Indices, fill with [0, numElements) and sort by Scalar value.
     ind numElements = BlockSize.prod();

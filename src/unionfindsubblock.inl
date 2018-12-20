@@ -48,7 +48,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
                 if (neighIdx[dim] < 0 || neighIdx[dim] >= Data->BlockSize[dim]) continue;
 
                 vec3i neighRep;
-                ClusterID* neighCluster = findClusterID(neighIdx, neighRep);
+                ClusterID* neighCluster = Parent.findClusterID(neighIdx, neighRep);
 
                 if (neighCluster) {
                     bool addCluster = true;
@@ -90,6 +90,7 @@ ClusterID* UnionFindSubBlock<ClusterProcessor>::findClusterID(const vec3i& idx,
         lastVertexID = curIdx;
 
         curPointer = PointerBlock.getPointer(curIdx);
+        assert(curPointer && "Should not point nowhere.");
         if (curPointer->isCluster()) {
             break;
         }

@@ -26,9 +26,9 @@ public:
 
     bool contains(const vec3i& idx) { return PointerBlock.contains(idx); }
 
-    const vec3i& blockSize() { return Data->BlockSize; }
-    const vec3i& blockOffset() { return Data->BlockOffset; }
-    const vec3i& totalSize() { return Data->TotalSize; }
+    const vec3i& blockSize() { return PointerBlock.BlockSize; }
+    const vec3i& blockOffset() { return PointerBlock.BlockOffset; }
+    const vec3i& totalSize() { return PointerBlock.TotalSize; }
 
 public:
     DataBlock* Data;

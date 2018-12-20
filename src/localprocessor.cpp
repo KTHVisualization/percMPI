@@ -112,9 +112,11 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
         // Extend LOL/LOG, set pointer to representative.
         case 1: {
             Neighbor& neigh = neighClusters[0];
-            if (neigh.Cluster.isGlobal())
+            if (neigh.Cluster.isGlobal()) {
                 LOGs.extendCluster(neigh.Cluster, volume);
-            else {
+                if (!LOGs.getRepresentative(neigh.Cluster).isValid())
+                    LOGs.setRepresentative(neigh.Cluster, pos);
+            } else {
                 LOLs.extendCluster(neigh.Cluster, volume);
 
                 // Mark as PLOG iff it isn't already. Make this the new representative.

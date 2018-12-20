@@ -8,7 +8,7 @@ namespace perc {
 class DataBlock {
 public:
     DataBlock(const vec3i& size, const vec3i& offset, const vec3i& total)
-        : BlockSize(size), BlockOffset(offset), TotalSize(total) {}
+        : BlockSize(size), BlockOffset(offset), TotalSize(total), Indices(nullptr) {}
     ~DataBlock();
 
     bool loadData(ind timeSlice, const std::string& directory, const std::string& rmsFilename);

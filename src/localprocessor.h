@@ -1,4 +1,5 @@
 #pragma once
+#include <unordered_set>
 #include "handles.h"
 #include "clusterlist.h"
 #include "clusterlistrecording.h"
@@ -11,7 +12,7 @@ class UnionFindSubBlock;
 struct LocalLocalProcessor {
 
     LocalLocalProcessor(ClusterList& lols, ClusterListRecording<ClusterList>& logs,
-                        std::vector<ClusterID>& plogs)
+                        std::unordered_set<ClusterID, ClusterID::hash_type>& plogs)
         : LOLs(lols), LOGs(logs), PLOGs(plogs), Parent(nullptr) {}
 
     ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters);
@@ -22,13 +23,14 @@ private:
     UnionFindSubBlock<LocalLocalProcessor>* Parent;
     ClusterList& LOLs;
     ClusterListRecording<ClusterList>& LOGs;
-    std::vector<ClusterID>& PLOGs;
+
+    std::unordered_set<ClusterID, decltype(&ClusterID::hash)>& PLOGs;
 };
 
 struct LocalGlobalProcessor {
 
     LocalGlobalProcessor(ClusterList& lols, ClusterListRecording<ClusterList>& logs,
-                         std::vector<ClusterID>& plogs)
+                         std::unordered_set<ClusterID, ClusterID::hash_type>& plogs)
         : LOLs(lols), LOGs(logs), PLOGs(plogs), Parent(nullptr) {}
 
     ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters);
@@ -39,7 +41,7 @@ private:
     UnionFindSubBlock<LocalGlobalProcessor>* Parent;
     ClusterList& LOLs;
     ClusterListRecording<ClusterList>& LOGs;
-    std::vector<ClusterID>& PLOGs;
+    std::unordered_set<ClusterID, ClusterID::hash_type>& PLOGs;
 };
 
 }  // namespace perc

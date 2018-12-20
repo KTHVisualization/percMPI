@@ -6,7 +6,7 @@ namespace perc {
 #ifndef TEST_LOCAL
 
 WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
-    : TotalSize(totalSize) {
+    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash) {
     // TODO: Load subblocks into data
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
@@ -30,11 +30,13 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
 #else
 
 WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
-    : TotalSize(totalSize) {
+    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash) {
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
 
     // Create 3 red slices: one left, two right.
+    vec3i sliceSize = vec3i(50, blockSize.y, blockSize.z);
+    min[0] += sliceSize.x;
     max[0] -= sliceSize.x * 2;
 
     LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(

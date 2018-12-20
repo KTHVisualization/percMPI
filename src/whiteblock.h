@@ -41,7 +41,7 @@ private:
     // Local representations of global clusters.
     ClusterListRecordingSingle LOGs;
     // Potential LOGs: LOLs that touch the boundary.
-    std::vector<ClusterID> RefPLOGs;
+    std::unordered_set<ClusterID, ClusterID::hash_type> RefPLOGs;
     // List of PLOGS that will be used for sending and receiving data.
     std::vector<ClusterData> CommPLOGs;
 

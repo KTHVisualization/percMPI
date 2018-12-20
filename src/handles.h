@@ -21,6 +21,9 @@ struct ID {
 
     ind baseID() const { return RawID & ~CLUSTER_FLAG; }
     ind RawID;
+
+    static size_t hash(const ID& c) { return std::hash<ind>()(c.RawID); }
+    typedef decltype(&hash) hash_type;
 };
 
 struct ClusterID : public ID {

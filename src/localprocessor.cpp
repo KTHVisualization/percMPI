@@ -49,11 +49,7 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                         LOLs.removeCluster(neigh.Cluster);
 
                         // Remove possible appearance in PLOG list.
-                        auto found = std::find(PLOGs.begin(), PLOGs.end(), neigh.Cluster);
-                        if (found != PLOGs.end()) {
-                            *found = PLOGs[PLOGs.size() - 1];
-                            PLOGs.pop_back();
-                        }
+                        PLOGs.erase(neigh.Cluster);
 
                         Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     }
@@ -64,7 +60,7 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
             else {
                 auto lol = neighClusters[0];
                 mergeDest = lol.Representative.toIndexOfTotal(Parent->totalSize());
-                bool lolIsPlog = std::find(PLOGs.begin(), PLOGs.end(), lol.Cluster) != PLOGs.end();
+                auto lolIsPlog = PLOGs.find(lol.Cluster);
                 for (auto neigh = ++neighClusters.begin(); neigh != neighClusters.end(); ++neigh) {
                     LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
                     Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
@@ -72,21 +68,12 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                     LOLs.extendCluster(lol.Cluster, volume);
 
                     // Remove possible appearance in PLOG list.
-                    auto found = std::find(PLOGs.begin(), PLOGs.end(), neigh->Cluster);
-                    if (found != PLOGs.end()) {
-                        if (!lolIsPlog) {
-                            *found = lol.Cluster;
-                            lolIsPlog = true;
-                        } else {
-                            *found = PLOGs[PLOGs.size() - 1];
-                            PLOGs.pop_back();
-                        }
-                    }
+                    if (PLOGs.erase(neigh->Cluster) > 0)  // Erased an element.
+                        PLOGs.insert(lol.Cluster);
                 }
             }
             vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());
             return mergeDest;
-            break;
     }
 }
 
@@ -105,7 +92,7 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
         // New LOL that is directly marked as PLOG.
         case 0: {
             ClusterID plog = LOLs.addCluster(pos, volume);
-            PLOGs.push_back(plog);
+            PLOGs.insert(plog);
             return plog;
         }
 
@@ -120,8 +107,7 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
                 LOLs.extendCluster(neigh.Cluster, volume);
 
                 // Mark as PLOG iff it isn't already. Make this the new representative.
-                if (std::find(PLOGs.begin(), PLOGs.end(), neigh.Cluster) == PLOGs.end()) {
-                    PLOGs.push_back(neigh.Cluster);
+                if (PLOGs.insert(neigh.Cluster).second) {
                     // Make this position the cluster representative.
                     ID* lolRep = Parent->PointerBlock.getPointer(neigh.Representative);
                     *lolRep = pos;

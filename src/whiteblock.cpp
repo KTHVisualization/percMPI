@@ -80,10 +80,23 @@ ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     return nullptr;
 }
 
+ID* WhiteBlock::setID(const vec3i& idx, ID& id) {
+    // One might want to do this more cleverly, especialy in the sheet tree.
+    ID* ptr;
+    if (LOLSubBlock->contains(idx)) ptr = LOLSubBlock->PointerBlock.getPointer(idx);
+    for (auto& log : LOGSubBlocks)
+        if (log.contains(idx)) ptr = log.PointerBlock.getPointer(idx);
+
+    *ptr = id;
+
+    assert(ptr && "Can not find block containing this idx.");
+    return ptr;
+}
+
 // Sketch.
 void WhiteBlock::receiveData() {
     /*  TODO: [ ] Receive merge sets
-     *          [x]    Merge locally :tick:
+     *          [x]    Merge locally
      */
     std::vector<std::vector<ClusterMerge>> merges = {LOGs.Merges};
     auto graphs = ClusterMerge::mergeClustersFromLists(merges);

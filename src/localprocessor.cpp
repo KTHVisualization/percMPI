@@ -63,7 +63,11 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                 auto lolIsPlog = PLOGs.find(lol.Cluster);
                 for (auto neigh = ++neighClusters.begin(); neigh != neighClusters.end(); ++neigh) {
                     LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
-                    Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
+                    if (Parent->PointerBlock.contains(neigh->Representative))
+                        Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
+                    else
+                        Parent->Parent.setID(neigh->Representative, mergeDest);
+
                     // Extend by the volume of the voxel that has caused the merge
                     LOLs.extendCluster(lol.Cluster, volume);
 

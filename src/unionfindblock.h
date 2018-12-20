@@ -9,6 +9,7 @@ class UnionFindBlock {
 public:
     virtual void doWatershed(const double minVal) = 0;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) = 0;
+    virtual ID* setID(const vec3i& idx, ID& id) = 0;
     virtual void receiveData() = 0;
     virtual void sendData() = 0;
     virtual ind numClusters() = 0;

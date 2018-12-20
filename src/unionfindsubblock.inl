@@ -18,6 +18,7 @@ UnionFindSubBlock<ClusterProcessor>::UnionFindSubBlock(const vec3i& size, const 
 
     NeighborCache.reserve(6);
     NeighborProcessor.setParent(this);
+    std::cout << "New block " << offset << " - " << offset + size << std::endl;
 }
 
 template <typename ClusterProcessor>
@@ -48,7 +49,11 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
                 if (neighIdx[dim] < 0 || neighIdx[dim] >= Data->BlockSize[dim]) continue;
 
                 vec3i neighRep;
-                ClusterID* neighCluster = Parent.findClusterID(neighIdx, neighRep);
+                ClusterID* neighCluster;
+                if (contains(neighIdx))
+                    neighCluster = findClusterID(neighIdx, neighRep);
+                else
+                    neighCluster = Parent.findClusterID(neighIdx, neighRep);
 
                 if (neighCluster) {
                     bool addCluster = true;

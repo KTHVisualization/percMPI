@@ -35,8 +35,7 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     vec3i max = blockOffset + blockSize;
 
     // Create 3 red slices: one left, two right.
-    min[0]++;
-    max[0] -= 2;
+    max[0] -= sliceSize.x * 2;
 
     LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
         max - min, min, totalSize, *this, LocalLocalProcessor(LOLs, LOGs, RefPLOGs));

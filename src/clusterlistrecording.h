@@ -28,6 +28,7 @@ public:
     void addClusters(ind numNewClusters);
     ClusterID addCluster();
     ClusterID addCluster(VertexID id, double volume, void* parentBlock);
+    VertexID getRepresentative(ClusterID cluster) { return Clusters.getCluster(cluster).Index; }
     VertexID setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
                                void* parentBlock = nullptr);
     void removeCluster(ClusterID cluster) { Clusters.removeCluster(cluster); }

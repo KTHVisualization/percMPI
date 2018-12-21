@@ -1,4 +1,5 @@
 #include "greenblock.h"
+#include "performancetimer.h"
 
 namespace perc {
 
@@ -8,6 +9,8 @@ GreenBlock::GreenBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     int numBlocks = 1;
     float fraction = 1.0 / numBlocks;
     vec3i subBlocksize = vec3i(ind(blockSize.x * fraction), blockSize.y, blockSize.z);
+
+    GOGSubBlocks.reserve(numBlocks);
 
     for (int i = 0; i < numBlocks; i++) {
         auto newGOGBlock = new UnionFindSubBlock<GlobalProcessor>(
@@ -28,8 +31,14 @@ void GreenBlock::doWatershed(const double minVal) {
 
     // Merges have only been recorded
     // TODO: Include received merges here
+    // PerformanceTimer timer;
+    // timer.Reset();
+    // std::cout << "Merge ";
+
     std::vector<ind> connComps =
         ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists({GOGs.Merges}));
+
+    // std::cout << "took " << timer.ElapsedTimeAndReset() << " seconds." << std::endl;
 
     // Do the representatives merge and repointering first
     for (auto it = connComps.begin(); it != connComps.end(); ++it) {

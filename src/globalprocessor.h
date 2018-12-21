@@ -10,8 +10,7 @@ class UnionFindSubBlock;
 
 struct GlobalProcessor {
 
-    GlobalProcessor(ClusterListRecording<ClusterListMultiple>& gogs)
-        : GOGs(gogs), Parent(nullptr) {}
+    GlobalProcessor(ClusterListRecordingMultiple& gogs) : GOGs(gogs), Parent(nullptr) {}
 
     ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters);
 
@@ -19,7 +18,7 @@ struct GlobalProcessor {
 
 private:
     UnionFindSubBlock<GlobalProcessor>* Parent;
-    ClusterListRecording<ClusterListMultiple>& GOGs;
+    ClusterListRecordingMultiple& GOGs;
 };
 
 }  // namespace perc

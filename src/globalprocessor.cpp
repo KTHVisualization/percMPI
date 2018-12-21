@@ -45,13 +45,21 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
             for (Neighbor& neigh : neighClusters) {
                 // Don't merge gog onto itself.
                 if (neigh.Cluster == gog.Cluster) continue;
+                /*const std::vector<GOG>& reps = GOGs.getRepresentatives(neigh.Cluster);
+                // Directly point representativevs to the cluster to avoid duplicate merges
+                for (auto rep : reps) {
+                    UnionFindSubBlock<GlobalProcessor>* blockParent =
+                        reinterpret_cast<UnionFindSubBlock<GlobalProcessor>*>(rep.ParentBlock);
+                    blockParent->PointerBlock.setPointer(
+                        vec3i::fromIndexOfTotal(rep.ID.baseID(), Parent->totalSize()), gog.Cluster);
+                }*/
                 GOGs.mergeClusters(neigh.Cluster, gog.Cluster);
             }
 
             // Check if we need to be a representative of cluster we are merging onto, see extend
             // case
             // TODO: The cluster we are merging from might already have reps in this block?
-            if (!Parent->contains(gog.Representative)) {
+            if (!(Parent->contains(gog.Representative))) {
                 // Will either be us or the representative in the parent block
                 VertexID rep = GOGs.setRepresentative(gog.Cluster, pos, false, Parent);
                 // We are the new rep for the block, point to cluster directly
@@ -64,7 +72,7 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
                 }
             }
 
-            gog.Representative.toIndexOfTotal(Parent->totalSize());
+            return gog.Representative.toIndexOfTotal(Parent->totalSize());
         }
     }
 }

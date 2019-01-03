@@ -46,7 +46,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
             for (int sign = -1; sign <= 1; sign += 2) {
                 vec3i neighIdx = globIdx;
                 neighIdx[dim] += sign;
-                if (neighIdx[dim] < 0 || neighIdx[dim] >= Data->BlockSize[dim]) continue;
+                if (neighIdx[dim] < 0 || neighIdx[dim] >= Data->TotalSize[dim]) continue;
 
                 vec3i neighRep;
                 ClusterID* neighCluster;

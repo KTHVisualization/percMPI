@@ -60,15 +60,17 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
             else {
                 auto lol = neighClusters[0];
                 mergeDest = lol.Representative.toIndexOfTotal(Parent->totalSize());
+
                 // Extend by the volume of the voxel that has caused the merge
                 LOLs.extendCluster(lol.Cluster, volume);
-                auto lolIsPlog = PLOGs.find(lol.Cluster);
+
                 for (auto neigh = ++neighClusters.begin(); neigh != neighClusters.end(); ++neigh) {
                     LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
                     if (Parent->PointerBlock.contains(neigh->Representative))
                         Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
                     else
                         Parent->Parent.setID(neigh->Representative, mergeDest);
+
                     // Remove possible appearance in PLOG list.
                     if (PLOGs.erase(neigh->Cluster) > 0)  // Erased an element.
                         PLOGs.insert(lol.Cluster);
@@ -111,8 +113,7 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
                 // Mark as PLOG iff it isn't already. Make this the new representative.
                 if (PLOGs.insert(neigh.Cluster).second) {
                     // Make this position the cluster representative.
-                    ID* lolRep = Parent->PointerBlock.getPointer(neigh.Representative);
-                    *lolRep = pos;
+                    Parent->Parent.setID(neigh.Representative, pos);
                     LOLs.setRepresentative(neigh.Cluster, pos);
                     return neigh.Cluster;
                 } else
@@ -137,6 +138,7 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
                         LOGs.mergeClusters(neigh.Cluster, log->Cluster);
                     } else {  // Merge LOL->LOG.
                         LOGs.extendCluster(log->Cluster, LOLs.getClusterVolume(neigh.Cluster));
+                        PLOGs.erase(neigh.Cluster);
                         LOLs.removeCluster(neigh.Cluster);
                         Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     }
@@ -146,14 +148,16 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
             // No global cluster.
             else {
                 auto lol = neighClusters[0];
+                PLOGs.insert(lol.Cluster);
                 mergeDest = lol.Representative.toIndexOfTotal(Parent->totalSize());
                 // Extend by the volume of the voxel that has caused the merge
                 LOLs.extendCluster(lol.Cluster, volume);
                 for (auto neigh = neighClusters.begin() + 1; neigh != neighClusters.end();
                      ++neigh) {
 
+                    PLOGs.erase(neigh->Cluster);
                     LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
-                    Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
+                    Parent->Parent.setID(neigh->Representative, mergeDest);
                 }
             }
             vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());

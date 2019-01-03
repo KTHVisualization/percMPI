@@ -56,7 +56,7 @@ private:
 
 inline VertexID ClusterList::setRepresentative(ClusterID cluster, VertexID newID, bool replace,
                                                void*) {
-    assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
+    assert(std::find(Holes.begin(), Holes.end(), cluster) == Holes.end() &&
            "Trying to access non-existent cluster.");
     if (replace) {
         Indices[cluster.localID()] = newID;

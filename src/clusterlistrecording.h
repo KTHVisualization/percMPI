@@ -22,7 +22,9 @@ struct ClusterMerge {
 template <typename CL>
 class ClusterListRecording {
 public:
-    ClusterListRecording(ind size = 100) : Clusters(size), Merges() { Merges.reserve(20); }
+    ClusterListRecording(bool isLocal = false, ind size = 100) : Clusters(isLocal, size), Merges() {
+        Merges.reserve(20);
+    }
 
     double getClusterVolume(ClusterID cluster) { return Clusters.getClusterVolume(cluster); }
     void addClusters(ind numNewClusters);

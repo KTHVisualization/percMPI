@@ -22,16 +22,13 @@ struct GOG {
 
 class ClusterListMultiple {
 public:
-    ClusterListMultiple(ind size = 100) : TotalVolume(0), MaxVolume(0) {
+    ClusterListMultiple(bool isLocal = true, ind size = 100)
+        : TotalVolume(0), MaxVolume(0), IsLocal(isLocal) {
         IndicesPerCluster.reserve(100);
         Volumes.reserve(100);
     }
 
-    double getClusterVolume(ClusterID cluster) {
-        assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
-               "Trying to access non-existent cluster.");
-        return Volumes[cluster.localID()];
-    }
+    double getClusterVolume(ClusterID cluster);
 
     const std::vector<GOG> getRepresentatives(ClusterID cluster);
     VertexID setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
@@ -50,24 +47,36 @@ public:
     double totalVolume() { return TotalVolume; }
     double maxVolume() { return MaxVolume; }
 
+protected:
+    void checkCluster(ClusterID cluster);
+
 private:
     std::vector<std::vector<GOG>> IndicesPerCluster;
     std::vector<double> Volumes;
     std::vector<size_t> Holes;
     double TotalVolume;
     double MaxVolume;
+    const bool IsLocal;
 };
 
 // ========= Inline Definitions ========= //
 
+inline double ClusterListMultiple::getClusterVolume(ClusterID cluster) {
+    checkCluster(cluster);
+
+    return Volumes[cluster.localID()];
+}
+
 inline const std::vector<GOG> ClusterListMultiple::getRepresentatives(ClusterID cluster) {
+    checkCluster(cluster);
+
     return IndicesPerCluster[cluster.localID()];
 }
 
 inline VertexID ClusterListMultiple::setRepresentative(ClusterID cluster, VertexID newID,
                                                        bool replace, void* parentBlock) {
-    assert(std::find(Holes.begin(), Holes.end(), cluster) != Holes.end() &&
-           "Trying to access non-existent cluster.");
+    checkCluster(cluster);
+
     assert(parentBlock && "No parent given.");
     GOG newRep = {newID, parentBlock};
     auto& GOGs = IndicesPerCluster[cluster.localID()];
@@ -87,6 +96,9 @@ inline VertexID ClusterListMultiple::setRepresentative(ClusterID cluster, Vertex
 
 inline const std::vector<VertexID> ClusterListMultiple::mergeRepresentatives(ClusterID from,
                                                                              ClusterID onto) {
+    checkCluster(from);
+    checkCluster(onto);
+
     ind locFrom = from.localID();
     ind locOnto = onto.localID();
     auto& ontoIDs = IndicesPerCluster[locOnto];
@@ -145,17 +157,19 @@ inline ClusterID ClusterListMultiple::addCluster(VertexID id, double volume, voi
     if (Holes.empty()) {
         IndicesPerCluster.push_back(std::move(newGOG));
         Volumes.push_back(volume);
-        return ClusterID(IndicesPerCluster.size() - 1);
+        return ClusterID(IndicesPerCluster.size() - 1, IsLocal);
     } else {
         size_t holeIdx = Holes.back();
         Holes.pop_back();
         IndicesPerCluster[holeIdx] = std::move(newGOG);
         Volumes[holeIdx] = volume;
-        return ClusterID(holeIdx);
+        return ClusterID(holeIdx, IsLocal);
     }
 }
 
 inline void ClusterListMultiple::removeCluster(ClusterID cluster) {
+    checkCluster(cluster);
+
     ind locID = cluster.localID();
     if (locID == IndicesPerCluster.size() - 1) {
         IndicesPerCluster.pop_back();
@@ -166,6 +180,9 @@ inline void ClusterListMultiple::removeCluster(ClusterID cluster) {
 }
 
 inline void ClusterListMultiple::mergeClusters(ClusterID from, ClusterID onto) {
+    checkCluster(from);
+    checkCluster(onto);
+
     ind locFrom = from.localID();
     ind locOnto = onto.localID();
 
@@ -178,6 +195,8 @@ inline void ClusterListMultiple::mergeClusters(ClusterID from, ClusterID onto) {
 }
 
 inline void ClusterListMultiple::extendCluster(ClusterID id, double volume, void* parentBlock) {
+    checkCluster(id);
+
     Volumes[id.localID()] += volume;
     TotalVolume += volume;
     if (Volumes[id.localID()] > MaxVolume) {
@@ -190,6 +209,12 @@ inline void ClusterListMultiple::clearVolumes() {
     std::fill(Volumes.data(), Volumes.data() + Volumes.size(), 0);
     TotalVolume = 0;
     MaxVolume = 0;
+}
+
+inline void ClusterListMultiple::checkCluster(ClusterID cluster) {
+    assert(std::find(Holes.begin(), Holes.end(), cluster) == Holes.end() &&
+           "Trying to access non-existent cluster.");
+    assert(cluster.isGlobal() != IsLocal && "Local/global ID disagreement.");
 }
 
 }  // namespace perc

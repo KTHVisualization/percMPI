@@ -3,6 +3,9 @@
 
 namespace perc {
 
+constexpr bool LOCAL_LIST = true;
+constexpr bool GLOBAL_LIST = false;
+
 struct ClusterID;
 struct VertexID;
 

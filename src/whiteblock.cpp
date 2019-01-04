@@ -6,7 +6,7 @@ namespace perc {
 #ifndef TEST_LOCAL
 
 WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
-    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash) {
+    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash), LOLs(LOCAL_LIST), LOGs(GLOBAL_LIST) {
     // TODO: Load subblocks into data
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
@@ -30,7 +30,7 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
 #else
 
 WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
-    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash) {
+    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash), LOLs(LOCAL_LIST), LOGs(GLOBAL_LIST) {
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
 
@@ -82,11 +82,12 @@ ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
 
 ID* WhiteBlock::setID(const vec3i& idx, ID& id) {
     // One might want to do this more cleverly, especialy in the sheet tree.
-    ID* ptr;
+    ID* ptr = nullptr;
     if (LOLSubBlock->contains(idx)) ptr = LOLSubBlock->PointerBlock.getPointer(idx);
     for (auto& log : LOGSubBlocks)
         if (log.contains(idx)) ptr = log.PointerBlock.getPointer(idx);
 
+    assert(ptr && "Can not find block containing this idx.");
     *ptr = id;
 
     assert(ptr && "Can not find block containing this idx.");
@@ -120,11 +121,10 @@ void WhiteBlock::receiveData() {
         for (auto& log : LOGSubBlocks) {
             vec3i cPos = vec3i::fromIndexOfTotal(c.Index.RawID, TotalSize);
             ClusterID newID = LOGs.addCluster();
-            if (log.contains(cPos)) {
-                *log.PointerBlock.getPointer(cPos) = newID;
-                break;
-            }
-        }
+
+        // Search for red subblock containing this PLOG.
+        setID(cPos, newID);
+    }
     }
     LOGs.addClusters(numNewLOGs - startOfLocalPlog - CommPLOGs.size());
 
@@ -140,7 +140,7 @@ void WhiteBlock::sendData() {
     CommPLOGs.clear();
 
     for (ClusterID plog : RefPLOGs) {
-        Cluster c = LOGs.getCluster(plog);
+        Cluster c = LOLs.getCluster(plog);
         CommPLOGs.emplace_back(c.Index, c.Volume);
         LOLs.removeCluster(plog);
     }

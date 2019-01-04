@@ -3,7 +3,8 @@
 
 namespace perc {
 
-GreenBlock::GreenBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize) {
+GreenBlock::GreenBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
+    : GOGs(LOCAL_LIST) {
 
     // TODO: Actually load green blocks in correct locations, and set up number of red blocks
     int numBlocks = 1;

@@ -16,14 +16,14 @@
         {
             "taskName": "CMake & make & run",
             "args": [
-                "mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000"
+                "mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000"
             ],
             "isBuildCommand": true
         },
         {
             "taskName": "cmake",
             "args": [
-                "mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug .."
+                "mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG' .."
             ]
         },
         {
@@ -36,14 +36,14 @@
         {
             "taskName": "CMake Test & make & run",
             "args": [
-                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-DTEST' .. && echo Testing MPIVectors && make -j 8; mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000"
+                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DTEST' .. && echo Testing MPIVectors && make -j 8; mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000"
             ],
             "isBuildCommand": true
         },
         {
             "taskName": "CMake Test Communication & make & run",
             "args": [
-                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-DTEST' .. && echo Testing MPIVectors && make -j 8; mpirun -np 2 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 97 97 500"
+                "mkdir -p buildtest; cd buildtest; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DTEST' .. && echo Testing MPIVectors && make -j 8; mpirun -np 2 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 97 97 500"
             ],
             "isBuildCommand": true
         },

@@ -11,6 +11,7 @@
 #include "mpicommuncation.h"
 #include "performancetimer.h"
 #include "whiteblock.h"
+#include "greenblock.h"
 #include "clusterlistrecording.h"
 
 using namespace perc;
@@ -144,6 +145,8 @@ int main(int argc, char** argv) {
     vec3i blockOffset = blockSize * idxNode;
     blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
+    // blockSize = {102, 102, 102};
+
     // Print status
     std::cout << "Processor " << currProcess << ", index " << idxNode << ", size " << blockSize
               << std::endl;
@@ -153,6 +156,7 @@ int main(int argc, char** argv) {
     float timeElapsed;
 
     WhiteBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
+    // GreenBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
 
     timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
@@ -161,8 +165,8 @@ int main(int argc, char** argv) {
     float hMin = 0.0;
     float hMax = 2;
     assert(hMax > hMin && "HMax needs to be larger than hMin.");
-    float hSamples = 10000;
-    float hStep = (hMax - hMin) / hSamples;
+    int hSamples = 10000;
+    float hStep = (hMax - hMin) / (hSamples - 1);
 
     // Keep track of threshold h, number of components, volume largest component, volume total
     std::vector<float> h;
@@ -174,9 +178,7 @@ int main(int argc, char** argv) {
     std::vector<float> totalVolumes;
     totalVolumes.reserve(hSamples);
 
-    // localBlockDoingAllTheStuff.doWatershed(1.99956);
-
-    for (float currentH = hMax; currentH >= hMin; currentH -= hStep) {
+    for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
         localBlockDoingAllTheStuff.doWatershed(currentH);
 
         if (currentH != hMax) {  // No communication before first run.
@@ -210,7 +212,7 @@ int main(int argc, char** argv) {
                     "Number of connected components / Maximum number of connected components;  "
                     "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
                  << std::endl;
-        for (int line = 0; line < hSamples; line++) {
+        for (int line = 0; line < h.size(); line++) {
             percFile << h[line] << ";" << float(numClusters[line]) << ";" << float(maxClusters)
                      << ";" << float(numClusters[line]) / float(maxClusters) << ";"
                      << maxVolumes[line] << ";" << totalVolumes[line] << ";"

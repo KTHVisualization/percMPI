@@ -1,7 +1,6 @@
 #include "datablock.h"
 #include <algorithm>
 #include <cmath>
-//#include <iostream>
 #include "percolationloader.h"
 
 namespace perc {

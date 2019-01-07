@@ -41,5 +41,11 @@
         "numeric": "cpp",
         "unordered_set": "cpp",
         "stack": "cpp",
+        "cstring": "cpp",
+        "chrono": "cpp",
+        "codecvt": "cpp",
+        "ctime": "cpp",
+        "filesystem": "cpp",
+        "ratio": "cpp",
     }
 }

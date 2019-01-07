@@ -177,8 +177,17 @@ int main(int argc, char** argv) {
     // localBlockDoingAllTheStuff.doWatershed(1.99956);
 
     for (float currentH = hMax; currentH >= hMin; currentH -= hStep) {
-        // std::cout << currentH << std::endl;
         localBlockDoingAllTheStuff.doWatershed(currentH);
+
+        if (currentH != hMax) {  // No communication before first run.
+            localBlockDoingAllTheStuff.sendData();
+            localBlockDoingAllTheStuff.receiveData();
+        }
+        std::cout << currentH << "/ " << hStep << "\t - "
+                  << localBlockDoingAllTheStuff.totalNumClusters() << " g("
+                  << localBlockDoingAllTheStuff.totalNumClusters() -
+                         localBlockDoingAllTheStuff.numClusters()
+                  << ")" << std::endl;
         h.push_back(currentH);
 
         numClusters.push_back(localBlockDoingAllTheStuff.totalNumClusters());

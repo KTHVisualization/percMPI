@@ -58,25 +58,36 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
 
             // No global cluster.
             else {
-                auto lol = neighClusters[0];
-                mergeDest = lol.Representative.toIndexOfTotal(Parent->totalSize());
+                Neighbor& dest = neighClusters[0];
+
+                // PLOG representative must lay in red block, so merge onto PLOG if any.
+                for (auto& plog : neighClusters) {
+                    if (PLOGs.count(plog.Cluster)) {
+                        dest = plog;
+                        break;
+                    }
+                }
+                mergeDest = dest.Representative.toIndexOfTotal(Parent->totalSize());
 
                 // Extend by the volume of the voxel that has caused the merge
-                LOLs.extendCluster(lol.Cluster, volume);
+                LOLs.extendCluster(dest.Cluster, volume);
 
-                for (auto neigh = ++neighClusters.begin(); neigh != neighClusters.end(); ++neigh) {
-                    LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
-                    if (Parent->PointerBlock.contains(neigh->Representative))
-                        Parent->PointerBlock.setPointer(neigh->Representative, mergeDest);
+                for (auto& neigh : neighClusters) {
+
+                    if (neigh.Cluster == dest.Cluster) continue;
+
+                    LOLs.mergeClusters(neigh.Cluster, dest.Cluster);
+                    // Likely shortcut to avoid checking all subblocks.
+                    if (Parent->PointerBlock.contains(neigh.Representative))
+                        Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     else
-                        Parent->Parent.setID(neigh->Representative, mergeDest);
-
+                        Parent->Parent.setID(neigh.Representative, mergeDest);
+                    assert(&dest != &neighClusters[0] ||
+                           !PLOGs.erase(neigh.Cluster) && "Can not merge PLOG onto a LOG.");
                     // Remove possible appearance in PLOG list.
-                    if (PLOGs.erase(neigh->Cluster) > 0)  // Erased an element.
-                        PLOGs.insert(lol.Cluster);
+                    PLOGs.erase(neigh.Cluster);
                 }
             }
-            vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());
             return mergeDest;
     }
 }
@@ -147,20 +158,29 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
 
             // No global cluster.
             else {
-                auto lol = neighClusters[0];
-                PLOGs.insert(lol.Cluster);
-                mergeDest = lol.Representative.toIndexOfTotal(Parent->totalSize());
+                Neighbor* dest = nullptr;
+
+                // PLOG representative must lay in red block, so merge onto PLOG if any.
+                for (auto& plog : neighClusters) {
+                    if (PLOGs.count(plog.Cluster)) {
+                        dest = &plog;
+                        break;
+                    }
+                }
+
+                assert(dest && "No LOG or PLOG neigbor found - impossible at a red merge.");
+                mergeDest = dest->Representative.toIndexOfTotal(Parent->totalSize());
+
                 // Extend by the volume of the voxel that has caused the merge
-                LOLs.extendCluster(lol.Cluster, volume);
-                for (auto neigh = neighClusters.begin() + 1; neigh != neighClusters.end();
-                     ++neigh) {
+                LOLs.extendCluster(dest->Cluster, volume);
+                for (auto neigh = neighClusters.begin(); neigh != neighClusters.end(); ++neigh) {
+                    if (dest->Cluster == neigh->Cluster) continue;
 
                     PLOGs.erase(neigh->Cluster);
-                    LOLs.mergeClusters(neigh->Cluster, lol.Cluster);
+                    LOLs.mergeClusters(neigh->Cluster, dest->Cluster);
                     Parent->Parent.setID(neigh->Representative, mergeDest);
                 }
             }
-            vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());
             return mergeDest;
     }
 }

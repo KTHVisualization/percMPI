@@ -26,7 +26,7 @@ public:
         Merges.reserve(20);
     }
 
-    double getClusterVolume(ClusterID cluster) { return Clusters.getClusterVolume(cluster); }
+    double getClusterVolume(ClusterID cluster) const { return Clusters.getClusterVolume(cluster); }
     void addClusters(ind numNewClusters);
     ClusterID addCluster();
     ClusterID addCluster(VertexID id, double volume, void* parentBlock);
@@ -36,7 +36,7 @@ public:
     void removeCluster(ClusterID cluster) { Clusters.removeCluster(cluster); }
     void mergeClusters(ClusterID from, ClusterID onto);
     void mergeClustersForReal(ClusterID from, ClusterID onto);
-    void mergeClusterFromList(std::vector<ind>& connectedComps);
+    void mergeClusterFromList(const std::vector<ind>& connectedComps);
     void extendCluster(ClusterID id, double volume) { Clusters.extendCluster(id, volume); }
 
     void clearVolumesAndMerges();
@@ -54,7 +54,8 @@ class ClusterListRecordingSingle : public ClusterListRecording<ClusterList> {
     friend class WhiteBlock;
 
 public:
-    ClusterListRecordingSingle(ind size = 100) : ClusterListRecording<ClusterList>(size) {}
+    ClusterListRecordingSingle(bool isLocal = true, ind size = 100)
+        : ClusterListRecording<ClusterList>(isLocal, size) {}
     Cluster getCluster(ClusterID id) { return Clusters.getCluster(id); }
 };
 
@@ -62,8 +63,8 @@ class ClusterListRecordingMultiple : public ClusterListRecording<ClusterListMult
     friend class GreenBlock;
 
 public:
-    ClusterListRecordingMultiple(ind size = 100)
-        : ClusterListRecording<ClusterListMultiple>(size) {}
+    ClusterListRecordingMultiple(bool isLocal = true, ind size = 100)
+        : ClusterListRecording<ClusterListMultiple>(isLocal, size) {}
 
     const std::vector<GOG> getRepresentatives(ClusterID cluster) {
         return Clusters.getRepresentatives(cluster);
@@ -86,7 +87,7 @@ inline void ClusterListRecording<CL>::mergeClustersForReal(ClusterID from, Clust
 }
 
 template <typename CL>
-inline void ClusterListRecording<CL>::mergeClusterFromList(std::vector<ind>& connComps) {
+inline void ClusterListRecording<CL>::mergeClusterFromList(const std::vector<ind>& connComps) {
 
     for (auto it = connComps.begin(); it != connComps.end(); ++it) {
         ind compSize = *it;

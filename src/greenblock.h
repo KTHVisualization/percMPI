@@ -16,7 +16,7 @@ public:
 
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
-    virtual ID* setID(const vec3i& idx, ID& id) override { return nullptr; }
+    virtual ID* setID(const vec3i& idx, const ID& id) override { return nullptr; }
 
     // Sketch.
     virtual void receiveData() override;

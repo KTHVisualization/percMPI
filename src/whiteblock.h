@@ -16,7 +16,8 @@ public:
 
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
-    virtual ID* setID(const vec3i& idx, ID& id) override;
+    virtual ID* setID(const vec3i& idx, const ID& id) override;
+    using UnionFindBlock::setID;
 
     // Sketch.
     virtual void receiveData() override;
@@ -45,8 +46,6 @@ private:
     std::unordered_set<ClusterID, ClusterID::hash_type> RefPLOGs;
     // List of PLOGS that will be used for sending and receiving data.
     std::vector<ClusterData> CommPLOGs;
-
-    const vec3i TotalSize;
 };
 
 }  // namespace perc

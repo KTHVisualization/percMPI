@@ -38,7 +38,6 @@ struct ClusterID : public ID {
             RawID = RawID | GLOBAL_FLAG;
         }
     }
-    ClusterID() : ID() {}
 
     bool isGlobal() const { return RawID & GLOBAL_FLAG; }
     ind localID() const { return baseID() & ~GLOBAL_FLAG; }

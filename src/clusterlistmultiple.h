@@ -28,7 +28,7 @@ public:
         Volumes.reserve(100);
     }
 
-    double getClusterVolume(ClusterID cluster);
+    double getClusterVolume(ClusterID cluster) const;
 
     const std::vector<GOG> getRepresentatives(ClusterID cluster);
     VertexID setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
@@ -48,7 +48,7 @@ public:
     double maxVolume() { return MaxVolume; }
 
 protected:
-    void checkCluster(ClusterID cluster);
+    void checkCluster(ClusterID cluster) const;
 
 private:
     std::vector<std::vector<GOG>> IndicesPerCluster;
@@ -61,7 +61,7 @@ private:
 
 // ========= Inline Definitions ========= //
 
-inline double ClusterListMultiple::getClusterVolume(ClusterID cluster) {
+inline double ClusterListMultiple::getClusterVolume(ClusterID cluster) const {
     checkCluster(cluster);
 
     return Volumes[cluster.localID()];
@@ -211,7 +211,7 @@ inline void ClusterListMultiple::clearVolumes() {
     MaxVolume = 0;
 }
 
-inline void ClusterListMultiple::checkCluster(ClusterID cluster) {
+inline void ClusterListMultiple::checkCluster(ClusterID cluster) const {
     assert(std::find(Holes.begin(), Holes.end(), cluster) == Holes.end() &&
            "Trying to access non-existent cluster.");
     assert(cluster.isGlobal() != IsLocal && "Local/global ID disagreement.");

@@ -6,7 +6,10 @@ namespace perc {
 #ifndef TEST_LOCAL
 
 WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
-    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash), LOLs(LOCAL_LIST), LOGs(GLOBAL_LIST) {
+    : UnionFindBlock(totalSize)
+    , RefPLOGs(10000, &ClusterID::hash)
+    , LOLs(LOCAL_LIST)
+    , LOGs(GLOBAL_LIST) {
     // TODO: Load subblocks into data
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
@@ -30,14 +33,17 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
 #else
 
 WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
-    : TotalSize(totalSize), RefPLOGs(10000, &ClusterID::hash), LOLs(LOCAL_LIST), LOGs(GLOBAL_LIST) {
+    : UnionFindBlock(totalSize)
+    , RefPLOGs(10000, &ClusterID::hash)
+    , LOLs(LOCAL_LIST)
+    , LOGs(GLOBAL_LIST) {
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
 
     // Create 3 red slices: one left, two right.
-    vec3i sliceSize = vec3i(50, blockSize.y, blockSize.z);
-    min[0] += sliceSize.x;
-    max[0] -= sliceSize.x * 2;
+    vec3i sliceSize = vec3i(blockSize.x, blockSize.y, 10);
+    min[2] += sliceSize.z;
+    max[2] -= sliceSize.z * 2;
 
     LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
         max - min, min, totalSize, *this, LocalLocalProcessor(LOLs, LOGs, RefPLOGs));
@@ -51,10 +57,10 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
                               LocalGlobalProcessor(LOLs, LOGs, RefPLOGs), MemoryLOG);
 
     // Two slices right.
-    LOGSubBlocks.emplace_back(sliceSize, vec3i(max.x, 0, 0), totalSize, *this,
+    LOGSubBlocks.emplace_back(sliceSize, vec3i(0, 0, max.z), totalSize, *this,
                               LocalGlobalProcessor(LOLs, LOGs, RefPLOGs),
                               MemoryLOG + sliceSize.prod());
-    LOGSubBlocks.emplace_back(sliceSize, vec3i(max.x + sliceSize.x, 0, 0), totalSize, *this,
+    LOGSubBlocks.emplace_back(sliceSize, vec3i(0, 0, max.z + sliceSize.z), totalSize, *this,
                               LocalGlobalProcessor(LOLs, LOGs, RefPLOGs),
                               MemoryLOG + 2 * sliceSize.prod());
     for (auto& red : LOGSubBlocks) red.loadData();
@@ -80,7 +86,7 @@ ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     return nullptr;
 }
 
-ID* WhiteBlock::setID(const vec3i& idx, ID& id) {
+ID* WhiteBlock::setID(const vec3i& idx, const ID& id) {
     // One might want to do this more cleverly, especialy in the sheet tree.
     ID* ptr = nullptr;
     if (LOLSubBlock->contains(idx)) ptr = LOLSubBlock->PointerBlock.getPointer(idx);
@@ -90,7 +96,6 @@ ID* WhiteBlock::setID(const vec3i& idx, ID& id) {
     assert(ptr && "Can not find block containing this idx.");
     *ptr = id;
 
-    assert(ptr && "Can not find block containing this idx.");
     return ptr;
 }
 
@@ -109,8 +114,8 @@ void WhiteBlock::receiveData() {
      *        [x] Go through CommPLOGS:
      *          [x] Add the representative to the respective LOG (Reveive where my PLOGS are)
      */
-    ind numNewLOGs = RefPLOGs.size();  // TODO: Change to MPI recv.
-    ind startOfLocalPlog = 0;          // TODO: Change to MPI recv.
+    ind numNewLOGs = CommPLOGs.size();  // TODO: Change to MPI recv.
+    ind startOfLocalPlog = 0;           // TODO: Change to MPI recv.
 
     // Add some incognito clusters of other compute nodes.
     LOGs.addClusters(startOfLocalPlog);

@@ -126,16 +126,15 @@ void WhiteBlock::receiveData() {
 
     // For each PLOG, add a new cluster and reference it.
     for (ClusterData& c : CommPLOGs) {
-        // Search for green subblock containing this PLOG.
-        for (auto& log : LOGSubBlocks) {
-            vec3i cPos = vec3i::fromIndexOfTotal(c.Index.RawID, TotalSize);
-            ClusterID newID = LOGs.addCluster();
+        vec3i cPos = vec3i::fromIndexOfTotal(c.Index.RawID, TotalSize);
+        ClusterID newID = LOGs.addCluster();
 
-        // Search for red subblock containing this PLOG.
         setID(cPos, newID);
-    }
+        LOGs.setRepresentative(newID, c.Index);
     }
     LOGs.addClusters(numNewLOGs - startOfLocalPlog - CommPLOGs.size());
+    LOGs.clearVolumesAndMerges();
+    CommPLOGs.clear();
 
     checkConsistency();
 }
@@ -150,6 +149,7 @@ void WhiteBlock::sendData() {
      *          [ ] Send over CommPLOGs
      */
     CommPLOGs.clear();
+    CommPLOGs.reserve(RefPLOGs.size());
 
     for (ClusterID plog : RefPLOGs) {
         Cluster c = LOLs.getCluster(plog);

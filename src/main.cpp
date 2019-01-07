@@ -102,7 +102,6 @@ int main(int argc, char** argv) {
 
 #ifdef TEST
 
-    // testingMPIVectors();
     testClusterMerges();
 
 #else
@@ -181,9 +180,10 @@ int main(int argc, char** argv) {
         // std::cout << currentH << std::endl;
         localBlockDoingAllTheStuff.doWatershed(currentH);
         h.push_back(currentH);
-        numClusters.push_back(localBlockDoingAllTheStuff.numClusters());
-        maxVolumes.push_back(localBlockDoingAllTheStuff.maxVolume());
-        totalVolumes.push_back(localBlockDoingAllTheStuff.totalVolume());
+
+        numClusters.push_back(localBlockDoingAllTheStuff.totalNumClusters());
+        maxVolumes.push_back(localBlockDoingAllTheStuff.totalMaxVolume());
+        totalVolumes.push_back(localBlockDoingAllTheStuff.totalTotalVolume());
     }
 
     timeElapsed = timer.ElapsedTimeAndReset();

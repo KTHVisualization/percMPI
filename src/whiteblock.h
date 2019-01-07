@@ -23,8 +23,15 @@ public:
     virtual void receiveData() override;
     virtual void sendData() override;
     virtual ind numClusters() override { return LOLs.numClusters(); }
+    ind totalNumClusters() {
+        if (LOLs.numClusters() + LOGs.numClusters() < 0)
+            std::cout << "WTF? " << LOLs.numClusters() << " + " << LOGs.numClusters() << std::endl;
+        return LOLs.numClusters() + LOGs.numClusters();
+    }
     virtual double totalVolume() override { return LOLs.totalVolume(); }
+    double totalTotalVolume() { return LOLs.totalVolume() + LOGs.totalVolume(); }
     virtual double maxVolume() override { return LOLs.maxVolume(); }
+    double totalMaxVolume() { return std::max(LOLs.maxVolume(), LOGs.maxVolume()); }
 
     void checkConsistency() const;
 

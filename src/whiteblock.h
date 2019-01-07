@@ -35,6 +35,8 @@ public:
 
     void checkConsistency() const;
 
+protected:
+    void repointerMultipleMerges(const std::vector<ind>& connComps);
 
 private:
     // The local local part for this block

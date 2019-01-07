@@ -109,6 +109,8 @@ void WhiteBlock::receiveData() {
     std::vector<std::vector<ClusterMerge>> merges = {LOGs.Merges};
     auto graphs = ClusterMerge::mergeClustersFromLists(merges);
     auto listAsItWouldArriveFromGreenBlock = ClusterMerge::mergeClusterAsList(graphs);
+    // First change pointers, then merge (cluster representative information is lost on merge).
+    repointerMultipleMerges(listAsItWouldArriveFromGreenBlock);
     LOGs.mergeClusterFromList(listAsItWouldArriveFromGreenBlock);
 
     /*  TODO: [ ] Receive numNewLOGs and startOfLocalPLOGs
@@ -137,6 +139,7 @@ void WhiteBlock::receiveData() {
 
     checkConsistency();
 }
+
 void WhiteBlock::sendData() {
     checkConsistency();
 
@@ -154,6 +157,19 @@ void WhiteBlock::sendData() {
         LOLs.removeCluster(plog);
     }
     RefPLOGs.clear();
+}
+
+void WhiteBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
+    for (auto it = connComps.begin(); it != connComps.end(); ++it) {
+        ind compSize = *it;
+        ind ontoCluster = *(++it);
+        for (ind c = 0; c < compSize - 1; ++c) {
+            ClusterID fromCluster = *(++it);
+            VertexID fromRep = LOGs.getCluster(fromCluster).Index;
+            VertexID ontoRep = LOGs.getCluster(ontoCluster).Index;
+            setID(fromRep, ontoRep);
+        }
+    }
 }
 
 void WhiteBlock::checkConsistency() const {

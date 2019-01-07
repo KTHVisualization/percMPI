@@ -26,6 +26,9 @@ public:
     virtual double totalVolume() override { return LOLs.totalVolume(); }
     virtual double maxVolume() override { return LOLs.maxVolume(); }
 
+    void checkConsistency() const;
+
+
 private:
     // The local local part for this block
     UnionFindSubBlock<LocalLocalProcessor>* LOLSubBlock;

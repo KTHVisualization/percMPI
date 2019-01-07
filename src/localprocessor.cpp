@@ -162,8 +162,61 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
             }
             vec3i posIdx = vec3i::fromIndexOfTotal(pos.baseID(), Parent->totalSize());
             return mergeDest;
-            break;
     }
+}
+
+void LocalLocalProcessor::checkConsistency() const {
+#ifndef NDEBUG
+    double totVolume = 0;
+    for (ind i = 0; i < Parent->blockSize().prod(); ++i) {
+        ID curr = Parent->PointerBlock.PointerBlock[i];
+        vec3i currPos = Parent->blockOffset() + vec3i::fromIndexOfTotal(i, Parent->totalSize());
+        VertexID currPosID = currPos.toIndexOfTotal(Parent->totalSize());
+
+        // Was processed yet?
+        if (curr.baseID() >= 0) {
+            totVolume += 1.0;
+            // Iff pointing to cluster directly, assert that LOL and correct back-pointer.
+            if (curr.isCluster()) {
+                ClusterID* currClust = curr.asCluster();
+                assert(!currClust->isGlobal() && "White can not point to LOG directly.");
+                assert(LOLs.getCluster(*currClust).Index == currPosID &&
+                       "Directly pointing non-representative.");
+            }
+        }
+    }
+#endif
+}
+
+void LocalGlobalProcessor::checkConsistency() const {
+#ifndef NDEBUG
+    double totVolume = 0;
+    for (ind i = 0; i < Parent->blockSize().prod(); ++i) {
+        ID curr = Parent->PointerBlock.PointerBlock[i];
+        vec3i currPos = Parent->blockOffset() + vec3i::fromIndexOfTotal(i, Parent->totalSize());
+        VertexID currPosID = currPos.toIndexOfTotal(Parent->totalSize());
+
+        // Was processed yet?
+        if (curr.baseID() >= 0) {
+            totVolume += 1.0;
+            // Iff pointing to cluster directly, assert that LOG/PLOG and correct back-pointer.
+            if (curr.isCluster()) {
+                ClusterID* currClust = curr.asCluster();
+                if (currClust->isGlobal()) {
+                    assert(LOGs.getRepresentative(*currClust).RawID >= 0 &&
+                           "No valid representative set in pointed-to cluster..");
+                    assert(LOGs.getRepresentative(*currClust) == currPosID &&
+                           "Directly pointing non-representative.");
+                } else {
+                    assert(std::find(PLOGs.begin(), PLOGs.end(), *currClust) != PLOGs.end() &&
+                           "Red can not point to LOLs that are not PLOGs.");
+                    assert(LOLs.getCluster(*currClust).Index == currPosID &&
+                           "Directly pointing non-representative.");
+                }
+            }
+        }
+    }
+#endif
 }
 
 }  // namespace perc

@@ -19,6 +19,8 @@ struct LocalLocalProcessor {
 
     void setParent(UnionFindSubBlock<LocalLocalProcessor>* parent);
 
+    void checkConsistency() const;
+
 private:
     UnionFindSubBlock<LocalLocalProcessor>* Parent;
     ClusterList& LOLs;
@@ -36,6 +38,8 @@ struct LocalGlobalProcessor {
     ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters);
 
     void setParent(UnionFindSubBlock<LocalGlobalProcessor>* parent);
+
+    void checkConsistency() const;
 
 private:
     UnionFindSubBlock<LocalGlobalProcessor>* Parent;

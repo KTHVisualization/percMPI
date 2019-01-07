@@ -30,6 +30,8 @@ public:
     const vec3i& blockOffset() { return PointerBlock.BlockOffset; }
     const vec3i& totalSize() { return PointerBlock.TotalSize; }
 
+    void checkConsistency() const;
+
 public:
     DataBlock* Data;
     IDBlock PointerBlock;

@@ -72,6 +72,8 @@ void WhiteBlock::doWatershed(const double minVal) {
     // TODO: for each subblock....
     LOLSubBlock->doWatershed(minVal);
     for (auto& log : LOGSubBlocks) log.doWatershed(minVal);
+
+    checkConsistency();
 }
 
 ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
@@ -133,9 +135,11 @@ void WhiteBlock::receiveData() {
     }
     LOGs.addClusters(numNewLOGs - startOfLocalPlog - CommPLOGs.size());
 
-    CommPLOGs.clear();
+    checkConsistency();
 }
 void WhiteBlock::sendData() {
+    checkConsistency();
+
     /*  TODO: [ ] Fill CommPLOGs:
      *          [x] Move clusters into CommPLOGs
      *          [x] Remove from LOL list, clear RefPLOGs
@@ -150,6 +154,20 @@ void WhiteBlock::sendData() {
         LOLs.removeCluster(plog);
     }
     RefPLOGs.clear();
+}
+
+void WhiteBlock::checkConsistency() const {
+#ifndef NDEBUG
+    LOLSubBlock->checkConsistency();
+    for (auto& log : LOGSubBlocks) log.checkConsistency();
+
+    for (auto& merge : LOGs.Merges) {
+        assert(LOGs.getClusterVolume(merge.From) >= 0 &&
+               "Cluster recorded to merge from does not exist.");
+        assert(LOGs.getClusterVolume(merge.Onto) > 0 &&
+               "Cluster recorded to merge onto does not exist.");
+    }
+#endif
 }
 
 }  // namespace perc

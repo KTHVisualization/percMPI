@@ -16,6 +16,8 @@ struct GlobalProcessor {
 
     void setParent(UnionFindSubBlock<GlobalProcessor>* parent);
 
+    void checkConsistency() const {}
+
 private:
     UnionFindSubBlock<GlobalProcessor>* Parent;
     ClusterListRecordingMultiple& GOGs;

@@ -124,4 +124,11 @@ ClusterID* UnionFindSubBlock<ClusterProcessor>::findClusterID(const vec3i& idx,
     return finalID;
 }
 
+template <typename ClusterProcessor>
+void UnionFindSubBlock<ClusterProcessor>::checkConsistency() const {
+#ifndef NDEBUG
+    NeighborProcessor.checkConsistency();
+#endif
+}
+
 }  // namespace perc

@@ -91,9 +91,15 @@ ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
 ID* WhiteBlock::setID(const vec3i& idx, const ID& id) {
     // One might want to do this more cleverly, especialy in the sheet tree.
     ID* ptr = nullptr;
-    if (LOLSubBlock->contains(idx)) ptr = LOLSubBlock->PointerBlock.getPointer(idx);
-    for (auto& log : LOGSubBlocks)
-        if (log.contains(idx)) ptr = log.PointerBlock.getPointer(idx);
+    if (LOLSubBlock->contains(idx))
+        ptr = LOLSubBlock->PointerBlock.getPointer(idx);
+    else {
+        for (auto& log : LOGSubBlocks)
+            if (log.contains(idx)) {
+                ptr = log.PointerBlock.getPointer(idx);
+                break;
+            }
+    }
 
     assert(ptr && "Can not find block containing this idx.");
     *ptr = id;

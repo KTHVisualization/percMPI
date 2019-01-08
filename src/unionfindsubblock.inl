@@ -38,7 +38,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
     // Watershed until a threshold is reached.
     ind dataIdx = Data->Indices[CurrentWatershedIndex];
     ind finalWaterShedIndex = Data->BlockSize.prod();
-    while (Data->Scalars[dataIdx] >= minVal && CurrentWatershedIndex < finalWaterShedIndex) {
+    while (CurrentWatershedIndex < finalWaterShedIndex && Data->Scalars[dataIdx] >= minVal) {
         // Get cluster ID and representative vertex for each neighbor.
         vec3i globIdx = Data->BlockOffset + vec3i::fromIndexOfTotal(dataIdx, Data->BlockSize);
         NeighborCache.clear();

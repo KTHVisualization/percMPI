@@ -58,8 +58,14 @@ void GreenBlock::doWatershed(const double minVal) {
                  itNew != newRepsFrom.end() && itOld != oldRepsFrom.end(); itOld++, itNew++) {
                 UnionFindSubBlock<GlobalProcessor>* parent =
                     reinterpret_cast<UnionFindSubBlock<GlobalProcessor>*>(itOld->ParentBlock);
-                parent->PointerBlock.setPointer(
-                    vec3i::fromIndexOfTotal(itOld->ID.baseID(), parent->totalSize()), *itNew);
+                // Rep is a new rep for the merged cluter
+                if (*itNew == itOld->ID) {
+                    parent->PointerBlock.setPointer(
+                        vec3i::fromIndexOfTotal(itOld->ID.baseID(), parent->totalSize()), onto);
+                } else {
+                    parent->PointerBlock.setPointer(
+                        vec3i::fromIndexOfTotal(itOld->ID.baseID(), parent->totalSize()), *itNew);
+                }
             }
         }
     }

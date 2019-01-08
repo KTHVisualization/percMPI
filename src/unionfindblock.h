@@ -20,6 +20,8 @@ public:
     virtual double totalVolume() = 0;
     virtual double maxVolume() = 0;
 
+    virtual void checkConsistency() const = 0;
+
     const vec3i TotalSize;
 };
 

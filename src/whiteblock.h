@@ -33,7 +33,7 @@ public:
     virtual double maxVolume() override { return LOLs.maxVolume(); }
     double totalMaxVolume() { return std::max(LOLs.maxVolume(), LOGs.maxVolume()); }
 
-    void checkConsistency() const;
+    void checkConsistency() const override;
 
 protected:
     void repointerMultipleMerges(const std::vector<ind>& connComps);

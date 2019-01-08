@@ -190,7 +190,7 @@ void LocalLocalProcessor::checkConsistency() const {
     double totVolume = 0;
     for (ind i = 0; i < Parent->blockSize().prod(); ++i) {
         ID curr = Parent->PointerBlock.PointerBlock[i];
-        vec3i currPos = Parent->blockOffset() + vec3i::fromIndexOfTotal(i, Parent->totalSize());
+        vec3i currPos = Parent->blockOffset() + vec3i::fromIndexOfTotal(i, Parent->blockSize());
         VertexID currPosID = currPos.toIndexOfTotal(Parent->totalSize());
 
         // Was processed yet?
@@ -213,7 +213,7 @@ void LocalGlobalProcessor::checkConsistency() const {
     double totVolume = 0;
     for (ind i = 0; i < Parent->blockSize().prod(); ++i) {
         ID curr = Parent->PointerBlock.PointerBlock[i];
-        vec3i currPos = Parent->blockOffset() + vec3i::fromIndexOfTotal(i, Parent->totalSize());
+        vec3i currPos = Parent->blockOffset() + vec3i::fromIndexOfTotal(i, Parent->blockSize());
         VertexID currPosID = currPos.toIndexOfTotal(Parent->totalSize());
 
         // Was processed yet?

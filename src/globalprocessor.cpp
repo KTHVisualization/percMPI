@@ -77,4 +77,34 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
     }
 }
 
+void GlobalProcessor::checkConsistency() const {
+#ifndef NDEBUG
+    double totVolume = 0;
+    for (ind i = 0; i < Parent->blockSize().prod(); ++i) {
+        ID curr = Parent->PointerBlock.PointerBlock[i];
+        vec3i currPos = Parent->blockOffset() + vec3i::fromIndexOfTotal(i, Parent->blockSize());
+        VertexID currPosID = currPos.toIndexOfTotal(Parent->totalSize());
+
+        // Was processed yet?
+        if (curr.baseID() >= 0) {
+            totVolume += 1.0;
+            // Iff pointing to cluster directly, assert that LOG/PLOG and correct back-pointer.
+            if (curr.isCluster()) {
+                ClusterID* currClust = curr.asCluster();
+                const std::vector<GOG>& reps = GOGs.getRepresentatives(*currClust);
+                bool found = false;
+                for (const auto gog : reps) {
+                    if (gog.ID == currPosID) {
+                        found = true;
+                    }
+                }
+                assert(found && "Directly pointing non-representative.");
+            } else {
+                assert(curr != currPosID && "Vertex pointing to itself");
+            }
+        }
+    }
+#endif
+}
+
 }  // namespace perc

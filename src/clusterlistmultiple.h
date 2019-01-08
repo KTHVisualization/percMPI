@@ -212,7 +212,7 @@ inline void ClusterListMultiple::clearVolumes() {
 }
 
 inline void ClusterListMultiple::checkCluster(ClusterID cluster) const {
-    assert(std::find(Holes.begin(), Holes.end(), cluster) == Holes.end() &&
+    assert(std::find(Holes.begin(), Holes.end(), cluster.localID()) == Holes.end() &&
            "Trying to access non-existent cluster.");
     assert(cluster.isGlobal() != IsLocal && "Local/global ID disagreement.");
 }

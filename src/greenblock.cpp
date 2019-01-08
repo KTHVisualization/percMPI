@@ -10,13 +10,15 @@ GreenBlock::GreenBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     int numBlocks = 1;
     float fraction = 1.0 / numBlocks;
     vec3i subBlocksize = vec3i(ind(blockSize.x * fraction), blockSize.y, blockSize.z);
+    vec3i subOffset = vec3i(ind(blockSize.x * fraction), 0, 0);
 
     GOGSubBlocks.reserve(numBlocks);
 
     for (int i = 0; i < numBlocks; i++) {
+        int offsetScale = numBlocks - i;
         auto newGOGBlock = new UnionFindSubBlock<GlobalProcessor>(
-            subBlocksize, {subBlocksize.x * i, subBlocksize.y * i, subBlocksize.z * i}, totalSize,
-            *this, GlobalProcessor(GOGs));
+            subBlocksize, {subOffset.x * i, subOffset.y * i, subOffset.z * i}, totalSize, *this,
+            GlobalProcessor(GOGs));
         GOGSubBlocks.push_back(newGOGBlock);
     }
 
@@ -64,9 +66,6 @@ void GreenBlock::doWatershed(const double minVal) {
 
     // Merge Clusters and Representatives in the list
     GOGs.mergeClusterFromList(connComps);
-
-    // All merges are processed, clear for next step
-    GOGs.Merges.clear();
 }
 
 ClusterID* GreenBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
@@ -81,6 +80,29 @@ ClusterID* GreenBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     return nullptr;
 }
 
+ID* GreenBlock::setID(const vec3i& idx, const ID& id) {
+    // One might want to do this more cleverly, especialy in the sheet tree.
+    ID* ptr = nullptr;
+    for (UnionFindSubBlock<GlobalProcessor>* gogBlock : GOGSubBlocks)
+        if (gogBlock->contains(idx)) {
+            ptr = gogBlock->PointerBlock.getPointer(idx);
+            break;
+        }
+
+    if (!ptr) {
+        for (UnionFindSubBlock<LocalGlobalProcessor>* logBlock : LOGSubBlocks)
+            if (logBlock->contains(idx)) {
+                ptr = logBlock->PointerBlock.getPointer(idx);
+                break;
+            }
+    }
+
+    assert(ptr && "Can not find block containing this idx.");
+    *ptr = id;
+
+    return ptr;
+}
+
 // Sketch.
 void GreenBlock::receiveData() {
     /* TODO:
@@ -89,11 +111,30 @@ void GreenBlock::receiveData() {
      * respective volume Update Volume of existing global clusters
      */
 }
+
 void GreenBlock::sendData() {
     /* TODO:
      * Send number of new Clusters, PLOG range, updated Merges and updated green blocks to each
      * node
      */
+
+    // Merges are processed, clear for next step
+    GOGs.Merges.clear();
+
+    checkConsistency();
+}
+
+void GreenBlock::checkConsistency() const {
+#ifndef NDEBUG
+    for (auto gog : GOGSubBlocks) gog->checkConsistency();
+
+    for (auto& merge : GOGs.Merges) {
+        assert(GOGs.getClusterVolume(merge.From) >= 0 &&
+               "Cluster recorded to merge from does not exist.");
+        assert(GOGs.getClusterVolume(merge.Onto) > 0 &&
+               "Cluster recorded to merge onto does not exist.");
+    }
+#endif
 }
 
 }  // namespace perc

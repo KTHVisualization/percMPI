@@ -16,7 +16,8 @@ public:
 
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
-    virtual ID* setID(const vec3i& idx, const ID& id) override { return nullptr; }
+    virtual ID* setID(const vec3i& idx, const ID& id) override;
+    using UnionFindBlock::setID;
 
     // Sketch.
     virtual void receiveData() override;
@@ -24,6 +25,8 @@ public:
     virtual ind numClusters() override { return GOGs.numClusters(); };
     virtual double totalVolume() override { return GOGs.totalVolume(); };
     virtual double maxVolume() override { return GOGs.maxVolume(); };
+
+    virtual void checkConsistency() const override;
 
 private:
     // The global (actual) part for this block

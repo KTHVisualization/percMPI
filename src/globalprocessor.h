@@ -16,7 +16,7 @@ struct GlobalProcessor {
 
     void setParent(UnionFindSubBlock<GlobalProcessor>* parent);
 
-    void checkConsistency() const {}
+    void checkConsistency() const;
 
 private:
     UnionFindSubBlock<GlobalProcessor>* Parent;

@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include <unordered_set>
+#include <map>
+#include <list>
 #include "vec.h"
 #include "handles.h"
 #include "clusterlist.h"
@@ -132,10 +134,26 @@ std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(
     // Clusters that are not yet merged.
     std::unordered_set<ind> todoClusters;
 
+    // Convert edge list (potentially with duplicates) into a graph
+    std::map<ind, std::unordered_set<ind>> mergeGraph;
     for (const std::vector<ClusterMerge>& mergeList : merges)
         for (const ClusterMerge& merge : mergeList) {
-            todoClusters.insert(merge.From.RawID);
-            todoClusters.insert(merge.Onto.RawID);
+            ind from = merge.From.RawID;
+            ind onto = merge.Onto.RawID;
+            auto itVertex = mergeGraph.lower_bound(from);
+            if (itVertex != mergeGraph.end() && itVertex->first == from) {
+                itVertex->second.insert(onto);
+            } else {
+                mergeGraph.emplace_hint(itVertex, from, std::initializer_list<ind>({onto}));
+            }
+            todoClusters.insert(from);
+            itVertex = mergeGraph.lower_bound(onto);
+            if (itVertex != mergeGraph.end() && itVertex->first == onto) {
+                itVertex->second.insert(from);
+            } else {
+                mergeGraph.emplace_hint(itVertex, onto, std::initializer_list<ind>({from}));
+            }
+            todoClusters.insert(onto);
         }
 
     while (!todoClusters.empty()) {
@@ -144,43 +162,27 @@ std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(
 
         // Add new list of clusters to be merged.
         mergeClusters.emplace_back();
-        std::vector<ind>& graph = mergeClusters.back();
+        std::vector<ind>& component = mergeClusters.back();
 
-        graph.push_back(cluster);
+        component.push_back(cluster);
+        std::list<ind> queue;
+        ind current;
+        queue.push_back(cluster);
 
-        bool addedSomething = false;
-        do {
-            addedSomething = false;
-            for (const std::vector<ClusterMerge>& mergeList : merges)
-                for (const ClusterMerge& merge : mergeList) {
-                    bool fromInGraph =
-                        std::find(graph.begin(), graph.end(), merge.From.RawID) != graph.end();
-                    bool ontoInGraph =
-                        std::find(graph.begin(), graph.end(), merge.Onto.RawID) != graph.end();
+        while (!queue.empty()) {
+            current = queue.front();
+            queue.pop_front();
 
-                    // Either both in graph already, or neither.
-                    if (fromInGraph == ontoInGraph) continue;
-
-                    if (fromInGraph) {
-                        graph.push_back(merge.Onto.RawID);
-
-                        assert(std::find(todoClusters.begin(), todoClusters.end(),
-                                         merge.Onto.RawID) != todoClusters.end() &&
-                               "Invalid constellation in cluster merge.");
-                        todoClusters.erase(
-                            std::find(todoClusters.begin(), todoClusters.end(), merge.Onto.RawID));
-                    } else {
-                        graph.push_back(merge.From.RawID);
-
-                        assert(std::find(todoClusters.begin(), todoClusters.end(),
-                                         merge.From.RawID) != todoClusters.end() &&
-                               "Invalid constellation in cluster merge.");
-                        todoClusters.erase(
-                            std::find(todoClusters.begin(), todoClusters.end(), merge.From.RawID));
-                    }
-                    addedSomething = true;
+            auto neighbors = mergeGraph.at(current);
+            for (auto neigh : neighbors) {
+                auto neighIt = std::find(todoClusters.begin(), todoClusters.end(), neigh);
+                if (neighIt != todoClusters.end()) {
+                    todoClusters.erase(neighIt);
+                    queue.push_back(neigh);
+                    component.push_back(neigh);
                 }
-        } while (addedSomething);
+            }
+        }
     }
     return mergeClusters;
 }

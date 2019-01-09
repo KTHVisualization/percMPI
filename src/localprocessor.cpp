@@ -116,8 +116,12 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
             Neighbor& neigh = neighClusters[0];
             if (neigh.Cluster.isGlobal()) {
                 LOGs.extendCluster(neigh.Cluster, volume);
-                if (!LOGs.getRepresentative(neigh.Cluster).isValid())
+                // No LOG for GOG yet?
+                if (!LOGs.getRepresentative(neigh.Cluster).isValid()) {
                     LOGs.setRepresentative(neigh.Cluster, pos);
+                    return pos;
+                }
+                return neigh.Representative.toIndexOfTotal(Parent->totalSize());
             } else {
                 LOLs.extendCluster(neigh.Cluster, volume);
 

@@ -156,7 +156,7 @@ int main(int argc, char** argv) {
     float timeElapsed;
 
     WhiteBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
-    // GreenBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
+    WhiteBlock* groundtruth = WhiteBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
 
     timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
@@ -180,6 +180,7 @@ int main(int argc, char** argv) {
 
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
         localBlockDoingAllTheStuff.doWatershed(currentH);
+        groundtruth->doWatershed(currentH);
 
         if (currentH != hMax) {  // No communication before first run.
             localBlockDoingAllTheStuff.sendData();
@@ -191,11 +192,48 @@ int main(int argc, char** argv) {
                          localBlockDoingAllTheStuff.numClusters()
                   << ")" << std::endl;
         h.push_back(currentH);
+#ifndef NDEBUG
+        if (localBlockDoingAllTheStuff.totalNumClusters() != groundtruth->totalNumClusters() ||
+            localBlockDoingAllTheStuff.totalTotalVolume() != groundtruth->totalTotalVolume()) {
 
+            if (localBlockDoingAllTheStuff.totalNumClusters() != groundtruth->totalNumClusters())
+                std::cout << "Number of clusters is "
+                          << localBlockDoingAllTheStuff.totalNumClusters() << '\\'
+                          << groundtruth->totalNumClusters() << std::endl;
+            if (localBlockDoingAllTheStuff.totalTotalVolume() != groundtruth->totalTotalVolume())
+                std::cout << "Total volume is "
+                          << ind(localBlockDoingAllTheStuff.totalTotalVolume()) << '\\'
+                          << ind(groundtruth->totalTotalVolume()) << std::endl;
+
+            // Compare newet additions by related cluster volume.
+            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
+            auto whiteStats =
+                localBlockDoingAllTheStuff.getVoluminaForAddedVertices(currentH + hStep);
+
+            assert(groundStats.size() == whiteStats.size() && "Test is incorrect.");
+            for (int i = 0; i < groundStats.size(); ++i) {
+                assert(groundStats[i].first == whiteStats[i].first && "Test is incorrect.");
+                if (groundStats[i].second != whiteStats[i].second) {
+                    std::cout << '\t' << groundStats[i].first << ":\tcorrect "
+                              << groundStats[i].second << " != " << whiteStats[i].second
+                              << std::endl;
+                }
+            }
+
+            assert(localBlockDoingAllTheStuff.totalNumClusters() ==
+                       groundtruth->totalNumClusters() &&
+                   "Groundtruth has other num clusters.");
+            assert(localBlockDoingAllTheStuff.totalTotalVolume() ==
+                       groundtruth->totalTotalVolume() &&
+                   "Groundtruth has other total volume.");
+        }
+#endif
         numClusters.push_back(localBlockDoingAllTheStuff.totalNumClusters());
         maxVolumes.push_back(localBlockDoingAllTheStuff.totalMaxVolume());
         totalVolumes.push_back(localBlockDoingAllTheStuff.totalTotalVolume());
     }
+
+    delete groundtruth;
 
     timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Watershedding took " << timeElapsed << " seconds." << std::endl;

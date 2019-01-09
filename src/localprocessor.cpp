@@ -58,7 +58,7 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
 
             // No global cluster.
             else {
-                Neighbor& dest = neighClusters[0];
+                Neighbor dest = neighClusters[0];
 
                 // PLOG representative must lay in red block, so merge onto PLOG if any.
                 for (auto& plog : neighClusters) {
@@ -82,7 +82,7 @@ ID LocalLocalProcessor::doWatershed(VertexID pos, double volume,
                         Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     else
                         Parent->Parent.setID(neigh.Representative, mergeDest);
-                    assert(&dest != &neighClusters[0] ||
+                    assert((&dest != &neighClusters[0] || PLOGs.count(dest.Cluster)) ||
                            !PLOGs.erase(neigh.Cluster) && "Can not merge PLOG onto a LOG.");
                     // Remove possible appearance in PLOG list.
                     PLOGs.erase(neigh.Cluster);

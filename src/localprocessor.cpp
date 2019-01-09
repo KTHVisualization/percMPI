@@ -141,7 +141,7 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
             auto log = std::find_if(neighClusters.begin(), neighClusters.end(),
                                     [](const Neighbor& neigh) { return neigh.Cluster.isGlobal(); });
 
-            // Merge all onto an random LOG.
+            // Merge all onto a random LOG.
             VertexID mergeDest;
             if (log != neighClusters.end()) {
                 mergeDest = log->Representative.toIndexOfTotal(Parent->totalSize());
@@ -155,7 +155,10 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
                         LOGs.extendCluster(log->Cluster, LOLs.getClusterVolume(neigh.Cluster));
                         PLOGs.erase(neigh.Cluster);
                         LOLs.removeCluster(neigh.Cluster);
+                        if (Parent->contains(neigh.Representative))
                         Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
+                        else
+                            Parent->Parent.setID(neigh.Representative, mergeDest);
                     }
                 }
             }

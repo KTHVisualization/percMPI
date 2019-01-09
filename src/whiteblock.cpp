@@ -66,14 +66,41 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     for (auto& red : LOGSubBlocks) red.loadData();
 }
 
-#endif
+WhiteBlock::WhiteBlock(const vec3i& totalSize)
+    : UnionFindBlock(totalSize)
+    , RefPLOGs(10000, &ClusterID::hash)
+    , LOLs(LOCAL_LIST)
+    , LOGs(GLOBAL_LIST) {}
+
+WhiteBlock* WhiteBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
+                                        const vec3i& totalSize) {
+    WhiteBlock* block = new WhiteBlock(totalSize);
+    // TODO: Load subblocks into data
+    vec3i min = blockOffset;
+    vec3i max = blockOffset + blockSize;
+    // Data actually covered by this block:
+    // If min is global min there is no red or green,
+    // if not, offset by one (for red)
+    // if max is global max, there is no red or green,
+    // if not, offset by two (for red and green)
+    for (ind d = 0; d < 3; ++d) {
+        min[d] = min[d] > 0 ? min[d]++ : 0;
+        max[d] = max[d] < totalSize[d] ? max[d] - 2 : totalSize[d];
+    }
+    block->LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
+        max - min, min, totalSize, *block,
+        LocalLocalProcessor(block->LOLs, block->LOGs, block->RefPLOGs));
+    block->LOLSubBlock->loadData();
+
+    // TODO: create IDBlock for all SubBlocks so that Pointers are together (need to be send).
+    block->MemoryLOG = nullptr;  // For now: prevent dtor fail.
+
+    return block;
+}  // namespace perc
 
 void WhiteBlock::doWatershed(const double minVal) {
-    // TODO: for each subblock....
     LOLSubBlock->doWatershed(minVal);
     for (auto& log : LOGSubBlocks) log.doWatershed(minVal);
-
-    checkConsistency();
 }
 
 ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {

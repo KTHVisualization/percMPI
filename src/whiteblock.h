@@ -12,6 +12,13 @@ namespace perc {
 class WhiteBlock : public UnionFindBlock {
 public:
     WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize);
+
+private:
+    WhiteBlock(const vec3i& totalSize);
+
+public:
+    static WhiteBlock* makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
+                                       const vec3i& totalSize);
     ~WhiteBlock() { delete[] MemoryLOG; }
 
     virtual void doWatershed(const double minVal) override;

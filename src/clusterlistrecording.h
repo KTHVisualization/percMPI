@@ -100,7 +100,8 @@ inline void ClusterListRecording<CL>::mergeClusterFromList(const std::vector<ind
 
 template <typename CL>
 inline void ClusterListRecording<CL>::clearVolumesAndMerges() {
-    Clusters.clearVolumes();
+    // TODO: Uncomment when red-green comm works.
+    // Clusters.clearVolumes();
     Merges.clear();
 }
 

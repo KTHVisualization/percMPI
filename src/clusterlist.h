@@ -97,6 +97,7 @@ inline ClusterID ClusterList::addCluster(VertexID id, double volume, void*) {
 inline void ClusterList::removeCluster(ClusterID cluster) {
     checkCluster(cluster);
 
+    TotalVolume -= getClusterVolume(cluster);
     ind locID = cluster.localID();
     if (locID == Indices.size() - 1) {
         Indices.pop_back();
@@ -118,6 +119,7 @@ inline void ClusterList::mergeClusters(ClusterID from, ClusterID onto) {
     if (Volumes[locOnto] > MaxVolume) {
         MaxVolume = Volumes[locOnto];
     }
+    TotalVolume += getClusterVolume(from);
     removeCluster(from);
 }
 

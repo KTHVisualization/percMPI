@@ -41,7 +41,8 @@ public:
     virtual double maxVolume() override { return LOLs.maxVolume(); }
     double totalMaxVolume() { return std::max(LOLs.maxVolume(), LOGs.maxVolume()); }
 
-    void checkConsistency() const override;
+    void checkConsistency() const;
+    std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(double maxVal) override;
 
 protected:
     void repointerMultipleMerges(const std::vector<ind>& connComps);

@@ -131,4 +131,24 @@ void UnionFindSubBlock<ClusterProcessor>::checkConsistency() const {
 #endif
 }
 
+template <typename ClusterProcessor>
+void UnionFindSubBlock<ClusterProcessor>::getVoluminaForAddedVertices(
+    double maxVal, std::vector<VolumeStat>& stats) {
+    vec3i dummy(-1, -1, -1);
+    ind currID = CurrentWatershedIndex - 1;
+    ind dataIdx = Data->Indices[currID];
+
+    while (Data->Scalars[dataIdx] < maxVal && currID >= 0) {
+        vec3i globIdx = Data->BlockOffset + vec3i::fromIndexOfTotal(dataIdx, Data->BlockSize);
+
+        // Find cluster we belong to and get volume.
+        ClusterID& cluster = *findClusterID(globIdx, dummy);
+        double volume = Parent.getClusterVolume(cluster);
+        stats.push_back({globIdx, volume});
+
+        currID--;
+        dataIdx = Data->Indices[currID];
+    }
+}
+
 }  // namespace perc

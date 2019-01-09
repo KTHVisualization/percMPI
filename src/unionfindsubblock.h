@@ -31,6 +31,8 @@ public:
     const vec3i& totalSize() { return PointerBlock.TotalSize; }
 
     void checkConsistency() const;
+    using VolumeStat = std::pair<vec3i, double>;
+    void getVoluminaForAddedVertices(double maxVal, std::vector<VolumeStat>& stats);
 
 public:
     DataBlock* Data;

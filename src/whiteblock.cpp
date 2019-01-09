@@ -223,4 +223,19 @@ void WhiteBlock::checkConsistency() const {
 #endif
 }
 
+std::vector<std::pair<vec3i, double>> WhiteBlock::getVoluminaForAddedVertices(double maxVal) {
+    std::vector<std::pair<vec3i, double>> result;
+
+    LOLSubBlock->getVoluminaForAddedVertices(maxVal, result);
+    for (auto& log : LOGSubBlocks) {
+        log.getVoluminaForAddedVertices(maxVal, result);
+    }
+
+    std::sort(result.begin(), result.end(), [this](auto& a, auto& b) {
+        return a.first.toIndexOfTotal(TotalSize) > b.first.toIndexOfTotal(TotalSize);
+    });
+
+    return result;
+}
+
 }  // namespace perc

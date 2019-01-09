@@ -22,6 +22,7 @@ public:
     virtual double maxVolume() = 0;
 
     virtual void checkConsistency() const = 0;
+    virtual std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(double maxVal) = 0;
 
     const vec3i TotalSize;
 };

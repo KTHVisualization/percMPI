@@ -144,6 +144,11 @@ ID LocalGlobalProcessor::doWatershed(VertexID pos, double volume,
             // Merge all onto a random LOG.
             VertexID mergeDest;
             if (log != neighClusters.end()) {
+                // In case of green: use this as representative.
+                if (!LOGs.getRepresentative(log->Cluster).isValid()) {
+                    LOGs.setRepresentative(log->Cluster, pos);
+                    log->Representative = vec3i::fromIndexOfTotal(pos.RawID, Parent->totalSize());
+                }
                 mergeDest = log->Representative.toIndexOfTotal(Parent->totalSize());
                 LOGs.extendCluster(log->Cluster, volume);
                 for (Neighbor& neigh : neighClusters) {

@@ -109,6 +109,8 @@ ID* GreenBlock::setID(const vec3i& idx, const ID& id) {
     return ptr;
 }
 
+double GreenBlock::getClusterVolume(ClusterID cluster) { return GOGs.getClusterVolume(cluster); }
+
 // Sketch.
 void GreenBlock::receiveData() {
     /* TODO:

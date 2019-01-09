@@ -107,6 +107,10 @@ ID* WhiteBlock::setID(const vec3i& idx, const ID& id) {
     return ptr;
 }
 
+double WhiteBlock::getClusterVolume(ClusterID cluster) {
+    return cluster.isGlobal() ? LOGs.getClusterVolume(cluster) : LOLs.getClusterVolume(cluster);
+}
+
 // Sketch.
 void WhiteBlock::receiveData() {
     /*  TODO: [ ] Receive merge sets

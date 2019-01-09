@@ -14,6 +14,7 @@ public:
     ID* setID(VertexID idx, const VertexID& id) {
         return setID(vec3i::fromIndexOfTotal(idx.RawID, TotalSize), id);
     }
+    virtual double getClusterVolume(ClusterID cluster) = 0;
     virtual void receiveData() = 0;
     virtual void sendData() = 0;
     virtual ind numClusters() = 0;

@@ -14,6 +14,19 @@ namespace perc {
 
 class MPICommunication {
 public:
+    enum Tags {
+        NUMCLUSTERS,
+        NUMNEWCLUSTERS,
+        MERGES,
+        TOTALVOLUME,
+        MAXVOLUME,
+        VOLUMES,
+        PLOGS,
+        STARTOFPLOG,
+        REDPOINTERS,
+        GREENPOINTERS = 1000
+    };
+
     template <typename T>
     static int SendVector(std::vector<T>& vector, int dest, int tag, MPI_Comm comm);
 
@@ -46,7 +59,7 @@ int MPICommunication::RecvVectorUknownSize(std::vector<T>& vector, int src, int 
     int messageSize;
     MPI_Get_count(status, MPI_BYTE, &messageSize);
     ind vectorSize = messageSize / sizeof(T);
-    if (vector.capacity() < vectorSize) vector.resize(vectorSize);
+    if (vector.capacity() != vectorSize) vector.resize(vectorSize);
     return MPI_Recv(&vector[0], messageSize, MPI_BYTE, src, tag, comm, MPI_STATUS_IGNORE);
 }
 

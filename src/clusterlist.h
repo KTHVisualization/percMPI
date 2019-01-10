@@ -17,6 +17,7 @@ struct Cluster {
 
 struct ClusterData {
     ClusterData(VertexID& idx, double& vol) : Index(idx), Volume(vol) {}
+    ClusterData() : Index(-1), Volume(0) {}
     VertexID Index;
     double Volume;
 };
@@ -39,6 +40,7 @@ public:
     Cluster getCluster(ClusterID id);
 
     void clearVolumes();
+    const std::vector<double>& volumes() { return Volumes; };
     ind numClusters() { return Indices.size() - Holes.size(); }
     double totalVolume() { return TotalVolume; }
     double maxVolume() { return MaxVolume; }

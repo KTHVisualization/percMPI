@@ -12,6 +12,7 @@ namespace perc {
 
 struct ClusterMerge {
     ClusterMerge(ClusterID from, ClusterID onto) : From(from), Onto(onto) {}
+    ClusterMerge() : From(-1), Onto(-1) {}
 
     static inline std::vector<std::vector<ind>> mergeClustersFromLists(
         const std::vector<std::vector<ClusterMerge>>& merges);
@@ -42,6 +43,7 @@ public:
     void extendCluster(ClusterID id, double volume) { Clusters.extendCluster(id, volume); }
 
     void clearVolumesAndMerges();
+    const std::vector<double>& volumes();
     ind numClusters() { return Clusters.numClusters(); }
     double totalVolume() { return Clusters.totalVolume(); };
     double maxVolume() { return Clusters.maxVolume(); };
@@ -103,6 +105,11 @@ inline void ClusterListRecording<CL>::clearVolumesAndMerges() {
     // TODO: Uncomment when red-green comm works.
     // Clusters.clearVolumes();
     Merges.clear();
+}
+
+template <typename CL>
+const std::vector<double>& ClusterListRecording<CL>::volumes() {
+    return Clusters.volumes();
 }
 
 template <typename CL>

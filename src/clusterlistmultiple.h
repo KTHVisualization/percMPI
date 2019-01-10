@@ -43,6 +43,7 @@ public:
     void extendCluster(ClusterID id, double volume, void* parentBlock = nullptr);
 
     void clearVolumes();
+    const std::vector<double>& volumes() { return Volumes; };
     ind numClusters() { return IndicesPerCluster.size() - Holes.size(); }
     double totalVolume() { return TotalVolume; }
     double maxVolume() { return MaxVolume; }

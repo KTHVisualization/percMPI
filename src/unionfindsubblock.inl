@@ -136,9 +136,10 @@ void UnionFindSubBlock<ClusterProcessor>::getVoluminaForAddedVertices(
     double maxVal, std::vector<VolumeStat>& stats) {
     vec3i dummy(-1, -1, -1);
     ind currID = CurrentWatershedIndex - 1;
+    if (currID < 0) return;
     ind dataIdx = Data->Indices[currID];
 
-    while (Data->Scalars[dataIdx] < maxVal && currID >= 0) {
+    while (currID >= 0 && Data->Scalars[dataIdx] < maxVal) {
         vec3i globIdx = Data->BlockOffset + vec3i::fromIndexOfTotal(dataIdx, Data->BlockSize);
 
         // Find cluster we belong to and get volume.

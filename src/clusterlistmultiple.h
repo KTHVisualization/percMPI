@@ -171,6 +171,7 @@ inline ClusterID ClusterListMultiple::addCluster(VertexID id, double volume, voi
 inline void ClusterListMultiple::removeCluster(ClusterID cluster) {
     checkCluster(cluster);
 
+    TotalVolume -= getClusterVolume(cluster);
     ind locID = cluster.localID();
     if (locID == IndicesPerCluster.size() - 1) {
         IndicesPerCluster.pop_back();
@@ -181,6 +182,7 @@ inline void ClusterListMultiple::removeCluster(ClusterID cluster) {
 }
 
 inline void ClusterListMultiple::mergeClusters(ClusterID from, ClusterID onto) {
+    assert(from != onto && "Can't merge cluster onto itself.");
     checkCluster(from);
     checkCluster(onto);
 
@@ -192,7 +194,8 @@ inline void ClusterListMultiple::mergeClusters(ClusterID from, ClusterID onto) {
         MaxVolume = Volumes[locOnto];
     }
 
-    removeCluster(locFrom);
+    TotalVolume += getClusterVolume(from);
+    removeCluster(from);
 }
 
 inline void ClusterListMultiple::extendCluster(ClusterID id, double volume, void* parentBlock) {

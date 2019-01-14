@@ -13,7 +13,7 @@ union vec3i {
         ind x, y, z;
     };
 
-    vec3i() : x(0), y(0), z(0) {}
+    vec3i(ind v = 0) : x(v), y(v), z(v) {}
 
     vec3i(ind x, ind y, ind z) : x(x), y(y), z(z) {}
 

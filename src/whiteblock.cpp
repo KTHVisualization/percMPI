@@ -1,5 +1,6 @@
 #include "whiteblock.h"
 #include "localprocessor.h"
+#include "interfaceblockbuilder.h"
 
 namespace perc {
 
@@ -7,33 +8,20 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     : UnionFindBlock(totalSize)
     , RefPLOGs(10000, &ClusterID::hash)
     , LOLs(LOCAL_LIST)
-    , LOGs(GLOBAL_LIST) {
-    vec3i min = blockOffset;
-    vec3i max = blockOffset + blockSize;
+    , LOGs(GLOBAL_LIST)
+    , LOGSubBlocks() {
 
-    // Create 3 red slices: one left, two right.
-    vec3i sliceSize = vec3i(blockSize.x, blockSize.y, 10);
-    min[2] += sliceSize.z;
-    max[2] -= sliceSize.z * 2;
+    auto constructor = [this]() -> LocalGlobalProcessor {
+        return LocalGlobalProcessor(LOLs, LOGs, RefPLOGs);
+    };
+    auto whiteSize = interfaceblockbuilder::buildRedBlocks<LocalGlobalProcessor>(
+        blockSize, blockOffset, totalSize, LOGSubBlocks, MemoryLOG, *this, constructor);
 
     LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
-        max - min, min, totalSize, *this, LocalLocalProcessor(LOLs, LOGs, RefPLOGs));
+        whiteSize.first, whiteSize.second, totalSize, *this,
+        LocalLocalProcessor(LOLs, LOGs, RefPLOGs));
+
     LOLSubBlock->loadData();
-
-    MemoryLOG = new ID[blockSize.prod() * 3];
-
-    LOGSubBlocks.reserve(4);
-    // Left slice.
-    LOGSubBlocks.emplace_back(sliceSize, blockOffset, totalSize, *this,
-                              LocalGlobalProcessor(LOLs, LOGs, RefPLOGs), MemoryLOG);
-
-    // Two slices right.
-    LOGSubBlocks.emplace_back(sliceSize, vec3i(0, 0, max.z), totalSize, *this,
-                              LocalGlobalProcessor(LOLs, LOGs, RefPLOGs),
-                              MemoryLOG + sliceSize.prod());
-    LOGSubBlocks.emplace_back(sliceSize, vec3i(0, 0, max.z + sliceSize.z), totalSize, *this,
-                              LocalGlobalProcessor(LOLs, LOGs, RefPLOGs),
-                              MemoryLOG + 2 * sliceSize.prod());
     for (auto& red : LOGSubBlocks) red.loadData();
 }
 

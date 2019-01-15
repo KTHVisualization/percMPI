@@ -10,17 +10,17 @@ namespace interfaceblockbuilder {
 // Create the red blocks as red or grey subblocks.
 // @returns size of white block within.
 template <typename BlockType>
-std::pair<vec3i, vec3i> buildRedBlocks(const vec3i& parentBlockSize, const vec3i& parentBlockOffset,
-                                       const vec3i& totalSize,
-                                       std::vector<UnionFindSubBlock<BlockType>>& newBlocks,
-                                       ID*& newPointers, UnionFindBlock& parent,
-                                       std::function<BlockType()> blockConstructor) {
+void buildRedBlocks(const vec3i& parentBlockSize, const vec3i& parentBlockOffset,
+                    const vec3i& totalSize, std::vector<UnionFindSubBlock<BlockType>>& newBlocks,
+                    ID*& newPointers, ind& pointerBlockSize, vec3i& whiteBlockSize,
+                    vec3i& whiteBlockOffset, UnionFindBlock& parent,
+                    std::function<BlockType()> blockConstructor) {
     newBlocks.reserve(6);
 
     // Find out white block size, offset and size to allocate for pointers.
-    ind pointerBlockSize = 0;
-    vec3i whiteBlockOffset = parentBlockOffset;
-    vec3i whiteBlockSize = parentBlockSize;
+    pointerBlockSize = 0;
+    whiteBlockOffset = parentBlockOffset;
+    whiteBlockSize = parentBlockSize;
 
     // Gather white size in all dimensions.
     for (ind dim = 0; dim < 3; ++dim) {
@@ -80,8 +80,6 @@ std::pair<vec3i, vec3i> buildRedBlocks(const vec3i& parentBlockSize, const vec3i
             pointerIterator += blockSize.prod();
         }
     }
-
-    return std::make_pair(whiteBlockSize, whiteBlockOffset);
 }
 }  // namespace interfaceblockbuilder
 

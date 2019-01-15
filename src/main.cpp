@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
     vec3i blockOffset = blockSize * idxNode;
     blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
-    // blockSize = {102, 102, 102};
+    // blockSize = {193, 194, 1000};
 
     // Print status
     std::cout << "Processor " << currProcess << ", index " << idxNode << ", size " << blockSize
@@ -155,7 +155,10 @@ int main(int argc, char** argv) {
     timer.Reset();
     float timeElapsed;
 
-    WhiteBlock localBlockDoingAllTheStuff(blockSize, blockOffset, totalSize);
+    WhiteBlock localBlock(blockSize, blockOffset, totalSize);
+    GreenBlock globalBlock(blockSize, blockOffset, blockSize, numNodes);
+
+    // To compare against
     WhiteBlock* groundtruth = WhiteBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
 
     timeElapsed = timer.ElapsedTimeAndReset();
@@ -165,7 +168,7 @@ int main(int argc, char** argv) {
     float hMin = 0.0;
     float hMax = 2;
     assert(hMax > hMin && "HMax needs to be larger than hMin.");
-    int hSamples = 10000;
+    int hSamples = 100;
     float hStep = (hMax - hMin) / (hSamples - 1);
 
     // Keep track of threshold h, number of components, volume largest component, volume total
@@ -179,58 +182,108 @@ int main(int argc, char** argv) {
     totalVolumes.reserve(hSamples);
 
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
-        localBlockDoingAllTheStuff.doWatershed(currentH);
+
+        // TODO: Make this dependent on process if (currProcess != numProcesses - 1) {}
+
+        // Local Block does watershed and sends result over to the global block
+        localBlock.doWatershed(currentH);
+        localBlock.sendData();
+        // Global Block
+        globalBlock.receiveData();
+        globalBlock.doWatershed(currentH);
+        globalBlock.sendData();
+
+        // Prepate local block for next step
+        localBlock.receiveData();
+
         groundtruth->doWatershed(currentH);
 
-        if (currentH != hMax) {  // No communication before first run.
-            localBlockDoingAllTheStuff.sendData();
-            localBlockDoingAllTheStuff.receiveData();
-        }
-        std::cout << currentH << "/ " << hStep << "\t - "
-                  << localBlockDoingAllTheStuff.totalNumClusters() << " g("
-                  << localBlockDoingAllTheStuff.totalNumClusters() -
-                         localBlockDoingAllTheStuff.numClusters()
-                  << ")" << std::endl;
+        std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClusters() << std::endl;
         h.push_back(currentH);
 #ifndef NDEBUG
-        if (localBlockDoingAllTheStuff.totalNumClusters() != groundtruth->totalNumClusters() ||
-            localBlockDoingAllTheStuff.totalTotalVolume() != groundtruth->totalTotalVolume()) {
+        if (globalBlock.totalNumClusters() != groundtruth->totalNumClusters() ||
+            globalBlock.totalTotalVolume() != groundtruth->totalTotalVolume()) {
 
-            if (localBlockDoingAllTheStuff.totalNumClusters() != groundtruth->totalNumClusters())
-                std::cout << "Number of clusters is "
-                          << localBlockDoingAllTheStuff.totalNumClusters() << '\\'
+            if (globalBlock.totalNumClusters() != groundtruth->totalNumClusters())
+                std::cout << "Number of clusters is " << globalBlock.totalNumClusters() << '\\'
                           << groundtruth->totalNumClusters() << std::endl;
-            if (localBlockDoingAllTheStuff.totalTotalVolume() != groundtruth->totalTotalVolume())
-                std::cout << "Total volume is "
-                          << ind(localBlockDoingAllTheStuff.totalTotalVolume()) << '\\'
+            if (globalBlock.totalTotalVolume() != groundtruth->totalTotalVolume())
+                std::cout << "Total volume is " << ind(globalBlock.totalTotalVolume()) << '\\'
                           << ind(groundtruth->totalTotalVolume()) << std::endl;
 
             // Compare newet additions by related cluster volume.
             auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
-            auto whiteStats =
-                localBlockDoingAllTheStuff.getVoluminaForAddedVertices(currentH + hStep);
-
-            assert(groundStats.size() == whiteStats.size() && "Test is incorrect.");
             for (int i = 0; i < groundStats.size(); ++i) {
-                assert(groundStats[i].first == whiteStats[i].first && "Test is incorrect.");
-                if (groundStats[i].second != whiteStats[i].second) {
+                vec3i idx = groundStats[i].first;
+                vec3i dummy(-1, -1, -1);
+                double combinedVolume = 0;
+                // TODO: Hard coded uglyness
+                // White
+                if (idx.liesWithin(vec3i(0, 0, 10), vec3i(193, 194, 980))) {
+                    ClusterID cluster = *localBlock.findClusterID(idx, dummy);
+                    combinedVolume = localBlock.getClusterVolume(cluster);
+                } else {
+                    ClusterID cluster = *localBlock.findClusterID(idx, dummy);
+                    combinedVolume += localBlock.getClusterVolume(cluster);
+                    cluster = *globalBlock.findClusterID(idx, dummy);
+                    combinedVolume += globalBlock.getClusterVolume(cluster);
+                }
+                if (groundStats[i].second != combinedVolume) {
                     std::cout << '\t' << groundStats[i].first << ":\tcorrect "
-                              << groundStats[i].second << " != " << whiteStats[i].second
-                              << std::endl;
+                              << groundStats[i].second << " != " << combinedVolume << std::endl;
                 }
             }
 
-            assert(localBlockDoingAllTheStuff.totalNumClusters() ==
-                       groundtruth->totalNumClusters() &&
+            /*auto whiteStats = localBlock.getVoluminaForAddedVertices(currentH + hStep);
+            auto greenStats = globalBlock.getVoluminaForAddedVertices(currentH + hStep);
+
+            // Combine green and white status into one
+            std::vector<std::pair<vec3i, double>> combinedStats;
+            auto itWhite = whiteStats.begin();
+            auto itGreen = greenStats.begin();
+            while (itWhite != whiteStats.end() && itGreen != greenStats.end()) {
+                auto whiteIdx = itWhite->first.toIndexOfTotal(localBlock.TotalSize);
+                auto greenIdx = itGreen->first.toIndexOfTotal(globalBlock.TotalSize);
+                if (whiteIdx < greenIdx) {
+                    combinedStats.push_back(*itWhite);
+                    itWhite++;
+                } else if (whiteIdx > greenIdx) {
+                    combinedStats.push_back(*itGreen);
+                    itGreen++;
+                } else {
+                    combinedStats.emplace_back(itGreen->first, itGreen->second + itWhite->second);
+                    itWhite++;
+                    itGreen++;
+                }
+            }
+            while (itWhite != whiteStats.end()) {
+                combinedStats.push_back(*itWhite);
+                itWhite++;
+            }
+            while (itGreen != greenStats.end()) {
+                combinedStats.push_back(*itGreen);
+                itGreen++;
+            }*/
+
+            /*assert(groundStats.size() == combinedStats.size() && "Test is incorrect.");
+            for (int i = 0; i < groundStats.size(); ++i) {
+                assert(groundStats[i].first == combinedStats[i].first && "Test is incorrect.");
+                if (groundStats[i].second != combinedStats[i].second) {
+                    std::cout << '\t' << groundStats[i].first << ":\tcorrect "
+                              << groundStats[i].second << " != " << combinedStats[i].second
+                              << std::endl;
+                }
+            }*/
+
+            assert(globalBlock.totalNumClusters() == groundtruth->totalNumClusters() &&
                    "Groundtruth has other num clusters.");
-            assert(localBlockDoingAllTheStuff.totalTotalVolume() ==
-                       groundtruth->totalTotalVolume() &&
+            assert(globalBlock.totalTotalVolume() == groundtruth->totalTotalVolume() &&
                    "Groundtruth has other total volume.");
         }
 #endif
-        numClusters.push_back(localBlockDoingAllTheStuff.totalNumClusters());
-        maxVolumes.push_back(localBlockDoingAllTheStuff.totalMaxVolume());
-        totalVolumes.push_back(localBlockDoingAllTheStuff.totalTotalVolume());
+        numClusters.push_back(globalBlock.totalNumClusters());
+        maxVolumes.push_back(globalBlock.totalMaxVolume());
+        totalVolumes.push_back(globalBlock.totalTotalVolume());
     }
 
     delete groundtruth;

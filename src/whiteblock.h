@@ -19,7 +19,10 @@ private:
 public:
     static WhiteBlock* makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
                                        const vec3i& totalSize);
-    ~WhiteBlock() { delete[] MemoryLOG; }
+    ~WhiteBlock() {
+        delete[] MemoryLOG;
+        delete LOLSubBlock;
+    }
 
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
@@ -27,7 +30,6 @@ public:
     using UnionFindBlock::setID;
     virtual double getClusterVolume(ClusterID cluster) override;
 
-    // Sketch.
     virtual void receiveData() override;
     virtual void sendData() override;
     virtual ind numClusters() override { return LOLs.numClusters(); }
@@ -53,11 +55,14 @@ private:
 
     // Memory for LOG ID blocks.
     ID* MemoryLOG;
+    // Size of that memory
+    ind MemoryLOGSize;
+
     // The local global part for this block
     std::vector<UnionFindSubBlock<LocalGlobalProcessor>> LOGSubBlocks;
 
-    // TODO: The global part for this block, this is only for lookup for the local node
-    // std::vector<UnionFindSubBlock<GlobalProcessor>> GOGSubBlocks;
+    // The global part for this block, this is only for lookup for the local node
+    std::vector<UnionFindSubBlock<GlobalProcessor>> GOGSubBlocks;
 
     // Local representations of local clusters.
     ClusterList LOLs;

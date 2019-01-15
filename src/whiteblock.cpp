@@ -1,6 +1,8 @@
 #include "whiteblock.h"
 #include "localprocessor.h"
 #include "interfaceblockbuilder.h"
+#include "globalprocessor.h"
+#include "mpicommuncation.h"
 
 namespace perc {
 
@@ -14,11 +16,13 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     auto constructor = [this]() -> LocalGlobalProcessor {
         return LocalGlobalProcessor(LOLs, LOGs, RefPLOGs);
     };
-    auto whiteSize = interfaceblockbuilder::buildRedBlocks<LocalGlobalProcessor>(
-        blockSize, blockOffset, totalSize, LOGSubBlocks, MemoryLOG, *this, constructor);
+    vec3i whiteBlockSize, whiteBlockOffset;
+    interfaceblockbuilder::buildRedBlocks<LocalGlobalProcessor>(
+        blockSize, blockOffset, totalSize, LOGSubBlocks, MemoryLOG, MemoryLOGSize, whiteBlockSize,
+        whiteBlockOffset, *this, constructor);
 
     LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
-        whiteSize.first, whiteSize.second, totalSize, *this,
+        whiteBlockSize, whiteBlockOffset, totalSize, *this,
         LocalLocalProcessor(LOLs, LOGs, RefPLOGs));
 
     LOLSubBlock->loadData();
@@ -53,6 +57,7 @@ WhiteBlock* WhiteBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blo
 
     // TODO: create IDBlock for all SubBlocks so that Pointers are together (need to be send).
     block->MemoryLOG = nullptr;  // For now: prevent dtor fail.
+    block->MemoryLOGSize = 0;
 
     return block;
 }  // namespace perc
@@ -68,7 +73,8 @@ ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     for (auto& log : LOGSubBlocks)
         if (log.contains(idx)) return log.findClusterID(idx, lastClusterID);
 
-    // TODO: Do the same for GOGs.
+    for (auto& gog : GOGSubBlocks)
+        if (gog.contains(idx)) return gog.findClusterID(idx, lastClusterID);
 
     assert(false && "Can not find block containing this idx.");
     return nullptr;
@@ -87,6 +93,8 @@ ID* WhiteBlock::setID(const vec3i& idx, const ID& id) {
             }
     }
 
+    // No need to look into GOGBlocks, we should not be writing there anyways
+
     assert(ptr && "Can not find block containing this idx.");
     *ptr = id;
 
@@ -97,25 +105,20 @@ double WhiteBlock::getClusterVolume(ClusterID cluster) {
     return cluster.isGlobal() ? LOGs.getClusterVolume(cluster) : LOLs.getClusterVolume(cluster);
 }
 
-// Sketch.
 void WhiteBlock::receiveData() {
-    /*  TODO: [ ] Receive merge sets
-     *          [x]    Merge locally
-     */
-    std::vector<std::vector<ClusterMerge>> merges = {LOGs.Merges};
-    auto graphs = ClusterMerge::mergeClustersFromLists(merges);
-    auto listAsItWouldArriveFromGreenBlock = ClusterMerge::mergeClusterAsList(graphs);
-    // First change pointers, then merge (cluster representative information is lost on merge).
-    repointerMultipleMerges(listAsItWouldArriveFromGreenBlock);
-    LOGs.mergeClusterFromList(listAsItWouldArriveFromGreenBlock);
+    MPI_Status status;
+    int err;
 
-    /*  TODO: [ ] Receive numNewLOGs and startOfLocalPLOGs
-     *          [x]    Do LOGs.addCluster() that often
-     *        [x] Go through CommPLOGS:
-     *          [x] Add the representative to the respective LOG (Reveive where my PLOGS are)
-     */
-    ind numNewLOGs = CommPLOGs.size();  // TODO: Change to MPI recv.
-    ind startOfLocalPlog = 0;           // TODO: Change to MPI recv.
+    // TODO: Change this into a broadcast
+    int numNewLOGs;
+    ind startOfLocalPlog;
+    std::vector<int> merges;
+    err = MPI_Recv(&numNewLOGs, 1, MPI_INT, 0, MPICommunication::NUMNEWCLUSTERS, MPI_COMM_WORLD,
+                   &status);
+    err = MPI_Recv(&startOfLocalPlog, 1, MPI_INT, 0, MPICommunication::STARTOFPLOG, MPI_COMM_WORLD,
+                   &status);
+    err = MPICommunication::RecvVectorUknownSize(merges, 0, MPICommunication::MERGES,
+                                                 MPI_COMM_WORLD, &status);
 
     // Add some incognito clusters of other compute nodes.
     LOGs.addClusters(startOfLocalPlog);
@@ -124,13 +127,28 @@ void WhiteBlock::receiveData() {
     for (ClusterData& c : CommPLOGs) {
         vec3i cPos = vec3i::fromIndexOfTotal(c.Index.RawID, TotalSize);
         ClusterID newID = LOGs.addCluster();
-
+        // Add representative and repointer PLOG (now LOG)
         setID(cPos, newID);
         LOGs.setRepresentative(newID, c.Index);
     }
+    // Add Remaining new Clusters
     LOGs.addClusters(numNewLOGs - startOfLocalPlog - CommPLOGs.size());
     LOGs.clearVolumesAndMerges();
     CommPLOGs.clear();
+
+    // First change pointers, then merge (cluster representative information is lost on merge).
+    repointerMultipleMerges(merges);
+    LOGs.mergeClusterFromList(merges);
+
+    // Receive updated green blocks
+    int counter = 0;
+    for (int counter = 0; counter < GOGSubBlocks.size(); ++counter) {
+        auto gogBlock = GOGSubBlocks[counter];
+        // Should this potentially be Non-Blocking?
+        err = MPI_Recv(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
+                       MPI_BYTE, 0, MPICommunication::GREENPOINTERS & counter, MPI_COMM_WORLD,
+                       &status);
+    }
 
     checkConsistency();
 }
@@ -138,12 +156,6 @@ void WhiteBlock::receiveData() {
 void WhiteBlock::sendData() {
     checkConsistency();
 
-    /*  TODO: [ ] Fill CommPLOGs:
-     *          [x] Move clusters into CommPLOGs
-     *          [x] Remove from LOL list, clear RefPLOGs
-     *          [ ] Send over LOL TotalVolume and number of clusters
-     *          [ ] Send over CommPLOGs
-     */
     CommPLOGs.clear();
     CommPLOGs.reserve(RefPLOGs.size());
 
@@ -153,6 +165,44 @@ void WhiteBlock::sendData() {
         LOLs.removeCluster(plog);
     }
     RefPLOGs.clear();
+
+    MPI_Request requests[7];
+    int err;
+
+    // Send number of local Clusters, maxVolume and totalVolume
+    int numClustersLocal = numClusters();
+    err == MPI_Isend(&numClustersLocal, 1, MPI_INT, 0, MPICommunication::NUMCLUSTERS,
+                     MPI_COMM_WORLD, &requests[0]);
+    double maxVolumeLocal = maxVolume();
+    err = MPI_Isend(&maxVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::MAXVOLUME, MPI_COMM_WORLD,
+                    &requests[1]);
+    double totalVolumeLocal = totalVolume();
+    err = MPI_Isend(&totalVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::TOTALVOLUME,
+                    MPI_COMM_WORLD, &requests[2]);
+
+    // Send volumes for LOGs (Additional volume)
+    const std::vector<double>& commVolumes = LOGs.volumes();
+    if (commVolumes.size() > 0) {
+        err = MPI_Isend(commVolumes.data(), commVolumes.size(), MPI_DOUBLE, 0,
+                        MPICommunication::VOLUMES, MPI_COMM_WORLD, &requests[3]);
+    } else {
+        err =
+            MPI_Isend(0, 0, MPI_DOUBLE, 0, MPICommunication::VOLUMES, MPI_COMM_WORLD, &requests[3]);
+    }
+    err = MPICommunication::IsendVector(CommPLOGs, 0, MPICommunication::PLOGS, MPI_COMM_WORLD,
+                                        &requests[4]);
+
+    // Send merges, nothing more to be done here with them
+    std::vector<ClusterMerge>& merges = LOGs.Merges;
+    err = MPICommunication::IsendVector(merges, 0, MPICommunication::MERGES, MPI_COMM_WORLD,
+                                        &requests[5]);
+
+    // Send updated red blocks
+    err = MPI_Isend(MemoryLOG, MemoryLOGSize * sizeof(ID), MPI_BYTE, 0,
+                    MPICommunication::REDPOINTERS, MPI_COMM_WORLD, &requests[6]);
+
+    // TODO: Confirm that everything arrived
+    // MPI_Waitall(7, requests, MPI_STATUS_IGNORE);*/
 }
 
 void WhiteBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {

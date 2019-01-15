@@ -11,7 +11,7 @@
 
 namespace perc {
 
-class GreenBlock : public UnionFindBlock {
+class GlobalBlock : public UnionFindBlock {
 public:
     struct InfoPerProcess {
         InfoPerProcess(std::vector<ind> greenIndices, ID* memoryLOG, ind memoryLOGSize,
@@ -34,8 +34,8 @@ public:
         ind StartOfLocalPlog;
     };
 
-    GreenBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
-               const vec3i& numNodes);
+    GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
+                const vec3i& numNodes);
 
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;

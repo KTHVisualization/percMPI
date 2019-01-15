@@ -5,21 +5,22 @@
 #include "clusterlist.h"
 #include "clusterlistrecording.h"
 #include "localprocessor.h"
+#include "grayprocessor.h"
 #include "unionfindsubblock.h"
 
 namespace perc {
 
-class WhiteBlock : public UnionFindBlock {
+class LocalBlock : public UnionFindBlock {
 public:
-    WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize);
+    LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize);
 
 private:
-    WhiteBlock(const vec3i& totalSize);
+    LocalBlock(const vec3i& totalSize);
 
 public:
-    static WhiteBlock* makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
+    static LocalBlock* makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
                                        const vec3i& totalSize);
-    ~WhiteBlock() {
+    ~LocalBlock() {
         delete[] MemoryLOG;
         delete LOLSubBlock;
     }
@@ -62,7 +63,7 @@ private:
     std::vector<UnionFindSubBlock<LocalGlobalProcessor>> LOGSubBlocks;
 
     // The global part for this block, this is only for lookup for the local node
-    std::vector<UnionFindSubBlock<GlobalProcessor>> GOGSubBlocks;
+    std::vector<UnionFindSubBlock<GrayProcessor>> GOGSubBlocks;
 
     // Local representations of local clusters.
     ClusterList LOLs;

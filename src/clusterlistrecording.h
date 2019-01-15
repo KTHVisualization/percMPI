@@ -55,7 +55,7 @@ protected:
 };
 
 class ClusterListRecordingSingle : public ClusterListRecording<ClusterList> {
-    friend class WhiteBlock;
+    friend class LocalBlock;
 
 public:
     ClusterListRecordingSingle(bool isLocal = true, ind size = 100)
@@ -64,7 +64,7 @@ public:
 };
 
 class ClusterListRecordingMultiple : public ClusterListRecording<ClusterListMultiple> {
-    friend class GreenBlock;
+    friend class GlobalBlock;
 
 public:
     ClusterListRecordingMultiple(bool isLocal = true, ind size = 100)

@@ -1,12 +1,12 @@
-#include "greenblock.h"
+#include "globalblock.h"
 #include "performancetimer.h"
 #include "mpicommuncation.h"
 #include "interfaceblockbuilder.h"
 
 namespace perc {
 
-GreenBlock::GreenBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
-                       const vec3i& numNodes)
+GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
+                         const vec3i& numNodes)
     : NumNodes(numNodes), UnionFindBlock(totalSize), GOGs(GLOBAL_LIST) {
 
     // TODO: Actually load green blocks in correct locations, and set up number of red blocks
@@ -52,7 +52,7 @@ GreenBlock::GreenBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     }
 }
 
-void GreenBlock::doWatershed(const double minVal) {
+void GlobalBlock::doWatershed(const double minVal) {
     ind numClusters = GOGs.numClusters();
     for (auto gogBlock : GOGSubBlocks) {
         gogBlock.doWatershed(minVal);
@@ -81,7 +81,7 @@ void GreenBlock::doWatershed(const double minVal) {
     checkConsistency();
 }
 
-ClusterID* GreenBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
+ClusterID* GlobalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     // TODO: Do this more cleverly, and for all types of subblocks:
     // One might want to do this more cleverly, especialy in the sheet tree.
     for (auto gogBlock : GOGSubBlocks)
@@ -93,7 +93,7 @@ ClusterID* GreenBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     return nullptr;
 }
 
-ID* GreenBlock::setID(const vec3i& idx, const ID& id) {
+ID* GlobalBlock::setID(const vec3i& idx, const ID& id) {
     // One might want to do this more cleverly, especialy in the sheet tree.
     ID* ptr = nullptr;
     for (auto gogBlock : GOGSubBlocks)
@@ -116,9 +116,9 @@ ID* GreenBlock::setID(const vec3i& idx, const ID& id) {
     return ptr;
 }
 
-double GreenBlock::getClusterVolume(ClusterID cluster) { return GOGs.getClusterVolume(cluster); }
+double GlobalBlock::getClusterVolume(ClusterID cluster) { return GOGs.getClusterVolume(cluster); }
 
-void GreenBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
+void GlobalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
     for (auto it = connComps.begin(); it != connComps.end(); ++it) {
         ind compSize = *it;
         ind onto = *(++it);
@@ -148,7 +148,7 @@ void GreenBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
     }
 }
 
-void GreenBlock::receiveData() {
+void GlobalBlock::receiveData() {
     // Init / Reset datastructures
     NumNewClusters = 0;
     NumClustersLocal = 0;
@@ -225,7 +225,7 @@ void GreenBlock::receiveData() {
     }
 }
 
-void GreenBlock::sendData() {
+void GlobalBlock::sendData() {
     // Broadcast number of new Clusters and updated Merges
     /* MPI_Bcast(&NumNewClusters, 1, MPI_INT, 0, MPI_COMM_WORLD);
     int mergesSize = Merges.size();
@@ -267,7 +267,7 @@ void GreenBlock::sendData() {
     }
 }
 
-void GreenBlock::checkConsistency() const {
+void GlobalBlock::checkConsistency() const {
 #ifndef NDEBUG
     for (auto gog : GOGSubBlocks) gog.checkConsistency();
 
@@ -280,7 +280,7 @@ void GreenBlock::checkConsistency() const {
 #endif
 }
 
-std::vector<std::pair<vec3i, double>> GreenBlock::getVoluminaForAddedVertices(double maxVal) {
+std::vector<std::pair<vec3i, double>> GlobalBlock::getVoluminaForAddedVertices(double maxVal) {
     std::vector<std::pair<vec3i, double>> result;
 
     for (auto gog : GOGSubBlocks) {

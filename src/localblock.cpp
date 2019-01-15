@@ -1,4 +1,4 @@
-#include "whiteblock.h"
+#include "localblock.h"
 #include "localprocessor.h"
 #include "interfaceblockbuilder.h"
 #include "globalprocessor.h"
@@ -6,7 +6,7 @@
 
 namespace perc {
 
-WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
+LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
     : UnionFindBlock(totalSize)
     , RefPLOGs(10000, &ClusterID::hash)
     , LOLs(LOCAL_LIST)
@@ -29,15 +29,15 @@ WhiteBlock::WhiteBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     for (auto& red : LOGSubBlocks) red.loadData();
 }
 
-WhiteBlock::WhiteBlock(const vec3i& totalSize)
+LocalBlock::LocalBlock(const vec3i& totalSize)
     : UnionFindBlock(totalSize)
     , RefPLOGs(10000, &ClusterID::hash)
     , LOLs(LOCAL_LIST)
     , LOGs(GLOBAL_LIST) {}
 
-WhiteBlock* WhiteBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
+LocalBlock* LocalBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
                                         const vec3i& totalSize) {
-    WhiteBlock* block = new WhiteBlock(totalSize);
+    LocalBlock* block = new LocalBlock(totalSize);
     // TODO: Load subblocks into data
     vec3i min = blockOffset;
     vec3i max = blockOffset + blockSize;
@@ -62,12 +62,12 @@ WhiteBlock* WhiteBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blo
     return block;
 }  // namespace perc
 
-void WhiteBlock::doWatershed(const double minVal) {
+void LocalBlock::doWatershed(const double minVal) {
     LOLSubBlock->doWatershed(minVal);
     for (auto& log : LOGSubBlocks) log.doWatershed(minVal);
 }
 
-ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
+ClusterID* LocalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     // One might want to do this more cleverly, especialy in the sheet tree.
     if (LOLSubBlock->contains(idx)) return LOLSubBlock->findClusterID(idx, lastClusterID);
     for (auto& log : LOGSubBlocks)
@@ -80,7 +80,7 @@ ClusterID* WhiteBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     return nullptr;
 }
 
-ID* WhiteBlock::setID(const vec3i& idx, const ID& id) {
+ID* LocalBlock::setID(const vec3i& idx, const ID& id) {
     // One might want to do this more cleverly, especialy in the sheet tree.
     ID* ptr = nullptr;
     if (LOLSubBlock->contains(idx))
@@ -101,11 +101,11 @@ ID* WhiteBlock::setID(const vec3i& idx, const ID& id) {
     return ptr;
 }
 
-double WhiteBlock::getClusterVolume(ClusterID cluster) {
+double LocalBlock::getClusterVolume(ClusterID cluster) {
     return cluster.isGlobal() ? LOGs.getClusterVolume(cluster) : LOLs.getClusterVolume(cluster);
 }
 
-void WhiteBlock::receiveData() {
+void LocalBlock::receiveData() {
     MPI_Status status;
     int err;
 
@@ -153,7 +153,7 @@ void WhiteBlock::receiveData() {
     checkConsistency();
 }
 
-void WhiteBlock::sendData() {
+void LocalBlock::sendData() {
     checkConsistency();
 
     CommPLOGs.clear();
@@ -205,7 +205,7 @@ void WhiteBlock::sendData() {
     // MPI_Waitall(7, requests, MPI_STATUS_IGNORE);*/
 }
 
-void WhiteBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
+void LocalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
     for (auto it = connComps.begin(); it != connComps.end(); ++it) {
         ind compSize = *it;
         ind ontoCluster = *(++it);
@@ -218,7 +218,7 @@ void WhiteBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
     }
 }
 
-void WhiteBlock::checkConsistency() const {
+void LocalBlock::checkConsistency() const {
 #ifndef NDEBUG
     LOLSubBlock->checkConsistency();
     for (auto& log : LOGSubBlocks) log.checkConsistency();
@@ -232,7 +232,7 @@ void WhiteBlock::checkConsistency() const {
 #endif
 }
 
-std::vector<std::pair<vec3i, double>> WhiteBlock::getVoluminaForAddedVertices(double maxVal) {
+std::vector<std::pair<vec3i, double>> LocalBlock::getVoluminaForAddedVertices(double maxVal) {
     std::vector<std::pair<vec3i, double>> result;
 
     LOLSubBlock->getVoluminaForAddedVertices(maxVal, result);

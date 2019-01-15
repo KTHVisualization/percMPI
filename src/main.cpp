@@ -10,8 +10,8 @@
 #include "datablock.h"
 #include "mpicommuncation.h"
 #include "performancetimer.h"
-#include "whiteblock.h"
-#include "greenblock.h"
+#include "localblock.h"
+#include "globalblock.h"
 #include "clusterlistrecording.h"
 
 using namespace perc;
@@ -155,11 +155,11 @@ int main(int argc, char** argv) {
     timer.Reset();
     float timeElapsed;
 
-    WhiteBlock localBlock(blockSize, blockOffset, totalSize);
-    GreenBlock globalBlock(blockSize, blockOffset, blockSize, numNodes);
+    LocalBlock localBlock(blockSize, blockOffset, totalSize);
+    GlobalBlock globalBlock(blockSize, blockOffset, blockSize, numNodes);
 
     // To compare against
-    WhiteBlock* groundtruth = WhiteBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
+    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
 
     timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;

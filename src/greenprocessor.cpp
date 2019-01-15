@@ -1,16 +1,16 @@
-#include "globalprocessor.h"
+#include "greenprocessor.h"
 #include "unionfindsubblock.h"
 
 namespace perc {
 
-void GlobalProcessor::setParent(UnionFindSubBlock<GlobalProcessor>* parent) {
+void GreenProcessor::setParent(UnionFindSubBlock<GreenProcessor>* parent) {
     assert(!Parent && "Parent already set!");
     assert(&(parent->NeighborProcessor) == this && "This is not our parent.");
 
     Parent = parent;
 }
 
-ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters) {
+ID GreenProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters) {
     switch (neighClusters.size()) {
 
         // Completely new GOG.
@@ -48,8 +48,8 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
                 /*const std::vector<GOG>& reps = GOGs.getRepresentatives(neigh.Cluster);
                 // Directly point representativevs to the cluster to avoid duplicate merges
                 for (auto rep : reps) {
-                    UnionFindSubBlock<GlobalProcessor>* blockParent =
-                        reinterpret_cast<UnionFindSubBlock<GlobalProcessor>*>(rep.ParentBlock);
+                    UnionFindSubBlock<GreenProcessor>* blockParent =
+                        reinterpret_cast<UnionFindSubBlock<GreenProcessor>*>(rep.ParentBlock);
                     blockParent->PointerBlock.setPointer(
                         vec3i::fromIndexOfTotal(rep.ID.baseID(), Parent->totalSize()), gog.Cluster);
                 }*/
@@ -77,7 +77,7 @@ ID GlobalProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbo
     }
 }
 
-void GlobalProcessor::checkConsistency() const {
+void GreenProcessor::checkConsistency() const {
 #ifndef NDEBUG
     double totVolume = 0;
     for (ind i = 0; i < Parent->blockSize().prod(); ++i) {

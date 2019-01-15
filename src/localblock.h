@@ -4,7 +4,8 @@
 #include "handles.h"
 #include "clusterlist.h"
 #include "clusterlistrecording.h"
-#include "localprocessor.h"
+#include "whiteprocessor.h"
+#include "redprocessor.h"
 #include "grayprocessor.h"
 #include "unionfindsubblock.h"
 
@@ -52,7 +53,7 @@ protected:
 
 private:
     // The local local part for this block
-    UnionFindSubBlock<LocalLocalProcessor>* LOLSubBlock;
+    UnionFindSubBlock<WhiteProcessor>* LOLSubBlock;
 
     // Memory for LOG ID blocks.
     ID* MemoryLOG;
@@ -60,7 +61,7 @@ private:
     ind MemoryLOGSize;
 
     // The local global part for this block
-    std::vector<UnionFindSubBlock<LocalGlobalProcessor>> LOGSubBlocks;
+    std::vector<UnionFindSubBlock<RedProcessor>> LOGSubBlocks;
 
     // The global part for this block, this is only for lookup for the local node
     std::vector<UnionFindSubBlock<GrayProcessor>> GOGSubBlocks;

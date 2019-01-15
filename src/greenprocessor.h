@@ -8,18 +8,18 @@ namespace perc {
 template <typename ClusterProcessor>
 class UnionFindSubBlock;
 
-struct GlobalProcessor {
+struct GreenProcessor {
 
-    GlobalProcessor(ClusterListRecordingMultiple& gogs) : GOGs(gogs), Parent(nullptr) {}
+    GreenProcessor(ClusterListRecordingMultiple& gogs) : GOGs(gogs), Parent(nullptr) {}
 
     ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters);
 
-    void setParent(UnionFindSubBlock<GlobalProcessor>* parent);
+    void setParent(UnionFindSubBlock<GreenProcessor>* parent);
 
     void checkConsistency() const;
 
 private:
-    UnionFindSubBlock<GlobalProcessor>* Parent;
+    UnionFindSubBlock<GreenProcessor>* Parent;
     ClusterListRecordingMultiple& GOGs;
 };
 

@@ -1,7 +1,5 @@
 #include "localblock.h"
-#include "localprocessor.h"
 #include "interfaceblockbuilder.h"
-#include "globalprocessor.h"
 #include "mpicommuncation.h"
 
 namespace perc {
@@ -13,17 +11,14 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     , LOGs(GLOBAL_LIST)
     , LOGSubBlocks() {
 
-    auto constructor = [this]() -> LocalGlobalProcessor {
-        return LocalGlobalProcessor(LOLs, LOGs, RefPLOGs);
-    };
+    auto constructor = [this]() -> RedProcessor { return RedProcessor(LOLs, LOGs, RefPLOGs); };
     vec3i whiteBlockSize, whiteBlockOffset;
-    interfaceblockbuilder::buildRedBlocks<LocalGlobalProcessor>(
+    interfaceblockbuilder::buildRedBlocks<RedProcessor>(
         blockSize, blockOffset, totalSize, LOGSubBlocks, MemoryLOG, MemoryLOGSize, whiteBlockSize,
         whiteBlockOffset, *this, constructor);
 
-    LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
-        whiteBlockSize, whiteBlockOffset, totalSize, *this,
-        LocalLocalProcessor(LOLs, LOGs, RefPLOGs));
+    LOLSubBlock = new UnionFindSubBlock<WhiteProcessor>(
+        whiteBlockSize, whiteBlockOffset, totalSize, *this, WhiteProcessor(LOLs, LOGs, RefPLOGs));
 
     LOLSubBlock->loadData();
     for (auto& red : LOGSubBlocks) red.loadData();
@@ -50,9 +45,9 @@ LocalBlock* LocalBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blo
         min[d] = min[d] > 0 ? min[d]++ : 0;
         max[d] = max[d] < totalSize[d] ? max[d] - 2 : totalSize[d];
     }
-    block->LOLSubBlock = new UnionFindSubBlock<LocalLocalProcessor>(
+    block->LOLSubBlock = new UnionFindSubBlock<WhiteProcessor>(
         max - min, min, totalSize, *block,
-        LocalLocalProcessor(block->LOLs, block->LOGs, block->RefPLOGs));
+        WhiteProcessor(block->LOLs, block->LOGs, block->RefPLOGs));
     block->LOLSubBlock->loadData();
 
     // TODO: create IDBlock for all SubBlocks so that Pointers are together (need to be send).

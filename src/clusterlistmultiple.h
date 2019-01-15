@@ -8,7 +8,7 @@
 
 namespace perc {
 
-class GlobalProcessor;
+class GreenProcessor;
 
 struct GOG {
     VertexID ID;

@@ -19,9 +19,9 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const
 
     for (int i = 0; i < numBlocks; i++) {
         int offsetScale = numBlocks - i;
-        UnionFindSubBlock<GlobalProcessor> newGOGBlock = UnionFindSubBlock<GlobalProcessor>(
+        UnionFindSubBlock<GreenProcessor> newGOGBlock = UnionFindSubBlock<GreenProcessor>(
             subBlocksize, {subOffset.x * i, subOffset.y * i, subOffset.z * i}, totalSize, *this,
-            GlobalProcessor(GOGs));
+            GreenProcessor(GOGs));
         GOGSubBlocks.push_back(newGOGBlock);
     }
 
@@ -131,8 +131,8 @@ void GlobalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
             auto itOld = oldRepsFrom.begin();
             for (auto itNew = newRepsFrom.begin();
                  itNew != newRepsFrom.end() && itOld != oldRepsFrom.end(); itOld++, itNew++) {
-                UnionFindSubBlock<GlobalProcessor>* parent =
-                    reinterpret_cast<UnionFindSubBlock<GlobalProcessor>*>(itOld->ParentBlock);
+                UnionFindSubBlock<GreenProcessor>* parent =
+                    reinterpret_cast<UnionFindSubBlock<GreenProcessor>*>(itOld->ParentBlock);
                 // Rep is a new rep for the merged cluster -> point to it
                 if (*itNew == itOld->ID) {
                     parent->PointerBlock.setPointer(

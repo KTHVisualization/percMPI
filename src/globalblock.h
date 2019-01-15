@@ -4,9 +4,8 @@
 #include "handles.h"
 #include "clusterlist.h"
 #include "clusterlistrecording.h"
-#include "globalprocessor.h"
-#include "localprocessor.h"
 #include "unionfindsubblock.h"
+#include "greenprocessor.h"
 #include "grayprocessor.h"
 
 namespace perc {
@@ -63,7 +62,7 @@ protected:
 
 private:
     // The global (actual) part for this block
-    std::vector<UnionFindSubBlock<GlobalProcessor>> GOGSubBlocks;
+    std::vector<UnionFindSubBlock<GreenProcessor>> GOGSubBlocks;
     // The local global part for this block, just for lookup
     std::vector<UnionFindSubBlock<GrayProcessor>> LOGSubBlocks;
 

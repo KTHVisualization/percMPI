@@ -20,6 +20,9 @@ public:
     virtual ind numClusters() = 0;
     virtual double totalVolume() = 0;
     virtual double maxVolume() = 0;
+    virtual ind numClustersCombined() = 0;
+    virtual double totalVolumeCombined() = 0;
+    virtual double maxVolumeCombined() = 0;
 
     virtual void checkConsistency() const = 0;
     virtual std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(double maxVal) = 0;

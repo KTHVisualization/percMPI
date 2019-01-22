@@ -47,6 +47,7 @@
         "ctime": "cpp",
         "filesystem": "cpp",
         "ratio": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "functional": "cpp"
     }
 }

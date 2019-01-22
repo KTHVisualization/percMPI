@@ -36,6 +36,23 @@ public:
     GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
                 const vec3i& numNodes);
 
+    ~GlobalBlock() {
+        for (auto processData : PerProcessData) {
+            delete processData.MemoryLOG;
+        }
+    }
+
+private:
+    GlobalBlock(const vec3i& totalSize);
+
+public:
+    static GlobalBlock* makeGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                      const vec3i& totalSize);
+    static GlobalBlock* makeWhiteRedTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                         const vec3i& totalSize);
+    static GlobalBlock* makeWhiteRedGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                              const vec3i& totalSize);
+
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
 
@@ -47,11 +64,13 @@ public:
     virtual void receiveData() override;
     virtual void sendData() override;
     virtual ind numClusters() override { return GOGs.numClusters(); };
-    ind totalNumClusters() { return GOGs.numClusters() + NumClustersLocal; }
+    virtual ind numClustersCombined() override { return GOGs.numClusters() + NumClustersLocal; }
     virtual double totalVolume() override { return GOGs.totalVolume(); };
-    double totalTotalVolume() { return GOGs.totalVolume() + TotalVolumeLocal; }
+    virtual double totalVolumeCombined() override { return GOGs.totalVolume() + TotalVolumeLocal; }
     virtual double maxVolume() override { return GOGs.maxVolume(); };
-    double totalMaxVolume() { return std::max(GOGs.maxVolume(), MaxVolumeLocal); };
+    virtual double maxVolumeCombined() override {
+        return std::max(GOGs.maxVolume(), MaxVolumeLocal);
+    };
 
     virtual void checkConsistency() const override;
     virtual std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(

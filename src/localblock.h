@@ -21,6 +21,10 @@ private:
 public:
     static LocalBlock* makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
                                        const vec3i& totalSize);
+    static LocalBlock* makeWhiteRedTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                        const vec3i& totalSize);
+    static LocalBlock* makeWhiteRedGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                             const vec3i& totalSize);
     ~LocalBlock() {
         delete[] MemoryLOG;
         delete LOLSubBlock;
@@ -35,15 +39,19 @@ public:
     virtual void receiveData() override;
     virtual void sendData() override;
     virtual ind numClusters() override { return LOLs.numClusters(); }
-    ind totalNumClusters() {
-        if (LOLs.numClusters() + LOGs.numClusters() < 0)
-            std::cout << "WTF? " << LOLs.numClusters() << " + " << LOGs.numClusters() << std::endl;
+    virtual ind numClustersCombined() override {
+        assert(LOLs.numClusters() + LOGs.numClusters() >= 0 &&
+               "Combined number of clusters smaller then 0. Not initialized?");
         return LOLs.numClusters() + LOGs.numClusters();
     }
     virtual double totalVolume() override { return LOLs.totalVolume(); }
-    double totalTotalVolume() { return LOLs.totalVolume() + LOGs.totalVolume(); }
+    virtual double totalVolumeCombined() override {
+        return LOLs.totalVolume() + LOGs.totalVolume();
+    }
     virtual double maxVolume() override { return LOLs.maxVolume(); }
-    double totalMaxVolume() { return std::max(LOLs.maxVolume(), LOGs.maxVolume()); }
+    virtual double maxVolumeCombined() override {
+        return std::max(LOLs.maxVolume(), LOGs.maxVolume());
+    }
 
     void checkConsistency() const override;
     std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(double maxVal) override;

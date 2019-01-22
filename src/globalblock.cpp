@@ -52,6 +52,119 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const
     }
 }
 
+GlobalBlock::GlobalBlock(const vec3i& totalSize)
+    : UnionFindBlock(totalSize), NumNodes(vec3i(1, 1, 1)), GOGs(GLOBAL_LIST) {}
+
+GlobalBlock* GlobalBlock::makeGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                        const vec3i& totalSize) {
+    GlobalBlock* block = new GlobalBlock(totalSize);
+    block->GOGSubBlocks.reserve(1);
+    block->GOGSubBlocks.emplace_back(blockSize, blockOffset, totalSize, *block,
+                                     GreenProcessor(block->GOGs));
+    block->GOGSubBlocks.begin()->loadData();
+
+    return block;
+}
+
+GlobalBlock* GlobalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                           const vec3i& totalSize) {
+    GlobalBlock* block = new GlobalBlock(totalSize);
+
+    vec3i min = blockOffset;
+    vec3i max = blockOffset + blockSize;
+
+    // Create 3 red slices: one left, two right.
+    vec3i sliceSize = vec3i(blockSize.x, blockSize.y, 10);
+    min[2] += sliceSize.z;
+    max[2] -= sliceSize.z * 2;
+
+    // Set up data for sending and receiving as well as red blocks
+    block->ReceivedMerges.resize(block->NumNodes.prod());
+
+    InfoPerProcess dataPerProcess;
+    dataPerProcess.Merges = &block->ReceivedMerges[0];
+
+    // No green indices
+    std::vector<ind> greenIndices;
+    dataPerProcess.GreenIndices = greenIndices;
+
+    dataPerProcess.MemoryLOGSize = sliceSize.prod() * 3;
+    dataPerProcess.MemoryLOG = new ID[dataPerProcess.MemoryLOGSize];
+
+    block->PerProcessData.push_back(dataPerProcess);
+
+    block->LOGSubBlocks.reserve(3);
+    // Left slice.
+    block->LOGSubBlocks.emplace_back(sliceSize, blockOffset, totalSize, *block, GrayProcessor());
+
+    // Two slices right.
+    block->LOGSubBlocks.emplace_back(sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z),
+                                     totalSize, *block, GrayProcessor());
+    block->LOGSubBlocks.emplace_back(sliceSize,
+                                     vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z),
+                                     totalSize, *block, GrayProcessor());
+
+    return block;
+}  // namespace perc
+
+GlobalBlock* GlobalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
+                                                const vec3i& totalSize) {
+    GlobalBlock* block = new GlobalBlock(totalSize);
+
+    vec3i min = blockOffset;
+    vec3i max = blockOffset + blockSize;
+
+    // Create 3 green slices: two left, one right.
+    // Create 2 red slices: one left, one right,
+    vec3i sliceSize = vec3i(blockSize.x, blockSize.y, 10);
+    min[2] += sliceSize.z * 3;
+    max[2] -= sliceSize.z * 2;
+
+    // Set up data for sending and receiving as well as red blocks
+    block->ReceivedMerges.resize(1);
+
+    InfoPerProcess dataPerProcess;
+    dataPerProcess.Merges = &block->ReceivedMerges[0];
+
+    std::vector<ind> greenIndices = {1, 2};
+    dataPerProcess.GreenIndices = greenIndices;
+
+    dataPerProcess.MemoryLOGSize = sliceSize.prod() * 2;
+    dataPerProcess.MemoryLOG = new ID[dataPerProcess.MemoryLOGSize];
+    block->PerProcessData.push_back(dataPerProcess);
+
+    block->LOGSubBlocks.reserve(2);
+    // Left slice.
+    block->LOGSubBlocks.emplace_back(sliceSize,
+                                     vec3i(blockOffset.x, blockOffset.y, min.z - sliceSize.z),
+                                     totalSize, *block, GrayProcessor(), dataPerProcess.MemoryLOG);
+
+    // Right slice.
+    block->LOGSubBlocks.emplace_back(sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z),
+                                     totalSize, *block, GrayProcessor(),
+                                     dataPerProcess.MemoryLOG + sliceSize.prod());
+
+    // Green data.
+    block->GOGSubBlocks.reserve(3);
+
+    // Two left slices.
+    block->GOGSubBlocks.emplace_back(sliceSize, vec3i(blockOffset.x, blockOffset.y, blockOffset.z),
+                                     totalSize, *block, GreenProcessor(block->GOGs));
+
+    block->GOGSubBlocks.emplace_back(
+        sliceSize, vec3i(blockOffset.x, blockOffset.y, blockOffset.z + sliceSize.x), totalSize,
+        *block, GreenProcessor(block->GOGs));
+
+    // Right slice.
+    block->GOGSubBlocks.emplace_back(sliceSize,
+                                     vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.x),
+                                     totalSize, *block, GreenProcessor(block->GOGs));
+
+    for (auto& green : block->GOGSubBlocks) green.loadData();
+
+    return block;
+}
+
 void GlobalBlock::doWatershed(const double minVal) {
     ind numClusters = GOGs.numClusters();
     for (auto gogBlock : GOGSubBlocks) {
@@ -157,30 +270,38 @@ void GlobalBlock::receiveData() {
     ind plogsAddedSoFar = 0;
     Merges.clear();
 
-    // TODO: Use p + 1, since 0 will be the one green block
-    for (int p = 0; p < NumNodes.prod(); p++) {
+    for (ind p = 0; p < NumNodes.prod(); p++) {
+
+        ind processDataIndex = p;
+        ind processIndex = p + 1;
+#ifdef SINGLENODE
+        // There is just a single node we will be receiving from
+        processIndex = 0;
+#endif  // SINGLENODE
+
         ind numMessages = 7;
         MPI_Status status;
         int err;
 
-        // Receive number of local Clusters and maxVolume and totalVolume (Might want to be gathers)
+        // Receive number of local Clusters and maxVolume and totalVolume (TODO: Might want to be
+        // gathers)
         int numClusters;
-        err == MPI_Recv(&numClusters, 1, MPI_INT, p, MPICommunication::NUMCLUSTERS, MPI_COMM_WORLD,
-                        &status);
+        err = MPI_Recv(&numClusters, 1, MPI_INT, processIndex, MPICommunication::NUMCLUSTERS,
+                       MPI_COMM_WORLD, &status);
         NumClustersLocal += numClusters;
         double maxVolume;
-        err = MPI_Recv(&maxVolume, 1, MPI_DOUBLE, p, MPICommunication::MAXVOLUME, MPI_COMM_WORLD,
-                       &status);
+        err = MPI_Recv(&maxVolume, 1, MPI_DOUBLE, processIndex, MPICommunication::MAXVOLUME,
+                       MPI_COMM_WORLD, &status);
         MaxVolumeLocal = std::max(maxVolume, MaxVolumeLocal);
         double volume;
-        err = MPI_Recv(&volume, 1, MPI_DOUBLE, p, MPICommunication::TOTALVOLUME, MPI_COMM_WORLD,
-                       &status);
+        err = MPI_Recv(&volume, 1, MPI_DOUBLE, processIndex, MPICommunication::TOTALVOLUME,
+                       MPI_COMM_WORLD, &status);
         TotalVolumeLocal += volume;
 
         // Receive volumes for LOGs (Additional volume) and update volumes (Should be some collected
         // for this too)
         std::vector<double> commVolumes(GOGs.volumes().size());
-        err = MPI_Recv(commVolumes.data(), commVolumes.size(), MPI_DOUBLE, p,
+        err = MPI_Recv(commVolumes.data(), commVolumes.size(), MPI_DOUBLE, processIndex,
                        MPICommunication::VOLUMES, MPI_COMM_WORLD, &status);
 
         ind counter = 0;
@@ -215,55 +336,69 @@ void GlobalBlock::receiveData() {
         }
 
         // Receive merges, nothing more to be done here with them
-        std::vector<ClusterMerge>& merges = ReceivedMerges[p];
-        err = MPICommunication::RecvVectorUknownSize(merges, p, MPICommunication::MERGES,
+        std::vector<ClusterMerge>& merges = ReceivedMerges[processDataIndex];
+        err = MPICommunication::RecvVectorUknownSize(merges, processIndex, MPICommunication::MERGES,
                                                      MPI_COMM_WORLD, &status);
 
         // Receive updated red blocks
-        err = MPI_Recv(PerProcessData[p].MemoryLOG, PerProcessData[p].MemoryLOGSize * sizeof(ID),
-                       MPI_BYTE, p, MPICommunication::REDPOINTERS, MPI_COMM_WORLD, &status);
+        err = MPI_Recv(PerProcessData[processDataIndex].MemoryLOG,
+                       PerProcessData[processDataIndex].MemoryLOGSize * sizeof(ID), MPI_BYTE,
+                       processIndex, MPICommunication::REDPOINTERS, MPI_COMM_WORLD, &status);
     }
 }
 
 void GlobalBlock::sendData() {
-    // Broadcast number of new Clusters and updated Merges
-    /* MPI_Bcast(&NumNewClusters, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    int mergesSize = Merges.size();
-    // Probably Necessary to broadcast size of merges first
-    MPI_Bcast(&mergesSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&Merges[0], Merges.size() * sizeof(ind), MPI_BYTE, 0, MPI_COMM_WORLD);
-    */
 
-    // TODO: Use p + 1, since 0 will be the one green block
+#ifdef COLLECTIVES
+    // Broadcast number of new Clusters and updated Merges
+    MPI_Bcast(&NumNewClusters, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    ind mergesSize = Merges.size();
+    MPI_Bcast(&mergesSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&Merges.data(), Merges.size() * sizeof(ind), MPI_BYTE, 0, MPI_COMM_WORLD);
+#endif
+
     for (ind p = 0; p < NumNodes.prod(); p++) {
+        ind processDataIndex = p;
+        ind processIndex = p + 1;
+#ifdef SINGLENODE
+        // There is just a single node we will be receiving from
+        processIndex = 0;
+#endif  // SINGLENODE
+
         // NumNewClusters, Merges Vector, PLOG range,
-        ind numMessages = 3 + PerProcessData[p].GreenIndices.size();
+        ind numMessages = 1 + PerProcessData[processDataIndex].GreenIndices.size();
+#ifndef COLLECTIVES
+        numMessages += 2;
+#endif
+
         MPI_Request* requests = new MPI_Request[numMessages];
 
-        // TODO: Change this back to a Broadcast, see above
-        MPI_Isend(&NumNewClusters, 1, MPI_INT, 0, MPICommunication::NUMNEWCLUSTERS, MPI_COMM_WORLD,
-                  &requests[0]);
-        MPICommunication::IsendVector(Merges, 0, MPICommunication::MERGES, MPI_COMM_WORLD,
-                                      &requests[1]);
-
-        // Plog Range (This might want to be a scatter operation)
-        MPI_Isend(&PerProcessData[p].StartOfLocalPlog, 1, MPI_INT, 0, MPICommunication::STARTOFPLOG,
-                  MPI_COMM_WORLD, &requests[2]);
-
         // Updated green blocks
-        std::vector<ind>& greenIndices = PerProcessData[p].GreenIndices;
-        int counter = 0;
+        const std::vector<ind>& greenIndices = PerProcessData[processDataIndex].GreenIndices;
+        ind messageID = 0;
         for (auto id : greenIndices) {
             auto gogBlock = GOGSubBlocks[id];
             MPI_Isend(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
-                      MPI_BYTE, 0, MPICommunication::GREENPOINTERS & counter, MPI_COMM_WORLD,
-                      &requests[3 + counter]);
+                      MPI_BYTE, processIndex, MPICommunication::GREENPOINTERS & messageID,
+                      MPI_COMM_WORLD, &requests[messageID++]);
         }
 
+        // Plog Range (This might want to be a scatter operation) (TODO)
+        MPI_Isend(&PerProcessData[processDataIndex].StartOfLocalPlog, 1, MPI_INT, processIndex,
+                  MPICommunication::STARTOFPLOG, MPI_COMM_WORLD, &requests[messageID++]);
+
+#ifndef COLLECTIVES
+        MPI_Isend(&NumNewClusters, 1, MPI_INT, processIndex, MPICommunication::NUMNEWCLUSTERS,
+                  MPI_COMM_WORLD, &requests[messageID++]);
+        MPICommunication::IsendVector(Merges, processIndex, MPICommunication::MERGES,
+                                      MPI_COMM_WORLD, &requests[messageID++]);
+#endif  // COLLECTIVES
+
+#ifndef SINGLENODE
         // This should free our requests as well??? -> Would mean blocking after each process, might
         // not be what we want
-        // TODO:
-        // MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
+        MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
+#endif  // SINGLENODE
     }
 }
 

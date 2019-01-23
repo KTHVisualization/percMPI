@@ -31,8 +31,8 @@ public:
 
     double getClusterVolume(ClusterID cluster) const { return Clusters.getClusterVolume(cluster); }
     void addClusters(ind numNewClusters);
-    ClusterID addCluster();
-    ClusterID addCluster(VertexID id, double volume, void* parentBlock);
+    ClusterID addCluster(double volume);
+    ClusterID addCluster(VertexID id, double volume, void* parentBlock = nullptr);
     VertexID getRepresentative(ClusterID cluster) { return Clusters.getCluster(cluster).Index; }
     VertexID setRepresentative(ClusterID cluster, VertexID newID, bool replace = true,
                                void* parentBlock = nullptr);
@@ -119,8 +119,8 @@ inline void ClusterListRecording<CL>::addClusters(ind numNewClusters) {
 }
 
 template <typename CL>
-inline ClusterID ClusterListRecording<CL>::addCluster() {
-    return Clusters.addCluster(VertexID(-1), 0.0);
+inline ClusterID ClusterListRecording<CL>::addCluster(double volume) {
+    return Clusters.addCluster(VertexID(-1), volume);
 }
 
 template <typename CL>
@@ -183,7 +183,7 @@ std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(
             queue.pop_front();
 
             auto neighbors = mergeGraph.at(current);
-            for (auto neigh : neighbors) {
+            for (auto& neigh : neighbors) {
                 auto neighIt = std::find(todoClusters.begin(), todoClusters.end(), neigh);
                 if (neighIt != todoClusters.end()) {
                     todoClusters.erase(neighIt);

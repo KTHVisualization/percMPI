@@ -77,7 +77,6 @@ inline const std::vector<GOG> ClusterListMultiple::getRepresentatives(ClusterID 
 inline VertexID ClusterListMultiple::setRepresentative(ClusterID cluster, VertexID newID,
                                                        bool replace, void* parentBlock) {
     checkCluster(cluster);
-
     assert(parentBlock && "No parent given.");
     GOG newRep = {newID, parentBlock};
     auto& GOGs = IndicesPerCluster[cluster.localID()];
@@ -156,17 +155,23 @@ inline ClusterID ClusterListMultiple::addCluster(VertexID id, double volume, voi
     std::vector<GOG> newGOG = {GOG(id, parentBlock)};
     // Place the new cluster into a new hole or to the back when no holes exist.
     if (Holes.empty()) {
-        IndicesPerCluster.push_back(std::move(newGOG));
+        if (id.RawID != -1)
+            IndicesPerCluster.push_back(std::move(newGOG));
+        else
+            IndicesPerCluster.emplace_back();
         Volumes.push_back(volume);
         return ClusterID(IndicesPerCluster.size() - 1, IsLocal);
     } else {
         size_t holeIdx = Holes.back();
         Holes.pop_back();
-        IndicesPerCluster[holeIdx] = std::move(newGOG);
+        if (id.RawID != -1)
+            IndicesPerCluster[holeIdx] = std::move(newGOG);
+        else
+            IndicesPerCluster[holeIdx].clear();
         Volumes[holeIdx] = volume;
         return ClusterID(holeIdx, IsLocal);
     }
-}
+}  // namespace perc
 
 inline void ClusterListMultiple::removeCluster(ClusterID cluster) {
     checkCluster(cluster);

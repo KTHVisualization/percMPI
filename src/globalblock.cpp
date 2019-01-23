@@ -105,14 +105,16 @@ GlobalBlock* GlobalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& 
 
     block->LOGSubBlocks.reserve(3);
     // Left slice.
-    block->LOGSubBlocks.emplace_back(sliceSize, blockOffset, totalSize, *block, GrayProcessor());
+    block->LOGSubBlocks.emplace_back(sliceSize, blockOffset, totalSize, *block, GrayProcessor(),
+                                     dataPerProcess.MemoryLOG);
 
     // Two slices right.
     block->LOGSubBlocks.emplace_back(sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z),
-                                     totalSize, *block, GrayProcessor());
-    block->LOGSubBlocks.emplace_back(sliceSize,
-                                     vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z),
-                                     totalSize, *block, GrayProcessor());
+                                     totalSize, *block, GrayProcessor(),
+                                     dataPerProcess.MemoryLOG + sliceSize.prod());
+    block->LOGSubBlocks.emplace_back(
+        sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z), totalSize, *block,
+        GrayProcessor(), dataPerProcess.MemoryLOG + 2 * sliceSize.prod());
 
     return block;
 }  // namespace perc
@@ -328,23 +330,6 @@ void GlobalBlock::receiveData() {
         std::vector<ClusterData> commPLOGs;
         err = MPICommunication::RecvVectorUknownSize(commPLOGs, p, MPICommunication::PLOGS,
                                                      MPI_COMM_WORLD, &status);
-        // Record where PLOGS for this process start (as in: How many other PLOGs for other
-        // processes where added before)
-        PerProcessData[p].StartOfLocalPlog = plogsAddedSoFar;
-        NumNewClusters += commPLOGs.size();
-        plogsAddedSoFar += commPLOGs.size();
-        for (auto cluster : commPLOGs) {
-            UnionFindSubBlock<GrayProcessor>* parentBlock;
-            vec3i cPos = vec3i::fromIndexOfTotal(cluster.Index.RawID, TotalSize);
-            for (auto logBlock : LOGSubBlocks)
-                if (logBlock.contains(cPos)) {
-                    parentBlock = &logBlock;
-                    break;
-                }
-            assert(parentBlock && "No Block for PLOG found");
-            ClusterID newCluster = GOGs.addCluster(cluster.Index, cluster.Volume, parentBlock);
-            parentBlock->PointerBlock.setPointer(cPos, newCluster);
-        }
 
         // Receive merges, nothing more to be done here with them
         std::vector<ClusterMerge>& merges = ReceivedMerges[processDataIndex];
@@ -355,6 +340,24 @@ void GlobalBlock::receiveData() {
         err = MPI_Recv(PerProcessData[processDataIndex].MemoryLOG,
                        PerProcessData[processDataIndex].MemoryLOGSize * sizeof(ID), MPI_BYTE,
                        processIndex, MPICommunication::REDPOINTERS, MPI_COMM_WORLD, &status);
+
+        // Record where PLOGS for this process start (as in: How many other PLOGs for other
+        // processes where added before)
+        PerProcessData[p].StartOfLocalPlog = plogsAddedSoFar;
+        NumNewClusters += commPLOGs.size();
+        plogsAddedSoFar += commPLOGs.size();
+        for (auto cluster : commPLOGs) {
+            UnionFindSubBlock<GrayProcessor>* parentBlock;
+            vec3i cPos = vec3i::fromIndexOfTotal(cluster.Index.RawID, TotalSize);
+            for (auto& logBlock : LOGSubBlocks)
+                if (logBlock.contains(cPos)) {
+                    parentBlock = &logBlock;
+                    break;
+                }
+            assert(parentBlock && "No Block for PLOG found");
+            ClusterID newCluster = GOGs.addCluster(cluster.Index, cluster.Volume, parentBlock);
+            parentBlock->PointerBlock.setPointer(cPos, newCluster);
+        }
     }
 }
 

@@ -61,9 +61,8 @@ void buildRedBlocks(const vec3i& parentBlockSize, const vec3i& parentBlockOffset
             blockOffset[dim] -= 1;
 
             // Create block.
-            UnionFindSubBlock<BlockType> redBlock = UnionFindSubBlock<BlockType>(
-                blockSize, blockOffset, totalSize, parent, blockConstructor(), pointerIterator);
-            newBlocks.push_back(redBlock);
+            newBlocks.emplace_back(blockSize, blockOffset, totalSize, parent, blockConstructor(),
+                                   pointerIterator);
             pointerIterator += blockSize.prod();
         }
 
@@ -74,9 +73,8 @@ void buildRedBlocks(const vec3i& parentBlockSize, const vec3i& parentBlockOffset
             blockOffset[dim] += whiteBlockSize[dim] - 1;
 
             // Create block.
-            UnionFindSubBlock<BlockType> redBlock = UnionFindSubBlock<BlockType>(
-                blockSize, blockOffset, totalSize, parent, blockConstructor(), pointerIterator);
-            newBlocks.push_back(redBlock);
+            newBlocks.emplace_back(blockSize, blockOffset, totalSize, parent, blockConstructor(),
+                                   pointerIterator);
             pointerIterator += blockSize.prod();
         }
     }

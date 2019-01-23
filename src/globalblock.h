@@ -37,7 +37,7 @@ public:
                 const vec3i& numNodes);
 
     ~GlobalBlock() {
-        for (auto processData : PerProcessData) {
+        for (auto& processData : PerProcessData) {
             delete processData.MemoryLOG;
         }
     }

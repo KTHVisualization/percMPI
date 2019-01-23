@@ -111,7 +111,7 @@ LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3
     block->LOGSubBlocks.reserve(2);
     // Left slice.
     block->LOGSubBlocks.emplace_back(
-        sliceSize, vec3i(blockOffset.x, blockOffset.y, min.z - sliceSize.x), totalSize, *block,
+        sliceSize, vec3i(blockOffset.x, blockOffset.y, min.z - sliceSize.z), totalSize, *block,
         RedProcessor(block->LOLs, block->LOGs, block->RefPLOGs), block->MemoryLOG);
 
     // Right right.
@@ -122,19 +122,17 @@ LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3
     for (auto& red : block->LOGSubBlocks) red.loadData();
 
     // Green data.
-    block->GOGSubBlocks.reserve(3);
+    block->GOGSubBlocks.reserve(2);
 
-    // Two left slices.
-    block->GOGSubBlocks.emplace_back(sliceSize, vec3i(blockOffset.x, blockOffset.y, blockOffset.z),
-                                     totalSize, *block, GrayProcessor());
-
+    // Left slice (only the right most one of the two left slices that the global block holds is
+    // contained in this local block
     block->GOGSubBlocks.emplace_back(
-        sliceSize, vec3i(blockOffset.x, blockOffset.y, blockOffset.z + sliceSize.x), totalSize,
+        sliceSize, vec3i(blockOffset.x, blockOffset.y, blockOffset.z + sliceSize.z), totalSize,
         *block, GrayProcessor());
 
     // Right slice.
     block->GOGSubBlocks.emplace_back(sliceSize,
-                                     vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.x),
+                                     vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z),
                                      totalSize, *block, GrayProcessor());
 
     return block;
@@ -203,7 +201,7 @@ void LocalBlock::receiveData() {
     // Receive updated green blocks
     int counter = 0;
     for (int counter = 0; counter < GOGSubBlocks.size(); ++counter) {
-        auto gogBlock = GOGSubBlocks[counter];
+        auto& gogBlock = GOGSubBlocks[counter];
         // Should this potentially be Non-Blocking?
         err = MPI_Recv(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
                        MPI_BYTE, 0, MPICommunication::GREENPOINTERS & counter, MPI_COMM_WORLD,
@@ -221,7 +219,7 @@ void LocalBlock::receiveData() {
     // For each PLOG, add a new cluster and reference it.
     for (ClusterData& c : CommPLOGs) {
         vec3i cPos = vec3i::fromIndexOfTotal(c.Index.RawID, TotalSize);
-        ClusterID newID = LOGs.addCluster();
+        ClusterID newID = LOGs.addCluster(c.Volume);
         // Add representative and repointer PLOG (now LOG)
         setID(cPos, newID);
         LOGs.setRepresentative(newID, c.Index);

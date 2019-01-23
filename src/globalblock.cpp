@@ -7,7 +7,13 @@ namespace perc {
 
 GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
                          const vec3i& numNodes)
-    : NumNodes(numNodes), UnionFindBlock(totalSize), GOGs(GLOBAL_LIST) {
+    : UnionFindBlock(totalSize)
+    , GOGs(GLOBAL_LIST)
+    , NumNodes(numNodes)
+    , NumNewClusters(0)
+    , NumClustersLocal(0)
+    , MaxVolumeLocal(0)
+    , TotalVolumeLocal(0) {
 
     // TODO: Actually load green blocks in correct locations, and set up number of red blocks
     int numBlocks = 0;  // Currently set to 0 for communications test
@@ -19,13 +25,11 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const
 
     for (int i = 0; i < numBlocks; i++) {
         int offsetScale = numBlocks - i;
-        UnionFindSubBlock<GreenProcessor> newGOGBlock = UnionFindSubBlock<GreenProcessor>(
-            subBlocksize, {subOffset.x * i, subOffset.y * i, subOffset.z * i}, totalSize, *this,
-            GreenProcessor(GOGs));
-        GOGSubBlocks.push_back(newGOGBlock);
+        GOGSubBlocks.emplace_back(subBlocksize, subOffset * i, totalSize, *this,
+                                  GreenProcessor(GOGs));
     }
 
-    for (auto gogBlock : GOGSubBlocks) {
+    for (auto& gogBlock : GOGSubBlocks) {
         gogBlock.loadData();
     }
 
@@ -53,7 +57,13 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const
 }
 
 GlobalBlock::GlobalBlock(const vec3i& totalSize)
-    : UnionFindBlock(totalSize), NumNodes(vec3i(1, 1, 1)), GOGs(GLOBAL_LIST) {}
+    : UnionFindBlock(totalSize)
+    , GOGs(GLOBAL_LIST)
+    , NumNodes(vec3i(1, 1, 1))
+    , NumNewClusters(0)
+    , NumClustersLocal(0)
+    , MaxVolumeLocal(0)
+    , TotalVolumeLocal(0) {}
 
 GlobalBlock* GlobalBlock::makeGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
                                         const vec3i& totalSize) {
@@ -152,12 +162,12 @@ GlobalBlock* GlobalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const ve
                                      totalSize, *block, GreenProcessor(block->GOGs));
 
     block->GOGSubBlocks.emplace_back(
-        sliceSize, vec3i(blockOffset.x, blockOffset.y, blockOffset.z + sliceSize.x), totalSize,
+        sliceSize, vec3i(blockOffset.x, blockOffset.y, blockOffset.z + sliceSize.z), totalSize,
         *block, GreenProcessor(block->GOGs));
 
     // Right slice.
     block->GOGSubBlocks.emplace_back(sliceSize,
-                                     vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.x),
+                                     vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z),
                                      totalSize, *block, GreenProcessor(block->GOGs));
 
     for (auto& green : block->GOGSubBlocks) green.loadData();
@@ -166,14 +176,15 @@ GlobalBlock* GlobalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const ve
 }
 
 void GlobalBlock::doWatershed(const double minVal) {
+
     ind numClusters = GOGs.numClusters();
-    for (auto gogBlock : GOGSubBlocks) {
+    for (auto& gogBlock : GOGSubBlocks) {
         gogBlock.doWatershed(minVal);
     }
-    NumNewClusters += numClusters - GOGs.numClusters();
+    // Number of clusters can only have increased (Merges only recorded)
+    NumNewClusters += GOGs.numClusters() - numClusters;
 
     // Merges have only been recorded -> Do merges now
-    // Include
     ReceivedMerges.push_back(GOGs.Merges);
     // PerformanceTimer timer;
     // timer.Reset();
@@ -197,9 +208,9 @@ void GlobalBlock::doWatershed(const double minVal) {
 ClusterID* GlobalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
     // TODO: Do this more cleverly, and for all types of subblocks:
     // One might want to do this more cleverly, especialy in the sheet tree.
-    for (auto gogBlock : GOGSubBlocks)
+    for (auto& gogBlock : GOGSubBlocks)
         if (gogBlock.contains(idx)) return gogBlock.findClusterID(idx, lastClusterID);
-    for (auto logBlock : LOGSubBlocks) {
+    for (auto& logBlock : LOGSubBlocks) {
         if (logBlock.contains(idx)) return logBlock.findClusterID(idx, lastClusterID);
     }
     assert(false && "Can not find block containing this idx.");
@@ -209,14 +220,14 @@ ClusterID* GlobalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
 ID* GlobalBlock::setID(const vec3i& idx, const ID& id) {
     // One might want to do this more cleverly, especialy in the sheet tree.
     ID* ptr = nullptr;
-    for (auto gogBlock : GOGSubBlocks)
+    for (auto& gogBlock : GOGSubBlocks)
         if (gogBlock.contains(idx)) {
             ptr = gogBlock.PointerBlock.getPointer(idx);
             break;
         }
 
     if (!ptr) {
-        for (auto logBlock : LOGSubBlocks)
+        for (auto& logBlock : LOGSubBlocks)
             if (logBlock.contains(idx)) {
                 ptr = logBlock.PointerBlock.getPointer(idx);
                 break;
@@ -376,8 +387,8 @@ void GlobalBlock::sendData() {
         // Updated green blocks
         const std::vector<ind>& greenIndices = PerProcessData[processDataIndex].GreenIndices;
         ind messageID = 0;
-        for (auto id : greenIndices) {
-            auto gogBlock = GOGSubBlocks[id];
+        for (ind id : greenIndices) {
+            auto& gogBlock = GOGSubBlocks[id];
             MPI_Isend(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
                       MPI_BYTE, processIndex, MPICommunication::GREENPOINTERS & messageID,
                       MPI_COMM_WORLD, &requests[messageID++]);
@@ -404,7 +415,7 @@ void GlobalBlock::sendData() {
 
 void GlobalBlock::checkConsistency() const {
 #ifndef NDEBUG
-    for (auto gog : GOGSubBlocks) gog.checkConsistency();
+    for (auto& gog : GOGSubBlocks) gog.checkConsistency();
 
     for (auto& merge : GOGs.Merges) {
         assert(GOGs.getClusterVolume(merge.From) >= 0 &&
@@ -418,7 +429,7 @@ void GlobalBlock::checkConsistency() const {
 std::vector<std::pair<vec3i, double>> GlobalBlock::getVoluminaForAddedVertices(double maxVal) {
     std::vector<std::pair<vec3i, double>> result;
 
-    for (auto gog : GOGSubBlocks) {
+    for (auto& gog : GOGSubBlocks) {
         gog.getVoluminaForAddedVertices(maxVal, result);
     }
 

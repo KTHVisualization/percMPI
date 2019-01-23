@@ -47,7 +47,7 @@ ID GreenProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor
                 if (neigh.Cluster == gog.Cluster) continue;
                 /*const std::vector<GOG>& reps = GOGs.getRepresentatives(neigh.Cluster);
                 // Directly point representativevs to the cluster to avoid duplicate merges
-                for (auto rep : reps) {
+                for (auto& rep : reps) {
                     UnionFindSubBlock<GreenProcessor>* blockParent =
                         reinterpret_cast<UnionFindSubBlock<GreenProcessor>*>(rep.ParentBlock);
                     blockParent->PointerBlock.setPointer(
@@ -93,7 +93,7 @@ void GreenProcessor::checkConsistency() const {
                 ClusterID* currClust = curr.asCluster();
                 const std::vector<GOG>& reps = GOGs.getRepresentatives(*currClust);
                 bool found = false;
-                for (const auto gog : reps) {
+                for (const auto& gog : reps) {
                     if (gog.ID == currPosID) {
                         found = true;
                     }

@@ -11,7 +11,7 @@ public:
     virtual void doWatershed(const double minVal) = 0;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) = 0;
     virtual ID* setID(const vec3i& idx, const ID& id) = 0;
-    ID* setID(VertexID idx, const VertexID& id) {
+    ID* setID(VertexID idx, const ID& id) {
         return setID(vec3i::fromIndexOfTotal(idx.RawID, TotalSize), id);
     }
     virtual double getClusterVolume(ClusterID cluster) = 0;

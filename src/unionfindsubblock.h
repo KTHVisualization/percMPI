@@ -19,6 +19,7 @@ public:
                                         ID* memory = nullptr);
 
     ~UnionFindSubBlock() { delete Data; }
+
     void loadData();
     void doWatershed(const double minVal);
 
@@ -44,7 +45,7 @@ public:
 private:
     mutable std::vector<Neighbor> NeighborCache;
     ClusterProcessor NeighborProcessor;
-};
+};  // namespace perc
 
 }  // namespace perc
 

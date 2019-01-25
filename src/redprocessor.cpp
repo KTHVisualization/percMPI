@@ -27,7 +27,7 @@ ID RedProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>&
                 // No LOG for GOG yet?
                 if (!LOGs.getRepresentative(neigh.Cluster).isValid()) {
                     LOGs.setRepresentative(neigh.Cluster, pos);
-                    return pos;
+                    return neigh.Cluster;
                 }
                 return neigh.Representative.toIndexOfTotal(Parent->totalSize());
             } else {
@@ -51,11 +51,13 @@ ID RedProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>&
 
             // Merge all onto a random LOG.
             VertexID mergeDest;
+            bool returnCluster = false;
             if (log != neighClusters.end()) {
                 // In case of green: use this as representative.
                 if (!LOGs.getRepresentative(log->Cluster).isValid()) {
                     LOGs.setRepresentative(log->Cluster, pos);
                     log->Representative = vec3i::fromIndexOfTotal(pos.RawID, Parent->totalSize());
+                    returnCluster = true;
                 }
                 mergeDest = log->Representative.toIndexOfTotal(Parent->totalSize());
                 LOGs.extendCluster(log->Cluster, volume);
@@ -74,6 +76,7 @@ ID RedProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>&
                             Parent->Parent.setID(neigh.Representative, mergeDest);
                     }
                 }
+                if (returnCluster) return log->Cluster;
             }
 
             // No global cluster.

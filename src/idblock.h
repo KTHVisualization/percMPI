@@ -27,6 +27,8 @@ public:
     }
 
     void setPointer(const vec3i& idx, const ID& id) {
+        assert(id.isCluster() || VertexID(idx.toIndexOfTotal(TotalSize)) != id &&
+                                     "Vertex attempting to point to itself.\n");
         assert(contains(idx) && "Index not within this block. Please check before!\n");
         return setPointerLocal(idx - BlockOffset, id);
     }

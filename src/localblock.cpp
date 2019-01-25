@@ -293,12 +293,23 @@ void LocalBlock::sendData() {
 void LocalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
     for (auto it = connComps.begin(); it != connComps.end(); ++it) {
         ind compSize = *it;
-        ind ontoCluster = *(++it);
+        ClusterID ontoCluster(*(++it), false);
         for (ind c = 0; c < compSize - 1; ++c) {
-            ClusterID fromCluster = *(++it);
+            ClusterID fromCluster(*(++it), false);
             VertexID fromRep = LOGs.getCluster(fromCluster).Index;
             VertexID ontoRep = LOGs.getCluster(ontoCluster).Index;
-            setID(fromRep, ontoRep);
+            // The from rep may not be part of this node (-> Empty Rep)
+            if (fromRep.RawID != -1) {
+                // Onto Rep not part of this node, make fromRep the Representative
+                if (ontoRep.RawID == -1) {
+                    setID(fromRep, ontoCluster);
+                    LOGs.setRepresentative(ontoCluster, fromRep);
+                } else  // Both reps are part of this node
+                {
+                    assert(fromRep != ontoRep && "Self pointing rep");
+                    setID(fromRep, ontoRep);
+                }
+            }
         }
     }
 }

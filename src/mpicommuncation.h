@@ -24,7 +24,9 @@ public:
         PLOGS,
         STARTOFPLOG,
         REDPOINTERS,
-        GREENPOINTERS = 1000
+        GREENPOINTERS = 1000,
+        REDINDICES,
+        ERRORFLAG
     };
 
     template <typename T>

@@ -586,27 +586,83 @@ int main(int argc, char** argv) {
                     std::cout << "Total volume is " << ind(globalBlock.totalVolumeCombined())
                               << '\\' << ind(groundtruth->totalVolumeCombined()) << std::endl;
 
+                // Let the other processes know something is wrong
+                bool correct;
+#ifndef COLLECTIVES
+                MPI_Request* requests = new MPI_Request[numNodes.prod()];
+                for (ind p = 0; p < numNodes.prod(); p++) {
+                    ind processindex = p + 1;
+                    MPI_Isend(&correct, 1, MPI_CXX_BOOL, processindex, MPICommunication::ERRORFLAG,
+                              MPI_COMM_WORLD, &requests[p]);
+                }
+#else
+                // TODO: Broadcast
+#endif
+
                 // We can only check if newely processed green indices have the correct volume
                 // (White and red data is held by other nodes)
-                // TODO
+                auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
+                auto greenStats = globalBlock.getVoluminaForAddedVertices(currentH + hStep);
 
-                // But we can send the other processes a message
-                // Hej I am wrong
-                // Receive red indices to check from each node (Only if their white is correct?)
+                for (int i = 0; i < greenStats.size(); ++i) {
+                    auto& currentStat = greenStats[i];
+                    // Find corresponding value in ground truth
+                    auto truthIt =
+                        std::find_if(groundStats.begin(), groundStats.end(),
+                                     [&currentStat](const std::pair<vec3i, double>& element) {
+                                         return currentStat.first == element.first;
+                                     });
+                    assert(truthIt != groundStats.end() && "Test is incorrect.");
+                    if (currentStat.second != truthIt->second) {
+                        std::cout << "Green part " << currProcess << "\t" << currentStat.first
+                                  << ":\tcorrect " << truthIt->second
+                                  << " != " << currentStat.second << std::endl;
+                    }
+                }
+
+                std::vector<vec3i> redIndices;
+                MPI_Status* statuses = new MPI_Status[numNodes.prod()];
+
+                // Receive red indices to check from each node
+                for (ind p = 0; p < numNodes.prod(); p++) {
+                    ind processindex = p + 1;
+                    // redIndices.clear();
+                    MPICommunication::RecvVectorUknownSize(redIndices, processindex,
+                                                           MPICommunication::REDINDICES,
+                                                           MPI_COMM_WORLD, &statuses[p]);
+
+                    for (vec3i& redIndex : redIndices) {
+                        auto truthIt =
+                            std::find_if(groundStats.begin(), groundStats.end(),
+                                         [&redIndex](const std::pair<vec3i, double>& element) {
+                                             return redIndex == element.first;
+                                         });
+
+                        vec3i dummy(-1, -1, -1);
+                        ClusterID* id = globalBlock.findClusterID(redIndex, dummy);
+                        double volRed = globalBlock.getClusterVolume(*id);
+
+                        if (volRed != truthIt->second) {
+                            std::cout << "Red part " << currProcess << "\t" << redIndex
+                                      << ":\tcorrect " << truthIt->second << " != " << volRed
+                                      << std::endl;
+                        }
+                    }
+                }
 
                 assert(globalBlock.numClustersCombined() == groundtruth->numClustersCombined() &&
                        "Groundtruth has other num clusters.");
                 assert(globalBlock.totalVolumeCombined() == groundtruth->totalVolumeCombined() &&
                        "Groundtruth has other total volume.");
+            }
 
 #endif  // NDEBUG
-                numClusters.push_back(globalBlock.numClustersCombined());
-                maxVolumes.push_back(globalBlock.maxVolumeCombined());
-                totalVolumes.push_back(globalBlock.totalVolumeCombined());
-            }
+            numClusters.push_back(globalBlock.numClustersCombined());
+            maxVolumes.push_back(globalBlock.maxVolumeCombined());
+            totalVolumes.push_back(globalBlock.totalVolumeCombined());
         }
-
     }
+
     // All other processes: currProcess != 0
     else {
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
@@ -623,16 +679,41 @@ int main(int argc, char** argv) {
             groundtruth->doWatershed(currentH);
 
             bool correct;
-            MPI_Recv(&correct, 1, MPI_CXX_BOOL, 0, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&correct, 1, MPI_CXX_BOOL, 0, MPICommunication::ERRORFLAG, MPI_COMM_WORLD,
+                     MPI_STATUS_IGNORE);
 
             if (!correct) {
                 std::vector<vec3i> redIndices;
 
                 // Check white indices and collect red indices so that global node can check it
-                // TODO
+                auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
+                auto WhiteAndRedStats = localBlock.getVoluminaForAddedVertices(currentH + hStep);
+
+                for (int i = 0; i < WhiteAndRedStats.size(); ++i) {
+                    auto& currentStat = WhiteAndRedStats[i];
+                    // Find in both local and global
+                    auto truthIt =
+                        std::find_if(groundStats.begin(), groundStats.end(),
+                                     [&currentStat](const std::pair<vec3i, double>& element) {
+                                         return currentStat.first == element.first;
+                                     });
+                    assert(truthIt != groundStats.end() && "Test is incorrect.");
+                    if (currentStat.second != truthIt->second) {
+                        if (currentStat.second == 0) {
+                            // Volume has been nulled, we assume it to be part of red
+                            redIndices.push_back(currentStat.first);
+                        } else {
+                            // Not nulled (so white?), but incorrect.
+                            std::cout << "White part in process " << currProcess << "\t"
+                                      << currentStat.first << ":\tcorrect " << truthIt->second
+                                      << " != " << currentStat.second << std::endl;
+                        }
+                    }
+                }
 
                 MPI_Request request;
-                MPICommunication::IsendVector(redIndices, 0, 6666, MPI_COMM_WORLD, &request);
+                int err = MPICommunication::IsendVector(redIndices, 0, MPICommunication::ERRORFLAG,
+                                                        MPI_COMM_WORLD, &request);
                 MPI_Wait(&request, MPI_STATUS_IGNORE);
             }
 

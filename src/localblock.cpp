@@ -299,17 +299,6 @@ void LocalBlock::receiveData() {
     repointerMultipleMerges(merges);
     LOGs.mergeClusterFromList(merges);
 
-    // Receive updated green blocks
-    int counter = 0;
-    for (int counter = 0; counter < GOGSubBlocks.size(); ++counter) {
-        auto& gogBlock = GOGSubBlocks[counter];
-        // Should this potentially be Non-Blocking?
-        MPI_Status status;
-        int err = MPI_Recv(gogBlock.PointerBlock.PointerBlock,
-                           gogBlock.blockSize().prod() * sizeof(ID), MPI_BYTE, 0,
-                           MPICommunication::GREENPOINTERS & counter, MPI_COMM_WORLD, &status);
-    }
-
     checkConsistency();
 }
 

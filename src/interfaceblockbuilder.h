@@ -26,10 +26,13 @@ void buildRedBlocks(const vec3i& parentBlockSize, const vec3i& parentBlockOffset
     for (ind dim = 0; dim < 3; ++dim) {
 
         // Low side.
-        if (whiteBlockOffset[dim] > 0) whiteBlockOffset[dim]++;
+        if (whiteBlockOffset[dim] > 0) {
+            whiteBlockOffset[dim]++;
+            whiteBlockSize[dim]--;
+        }
 
         // High side.
-        if (whiteBlockOffset[dim] + whiteBlockSize[dim] < totalSize[dim]) whiteBlockSize[dim]--;
+        if (whiteBlockOffset[dim] + whiteBlockSize[dim] < totalSize[dim]) whiteBlockSize[dim] -= 2;
     }
 
     // Gather sizes in all dimensions.
@@ -79,6 +82,89 @@ void buildRedBlocks(const vec3i& parentBlockSize, const vec3i& parentBlockOffset
         }
     }
 }
+
+// Create a green blocks as green or grey subblocks.
+template <typename BlockType>
+UnionFindSubBlock<BlockType> buildGreenBlock(const vec3i& direction, const vec3i& whiteBlockSize,
+                                             const vec3i& whiteBlockOffset, const vec3i& totalSize,
+                                             ID*& memoryPointer, UnionFindBlock& parent,
+                                             std::function<BlockType()> blockConstructor) {
+
+    vec3i blockOffset, blockSize;
+    static const ind ALL_ZERO = -1;
+    static const ind SEVERAL_NONZERO = -2;
+
+    ind nonZeroDim = ALL_ZERO;
+    for (ind dim = 0; dim < 3; ++dim) {
+        if (direction[dim] != 0) {
+            if (nonZeroDim == ALL_ZERO)
+                nonZeroDim = dim;
+            else {
+                nonZeroDim = SEVERAL_NONZERO;
+                break;
+            }
+        }
+    }
+    assert(nonZeroDim != ALL_ZERO && "Null vector input direction.");
+
+    // Corner block?
+    if (nonZeroDim == SEVERAL_NONZERO) {
+
+        // Little 3x3x3 corner block or 3x3xS edge.
+        for (ind dim = 0; dim < 3; ++dim) {
+            switch (direction[dim]) {
+                case 1:
+                    blockOffset[dim] = whiteBlockOffset[dim] + whiteBlockSize[dim];
+                    blockSize[dim] = 3;
+                    break;
+
+                case -1:
+                    blockOffset[dim] = whiteBlockOffset[dim] - 3;
+                    blockSize[dim] = 3;
+                    break;
+
+                case 0:
+                    blockOffset[dim] = whiteBlockOffset[dim];
+                    blockSize[dim] = whiteBlockSize[dim];
+                    break;
+
+                default:
+                    assert(false && "Only allowing direction within {-1, 0, 1}³.");
+            }
+        }
+
+        // Side or edge slice.
+    } else {
+        // blockOffset = whiteBlockOffset;
+        blockSize = whiteBlockSize;
+
+        blockSize[nonZeroDim] = 1;
+        switch (direction[nonZeroDim]) {
+            case -1:
+                assert(whiteBlockOffset[nonZeroDim] >= 4 && "No green block fits here.");
+                blockOffset[nonZeroDim] = whiteBlockOffset[nonZeroDim] - 2;
+                break;
+
+            case 1:
+                assert(whiteBlockOffset[nonZeroDim] + whiteBlockSize[nonZeroDim] <
+                           totalSize[nonZeroDim] - 3 &&
+                       "No green block here.");
+                blockOffset[nonZeroDim] =
+                    whiteBlockOffset[nonZeroDim] + whiteBlockSize[nonZeroDim] + 1;
+                break;
+
+            default:
+                assert(false && "Only allowing direction within {-1, 0, 1}³.");
+        }
+    }
+
+    auto block = UnionFindSubBlock<BlockType>(blockSize, blockOffset, totalSize, parent,
+                                              blockConstructor(), memoryPointer);
+
+    memoryPointer += blockSize.prod();
+    return block;
+}
+
 }  // namespace interfaceblockbuilder
 
 }  // namespace perc

@@ -4,13 +4,14 @@
 namespace perc {
 
 void RedProcessor::setParent(UnionFindSubBlock<RedProcessor>* parent) {
-    assert(!Parent && "Parent already set!");
+    // assert(!Parent && "Parent already set!");
     assert(&(parent->NeighborProcessor) == this && "This is not our parent.");
-
+    std::cout << "Red";
     Parent = parent;
 }
 
 ID RedProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters) {
+
     switch (neighClusters.size()) {
         // New LOL that is directly marked as PLOG.
         case 0: {
@@ -36,7 +37,7 @@ ID RedProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>&
                 // Mark as PLOG iff it isn't already. Make this the new representative.
                 if (PLOGs.insert(neigh.Cluster).second) {
                     // Make this position the cluster representative.
-                    Parent->Parent.setID(neigh.Representative, pos);
+                    Parent->Parent->setID(neigh.Representative, pos);
                     LOLs.setRepresentative(neigh.Cluster, pos);
                     return neigh.Cluster;
                 } else
@@ -73,7 +74,7 @@ ID RedProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>&
                         if (Parent->contains(neigh.Representative))
                             Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                         else
-                            Parent->Parent.setID(neigh.Representative, mergeDest);
+                            Parent->Parent->setID(neigh.Representative, mergeDest);
                     }
                 }
                 if (returnCluster) return log->Cluster;
@@ -101,7 +102,7 @@ ID RedProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor>&
 
                     PLOGs.erase(neigh->Cluster);
                     LOLs.mergeClusters(neigh->Cluster, dest->Cluster);
-                    Parent->Parent.setID(neigh->Representative, mergeDest);
+                    Parent->Parent->setID(neigh->Representative, mergeDest);
                 }
             }
             return mergeDest;

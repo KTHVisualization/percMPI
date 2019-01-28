@@ -11,15 +11,37 @@ UnionFindSubBlock<ClusterProcessor>::UnionFindSubBlock(const vec3i& size, const 
                                                        ClusterProcessor&& neighProcessor,
                                                        ID* memory)
     : PointerBlock(size, offset, total, memory)
-    , Parent(parent)
+    , Parent(&parent)
     , CurrentWatershedIndex(-1)
     , NeighborProcessor(neighProcessor)
     , Data(nullptr) {
 
+    assert(vec3i::min(offset + size, total) == offset + size &&
+           "Given block would lay over the maximum.");
+    assert(vec3i::max(offset + size, vec3i(0)) == offset + size &&
+           "Given block would lay below the minimum.");
     NeighborCache.reserve(6);
     NeighborProcessor.setParent(this);
-    std::cout << "New block " << offset << " - " << offset + size << std::endl;
+    std::cout << " block\t" << offset << "\t - " << offset + size << std::endl;
 }
+
+template <typename ClusterProcessor>
+UnionFindSubBlock<ClusterProcessor>::UnionFindSubBlock(UnionFindSubBlock<ClusterProcessor>&& other)
+    : PointerBlock(std::move(other.PointerBlock))
+    , Parent(nullptr)
+    , CurrentWatershedIndex(other.CurrentWatershedIndex)
+    , NeighborProcessor(std::move(other.NeighborProcessor)) {
+    Data = other.Data;
+    other.Data = nullptr;
+    // We copied the parent pointer over from other, thus not calling 'setParent' here.
+    NeighborProcessor.setParent(this);
+}
+
+// template <typename ClusterProcessor>
+// void UnionFindSubBlock<ClusterProcessor>::setParent(UnionFindBlock& parent) {
+//     assert(!Parent && "Parent already set!");
+//     Parent = parent;
+// }
 
 template <typename ClusterProcessor>
 void UnionFindSubBlock<ClusterProcessor>::loadData() {
@@ -53,7 +75,7 @@ void UnionFindSubBlock<ClusterProcessor>::doWatershed(const double minVal) {
                 if (contains(neighIdx))
                     neighCluster = findClusterID(neighIdx, neighRep);
                 else
-                    neighCluster = Parent.findClusterID(neighIdx, neighRep);
+                    neighCluster = Parent->findClusterID(neighIdx, neighRep);
 
                 if (neighCluster) {
                     bool addCluster = true;
@@ -106,7 +128,7 @@ ClusterID* UnionFindSubBlock<ClusterProcessor>::findClusterID(const vec3i& idx,
     ClusterID* finalID;
     // Not there yet, give it back to parent block.
     if (curPointer->isVertex()) {
-        finalID = Parent.findClusterID(curIdx, lastVertexID);
+        finalID = Parent->findClusterID(curIdx, lastVertexID);
         assert(finalID && "Vertex is pointed to but not pointing to anything.");
     }
     // It is a cluster, set final ID
@@ -144,7 +166,7 @@ void UnionFindSubBlock<ClusterProcessor>::getVoluminaForAddedVertices(
 
         // Find cluster we belong to and get volume.
         ClusterID& cluster = *findClusterID(globIdx, dummy);
-        double volume = Parent.getClusterVolume(cluster);
+        double volume = Parent->getClusterVolume(cluster);
         stats.push_back({globIdx, volume});
 
         currID--;

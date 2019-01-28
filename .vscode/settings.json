@@ -48,6 +48,7 @@
         "filesystem": "cpp",
         "ratio": "cpp",
         "list": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "memory": "cpp",
     }
 }

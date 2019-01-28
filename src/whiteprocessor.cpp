@@ -80,7 +80,7 @@ ID WhiteProcessor::doWatershed(VertexID pos, double volume, std::vector<Neighbor
                     if (Parent->PointerBlock.contains(neigh.Representative))
                         Parent->PointerBlock.setPointer(neigh.Representative, mergeDest);
                     else
-                        Parent->Parent.setID(neigh.Representative, mergeDest);
+                        Parent->Parent->setID(neigh.Representative, mergeDest);
                     assert((&dest != &neighClusters[0] || PLOGs.count(dest.Cluster)) ||
                            !PLOGs.erase(neigh.Cluster) && "Can not merge PLOG onto a LOG.");
                     // Remove possible appearance in PLOG list.

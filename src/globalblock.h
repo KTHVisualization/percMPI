@@ -12,29 +12,13 @@ namespace perc {
 
 class GlobalBlock : public UnionFindBlock {
 public:
-    struct InfoPerProcess {
-        InfoPerProcess(std::vector<ind> greenIndices, ID* memoryLOG, ind memoryLOGSize,
-                       std::vector<ClusterMerge>* merges)
-            : GreenIndices(greenIndices)
-            , MemoryLOG(memoryLOG)
-            , MemoryLOGSize(memoryLOGSize)
-            , Merges(merges)
-            , StartOfLocalPlog(0) {}
-        InfoPerProcess()
-            : GreenIndices()
-            , MemoryLOG(nullptr)
-            , MemoryLOGSize(0)
-            , Merges(nullptr)
-            , StartOfLocalPlog(0) {}
-        std::vector<ind> GreenIndices;
-        ID* MemoryLOG;
-        ind MemoryLOGSize;
-        const std::vector<ClusterMerge>* Merges;
-        ind StartOfLocalPlog;
-    };
+    struct InfoPerProcess;
 
     GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
                 const vec3i& numNodes);
+    GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const vec3i& numNodes);
+    GlobalBlock(const GlobalBlock&) = delete;
+    GlobalBlock operator=(const GlobalBlock&) = delete;
 
     ~GlobalBlock() {
         for (auto& processData : PerProcessData) {
@@ -79,9 +63,29 @@ public:
 protected:
     void repointerMultipleMerges(const std::vector<ind>& connComps);
 
+public:
+    struct InfoPerProcess {
+        InfoPerProcess() : MemoryLOG(nullptr), MemoryLOGSize(0), StartOfLocalPlog(-1) {}
+
+        InfoPerProcess(const std::vector<int>& greenAdjacent, ID* memoryLOG, ind memoryLOGSize,
+                       std::vector<ClusterMerge> merges = std::vector<ClusterMerge>())
+            : GreenAdjacent(greenAdjacent)
+            , MemoryLOG(memoryLOG)
+            , MemoryLOGSize(memoryLOGSize)
+            , Merges(merges)
+            , StartOfLocalPlog(0) {}
+
+        std::vector<ind> GreenAdjacent;
+        ID* MemoryLOG;
+        ind MemoryLOGSize;
+        std::vector<ClusterMerge> Merges;
+        ind StartOfLocalPlog;
+    };
+
 private:
     // The global (actual) part for this block
     std::vector<UnionFindSubBlock<GreenProcessor>> GOGSubBlocks;
+    // std::vector<std::vector<UnionFindBlock&>> NodeNeighbors;
     // The local global part for this block, just for lookup
     std::vector<UnionFindSubBlock<GrayProcessor>> LOGSubBlocks;
 
@@ -103,6 +107,8 @@ private:
     std::vector<std::vector<ClusterMerge>> ReceivedMerges;
     // *** Mixed ***
     std::vector<InfoPerProcess> PerProcessData;
+    // Green pointer blocks data
+    ID* MemoryGreen;
 };
 
 }  // namespace perc

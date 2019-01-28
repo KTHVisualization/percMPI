@@ -17,7 +17,11 @@ public:
     UnionFindSubBlock<ClusterProcessor>(const vec3i& size, const vec3i& offset, const vec3i& total,
                                         UnionFindBlock& parent, ClusterProcessor&& neighProcessor,
                                         ID* memory = nullptr);
-
+    UnionFindSubBlock<ClusterProcessor>(const UnionFindSubBlock<ClusterProcessor>&) = delete;
+    UnionFindSubBlock<ClusterProcessor> operator=(const UnionFindSubBlock<ClusterProcessor>&) =
+        delete;
+    UnionFindSubBlock<ClusterProcessor>(UnionFindSubBlock<ClusterProcessor>&& other);
+    UnionFindSubBlock<ClusterProcessor> operator=(UnionFindSubBlock<ClusterProcessor>&&) = delete;
     ~UnionFindSubBlock() { delete Data; }
 
     void loadData();
@@ -38,7 +42,7 @@ public:
 public:
     DataBlock* Data;
     IDBlock PointerBlock;
-    UnionFindBlock& Parent;
+    UnionFindBlock* Parent;
     // Until which index we have watershedded in the sorted list.
     ind CurrentWatershedIndex;
 

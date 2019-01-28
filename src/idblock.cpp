@@ -15,6 +15,16 @@ IDBlock::IDBlock(const vec3i& size, const vec3i& offset, const vec3i& total, ID*
     std::fill_n(PointerBlock, BlockSize.prod(), ind(-1));
 }
 
+IDBlock::IDBlock(IDBlock&& other) noexcept
+    : BlockSize(other.BlockSize)
+    , BlockOffset(other.BlockOffset)
+    , TotalSize(other.TotalSize)
+    , ownsMemory(other.ownsMemory) {
+    PointerBlock = other.PointerBlock;
+    other.PointerBlock = nullptr;
+    other.ownsMemory = false;
+}
+
 IDBlock::~IDBlock() {
     if (ownsMemory) delete[] PointerBlock;
 }

@@ -1,3 +1,4 @@
+#include <cmath>
 #include "globalblock.h"
 #include "performancetimer.h"
 #include "mpicommuncation.h"
@@ -37,23 +38,139 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const
     ReceivedMerges.resize(NumNodes.prod());
 
     for (ind p = 0; p < numNodes.prod(); ++p) {
-        InfoPerProcess dataPerProcess;
 
-        dataPerProcess.Merges = &ReceivedMerges[p];
+        // dataPerProcess.Merges
+        auto& merges = ReceivedMerges[p];
 
         // TODO: Add correct greenIndices
         std::vector<ind> greenIndices;
-        dataPerProcess.GreenIndices = greenIndices;
+
+        // InfoPerProcess dataPerProcess(greenIndices, nullptr, 0);
+        ID* memoryPointer = nullptr;
+        ind memorySize = 0;
 
         auto constructor = [this]() -> GrayProcessor { return GrayProcessor(); };
         vec3i whiteBlockSize, whiteBlockOffset;
 
         interfaceblockbuilder::buildRedBlocks<GrayProcessor>(
-            blockSize, blockOffset, totalSize, LOGSubBlocks, dataPerProcess.MemoryLOG,
-            dataPerProcess.MemoryLOGSize, whiteBlockSize, whiteBlockOffset, *this, constructor);
+            blockSize, blockOffset, totalSize, LOGSubBlocks, memoryPointer, memorySize,
+            whiteBlockSize, whiteBlockOffset, *this, constructor);
 
-        PerProcessData.push_back(dataPerProcess);
+        PerProcessData.emplace_back(greenIndices, memoryPointer, memorySize);
     }
+}
+
+GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const vec3i& numNodes)
+    : NumNodes(numNodes), UnionFindBlock(totalSize), GOGs(GLOBAL_LIST) {
+
+#ifndef NDEBUG
+    for (int n = 0; n < 3; ++n) {
+        double s = static_cast<double>(totalSize[n]) / blockSize[n];
+        assert(numNodes[n] == static_cast<int>(ceil(s)) && "Block size and num nodes disagree.");
+    }
+#endif
+
+    ind totalBlockSize = 0;
+    ind numBlocks = 0;
+
+    // Number of little 3x3x3 blocks.
+    // Disregard size: The slivers cutting through them will amount to exactly 27 cells.
+    numBlocks += (numNodes - 1).prod();
+
+    // The 3x3xS edges between them.
+    for (ind dim = 0; dim < 3; ++dim) {
+        vec3i numSticks = numBlocks - 1;
+        numSticks[dim]++;
+        numBlocks += numSticks.prod();
+
+        // Length of sticks without little blocks.
+        vec3i sizeSticks = numSticks;
+        sizeSticks[dim] = totalSize[dim] - 3 * (numNodes[dim] - 1);
+        // Two slivers cut through each edge. This makes 6 intersections per perpendicualr plane,
+        // hence 9-6 = 3 muliplier.
+        totalBlockSize += sizeSticks.prod() * 3;
+
+        // The slivers.
+        vec3i sizeSliver = totalSize;
+        // The number of slivers.
+        sizeSliver[dim] = numNodes[dim] - 1;
+        totalBlockSize += sizeSliver.prod();
+
+        vec3i numSlivers = numNodes;
+        numSlivers[dim]--;
+        numBlocks += numSlivers.prod();
+    }
+
+    GOGSubBlocks.reserve(numBlocks);
+    MemoryGreen = new ID[totalBlockSize];
+
+    ID* memOngoing = MemoryGreen;
+
+    // Reusable variables.
+    vec3i whiteOffset, whiteSize;
+    ID* memoryRed;
+    ind sizeRed;
+
+    // Directions.
+    std::vector<vec3i> directions;
+    directions.resize(7);
+
+    // Results for all nodes.
+    std::vector<std::vector<ind>> neighbors(numNodes.prod());
+
+    // Assemble.
+    for (ind z = 0; z < numNodes.z; ++z)
+        for (ind y = 0; y < numNodes.y; ++y)
+            for (ind x = 0; x < numNodes.x; ++x) {
+                vec3i node(x, y, z);
+                vec3i min = node * blockSize;
+                vec3i potentialMax = (node + 1) * blockSize;
+                vec3i max = vec3i::min(potentialMax, totalSize);
+
+                for (ind dim = 0; dim < 3; ++dim)
+                    if (potentialMax[dim] < totalSize[dim]) {
+                        // Direction the green side lies at.
+                        vec3i dir(0);
+                        dir[dim] = 1;
+
+                        // Add to possible direction combinations.
+                        for (ind d = 0; d < directions.size(); ++d)
+                            directions.push_back(directions[d] + dir);
+                        directions.push_back(dir);
+                    }
+
+                for (vec3i& dir : directions) {
+                    // Buildng red adjacent blocks.
+                    interfaceblockbuilder::buildRedBlocks<GrayProcessor>(
+                        max - min, min, totalSize, LOGSubBlocks, memoryRed, sizeRed, whiteSize,
+                        whiteOffset, *this, []() { return GrayProcessor(); });
+
+                    // Building green adjacent blocks.
+                    GOGSubBlocks.push_back(interfaceblockbuilder::buildGreenBlock<GreenProcessor>(
+                        dir, whiteSize, whiteOffset, totalSize, memOngoing, *this,
+                        [this]() { return GreenProcessor(GOGs); }));
+
+                    // Add to neighborhood lists.
+                    // Current node.
+                    neighbors[node.toIndexOfTotal(numNodes)].push_back(GOGSubBlocks.size() - 1);
+
+                    // Respective neighboring nodes.
+                    for (ind dim = 0; dim < 3; ++dim)
+                        if (dir[dim]) {
+                            vec3i neighNode = node;
+                            neighNode[dim]++;
+                            neighbors[neighNode.toIndexOfTotal(numNodes)].push_back(
+                                GOGSubBlocks.size() - 1);
+                        }
+                }
+            }
+
+    for (ind nodeIdx = 0; nodeIdx < neighbors.size(); ++nodeIdx) {
+        PerProcessData[nodeIdx].GreenAdjacent = neighbors[nodeIdx];
+    }
+
+    assert(memOngoing == MemoryGreen + totalBlockSize &&
+           "Allocated and filled memory do not match.");
 }
 
 GlobalBlock::GlobalBlock(const vec3i& totalSize)
@@ -92,11 +209,11 @@ GlobalBlock* GlobalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& 
     block->ReceivedMerges.resize(block->NumNodes.prod());
 
     InfoPerProcess dataPerProcess;
-    dataPerProcess.Merges = &block->ReceivedMerges[0];
+    dataPerProcess.Merges = block->ReceivedMerges[0];
 
     // No green indices
     std::vector<ind> greenIndices;
-    dataPerProcess.GreenIndices = greenIndices;
+    dataPerProcess.GreenAdjacent = greenIndices;
 
     dataPerProcess.MemoryLOGSize = sliceSize.prod() * 3;
     dataPerProcess.MemoryLOG = new ID[dataPerProcess.MemoryLOGSize];
@@ -136,10 +253,10 @@ GlobalBlock* GlobalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const ve
     block->ReceivedMerges.resize(1);
 
     InfoPerProcess dataPerProcess;
-    dataPerProcess.Merges = &block->ReceivedMerges[0];
+    auto merges = &block->ReceivedMerges[0];
 
     std::vector<ind> greenIndices = {1, 2};
-    dataPerProcess.GreenIndices = greenIndices;
+    dataPerProcess.GreenAdjacent = greenIndices;
 
     dataPerProcess.MemoryLOGSize = sliceSize.prod() * 2;
     dataPerProcess.MemoryLOG = new ID[dataPerProcess.MemoryLOGSize];
@@ -299,8 +416,9 @@ void GlobalBlock::receiveData() {
         // Receive number of local Clusters and maxVolume and totalVolume (TODO: Might want to be
         // gathers)
         int numClusters;
-        err = MPI_Recv(&numClusters, 1, MPI_INT, processIndex, MPICommunication::NUMCLUSTERS,
-                       MPI_COMM_WORLD, &status);
+
+        err = MPI_Recv(&numClusters, 1, MPI_INT, p, MPICommunication::NUMCLUSTERS, MPI_COMM_WORLD,
+                       &status);
         NumClustersLocal += numClusters;
         double maxVolume;
         err = MPI_Recv(&maxVolume, 1, MPI_DOUBLE, processIndex, MPICommunication::MAXVOLUME,
@@ -380,7 +498,7 @@ void GlobalBlock::sendData() {
 #endif  // SINGLENODE
 
         // NumNewClusters, Merges Vector, PLOG range,
-        ind numMessages = 1 + PerProcessData[processDataIndex].GreenIndices.size();
+        ind numMessages = 1 + PerProcessData[processDataIndex].GreenAdjacent.size();
 #ifndef COLLECTIVES
         numMessages += 2;
 #endif
@@ -388,7 +506,7 @@ void GlobalBlock::sendData() {
         MPI_Request* requests = new MPI_Request[numMessages];
 
         // Updated green blocks
-        const std::vector<ind>& greenIndices = PerProcessData[processDataIndex].GreenIndices;
+        const std::vector<ind>& greenIndices = PerProcessData[processDataIndex].GreenAdjacent;
         ind messageID = 0;
         for (ind id : greenIndices) {
             auto& gogBlock = GOGSubBlocks[id];
@@ -409,12 +527,12 @@ void GlobalBlock::sendData() {
 #endif  // COLLECTIVES
 
 #ifndef SINGLENODE
-        // This should free our requests as well??? -> Would mean blocking after each process, might
-        // not be what we want
+        // This should free our requests as well??? -> Would mean blocking after each process,
+        // might not be what we want
         MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
 #endif  // SINGLENODE
     }
-}
+}  // namespace perc
 
 void GlobalBlock::checkConsistency() const {
 #ifndef NDEBUG

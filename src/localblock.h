@@ -14,6 +14,7 @@ namespace perc {
 class LocalBlock : public UnionFindBlock {
 public:
     LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize);
+    LocalBlock(LocalBlock&& other);
 
 private:
     LocalBlock(const vec3i& totalSize);
@@ -25,6 +26,8 @@ public:
                                         const vec3i& totalSize);
     static LocalBlock* makeWhiteRedGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
                                              const vec3i& totalSize);
+    void outputFrontBlocks(std::vector<char>& field, ind slice);
+
     ~LocalBlock() {
         delete[] MemoryLOG;
         delete LOLSubBlock;

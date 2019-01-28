@@ -3,12 +3,17 @@
 #include "datablock.h"
 #include "handles.h"
 #include <cassert>
+#include <memory>
 
 namespace perc {
 
 class IDBlock {
 public:
     IDBlock(const vec3i& size, const vec3i& offset, const vec3i& total, ID* memory = nullptr);
+    IDBlock(const IDBlock& block) = delete;
+    IDBlock operator=(const IDBlock& other) = delete;
+    IDBlock(IDBlock&& block) noexcept;
+
     ~IDBlock();
 
     bool contains(const vec3i& idx) {

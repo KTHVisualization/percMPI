@@ -14,6 +14,8 @@ namespace perc {
 class LocalBlock : public UnionFindBlock {
 public:
     LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize);
+    LocalBlock(const LocalBlock&) = delete;
+    LocalBlock operator=(const LocalBlock&) = delete;
     LocalBlock(LocalBlock&& other);
 
 private:

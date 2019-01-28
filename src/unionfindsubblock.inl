@@ -37,12 +37,6 @@ UnionFindSubBlock<ClusterProcessor>::UnionFindSubBlock(UnionFindSubBlock<Cluster
     NeighborProcessor.setParent(this);
 }
 
-// template <typename ClusterProcessor>
-// void UnionFindSubBlock<ClusterProcessor>::setParent(UnionFindBlock& parent) {
-//     assert(!Parent && "Parent already set!");
-//     Parent = parent;
-// }
-
 template <typename ClusterProcessor>
 void UnionFindSubBlock<ClusterProcessor>::loadData() {
     assert(!Data && "Data was already set.");

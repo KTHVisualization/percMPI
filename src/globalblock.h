@@ -85,7 +85,6 @@ public:
 private:
     // The global (actual) part for this block
     std::vector<UnionFindSubBlock<GreenProcessor>> GOGSubBlocks;
-    // std::vector<std::vector<UnionFindBlock&>> NodeNeighbors;
     // The local global part for this block, just for lookup
     std::vector<UnionFindSubBlock<GrayProcessor>> LOGSubBlocks;
 

@@ -11,7 +11,7 @@ class UnionFindSubBlock;
 // the green block seen from the local node.
 struct GrayProcessor {
 
-    GrayProcessor() {}
+    GrayProcessor() { std::cout << "Gray"; }
 
     ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters) {
         assert(false && "Read only.");

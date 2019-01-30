@@ -6,7 +6,7 @@ namespace perc {
 void WhiteProcessor::setParent(UnionFindSubBlock<WhiteProcessor>* parent) {
     assert(!Parent && "Parent already set!");
     assert(&(parent->NeighborProcessor) == this && "This is not our parent.");
-
+    std::cout << "White";
     Parent = parent;
 }
 

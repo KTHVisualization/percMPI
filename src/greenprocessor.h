@@ -10,7 +10,9 @@ class UnionFindSubBlock;
 
 struct GreenProcessor {
 
-    GreenProcessor(ClusterListRecordingMultiple& gogs) : GOGs(gogs), Parent(nullptr) {}
+    GreenProcessor(ClusterListRecordingMultiple& gogs) : GOGs(gogs), Parent(nullptr) {
+        std::cout << "Green";
+    }
 
     ID doWatershed(VertexID pos, double volume, std::vector<Neighbor>& neighClusters);
 

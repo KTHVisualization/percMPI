@@ -28,7 +28,8 @@ public:
                                         const vec3i& totalSize);
     static LocalBlock* makeWhiteRedGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
                                              const vec3i& totalSize);
-    void outputFrontBlocks(std::vector<char>& field, ind slice);
+    // 0: All, 1: Only White, 2: Only Red, 3: Only Green
+    void outputFrontBlocks(std::vector<char>& field, ind slice, ind selection);
 
     ~LocalBlock() {
         delete[] MemoryLOG;

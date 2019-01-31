@@ -27,17 +27,29 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     std::vector<vec3i> directions;
     vec3i potentialMax = blockOffset + blockSize;
 
-    for (ind dim = 0; dim < 3; ++dim)
-        if (potentialMax[dim] < totalSize[dim]) {
-            // Direction the green side lies at.
+    for (ind dim = 0; dim < 3; ++dim) {
+        for (ind sign = -1; sign <= 1; sign += 2) {
             vec3i dir(0);
-            dir[dim] = 1;
+            // Green side in the lower or upper limits
+            if (sign == -1 && blockOffset[dim] > 0 ||
+                sign == 1 && potentialMax[dim] < totalSize[dim]) {
+                // Direction the green side lies at.
+                dir[dim] = sign;
 
-            // Add to possible direction combinations.
-            for (ind d = directions.size() - 1; d >= 0; --d)
-                directions.push_back(directions[d] + dir);
-            directions.push_back(dir);
+                // Add to possible direction combinations.
+                for (ind d = directions.size() - 1; d >= 0; --d)
+                    if (directions[d][dim] == 0) {
+                        directions.push_back(directions[d] + dir);
+                    }
+                directions.push_back(dir);
+            }
         }
+    }
+
+    // Sort directions, such that the blocks will have the same order as in the global block
+    std::sort(directions.begin(), directions.end(), [this](auto& a, auto& b) {
+        return a.toIndexOfTotal(TotalSize) < b.toIndexOfTotal(TotalSize);
+    });
 
     // Setup global block vector.
     GOGSubBlocks.reserve(directions.size());
@@ -50,7 +62,8 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
             dir, whiteBlockSize, whiteBlockOffset, totalSize, dummyMemory, *this,
             []() { return GrayProcessor(); }));
     }
-}
+
+}  // namespace perc
 
 LocalBlock::LocalBlock(const vec3i& totalSize)
     : UnionFindBlock(totalSize)
@@ -66,7 +79,6 @@ LocalBlock::LocalBlock(LocalBlock&& other)
     , LOGs(std::move(other.LOGs))
     , RefPLOGs(std::move(other.RefPLOGs))
     , CommPLOGs(std::move(other.CommPLOGs)) {
-
     // Take over log memory.
     MemoryLOG = other.MemoryLOG;
     other.MemoryLOG = nullptr;
@@ -152,7 +164,6 @@ LocalBlock* LocalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& bl
 
 LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3i& blockOffset,
                                               const vec3i& totalSize) {
-
     LocalBlock* block = new LocalBlock(totalSize);
 
     vec3i min = blockOffset;
@@ -263,7 +274,7 @@ void LocalBlock::receiveData() {
     err = MPICommunication::RecvVectorUknownSize(merges, 0, MPICommunication::MERGES,
                                                  MPI_COMM_WORLD, &status);
 #endif  // COLLECTIVES
-    // Receive updated green blocks
+        // Receive updated green blocks
     int counter = 0;
     for (int counter = 0; counter < GOGSubBlocks.size(); ++counter) {
         auto& gogBlock = GOGSubBlocks[counter];
@@ -409,48 +420,55 @@ std::vector<std::pair<vec3i, double>> LocalBlock::getVoluminaForAddedVertices(do
     return result;
 }
 
-void LocalBlock::outputFrontBlocks(std::vector<char>& field, ind slice) {
+void LocalBlock::outputFrontBlocks(std::vector<char>& field, ind slice, ind selection) {
     vec3i size = TotalSize;
     size.z = 1;
     assert(field.size() == size.prod() && "Field size not correct.");
 
-    // Mark white block elements.
-    if (LOLSubBlock->blockOffset().z <= slice &&
-        LOLSubBlock->blockOffset().z + LOLSubBlock->blockSize().z > slice) {
-        for (ind x = LOLSubBlock->blockOffset().x;
-             x < LOLSubBlock->blockOffset().x + LOLSubBlock->blockSize().x; ++x)
-            for (ind y = LOLSubBlock->blockOffset().y;
-                 y < LOLSubBlock->blockOffset().y + LOLSubBlock->blockSize().y; ++y) {
+    if (selection == 0 || selection == 1) {
+        // Mark white block elements.
+        if (LOLSubBlock->blockOffset().z <= slice &&
+            LOLSubBlock->blockOffset().z + LOLSubBlock->blockSize().z > slice) {
+            for (ind x = LOLSubBlock->blockOffset().x;
+                 x < LOLSubBlock->blockOffset().x + LOLSubBlock->blockSize().x; ++x)
+                for (ind y = LOLSubBlock->blockOffset().y;
+                     y < LOLSubBlock->blockOffset().y + LOLSubBlock->blockSize().y; ++y) {
 
-                field[x + y * size.x] = '.';
-            }
-    }
-
-    // Mark red block elements.
-    for (ind r = 0; r < LOGSubBlocks.size(); ++r) {
-        auto& red = LOGSubBlocks[r];
-        if (red.blockOffset().z <= slice && red.blockOffset().z + red.blockSize().z > slice) {
-            for (ind x = red.blockOffset().x; x < red.blockOffset().x + red.blockSize().x; ++x)
-                for (ind y = red.blockOffset().y; y < red.blockOffset().y + red.blockSize().y;
-                     ++y) {
-                    //                    assert(field[x + y * size.x] == ' ' && "Overlapping
-                    //                    blocks.");
-                    field[x + y * size.x] = '0' + r;
+                    field[x + y * size.x] = '.';
                 }
         }
     }
 
+    // Mark red block elements.
+    if (selection == 0 || selection == 2) {
+        for (ind r = 0; r < LOGSubBlocks.size(); ++r) {
+            auto& red = LOGSubBlocks[r];
+            if (red.blockOffset().z <= slice && red.blockOffset().z + red.blockSize().z > slice) {
+                for (ind x = red.blockOffset().x; x < red.blockOffset().x + red.blockSize().x; ++x)
+                    for (ind y = red.blockOffset().y; y < red.blockOffset().y + red.blockSize().y;
+                         ++y) {
+                        assert(field[x + y * size.x] == ' ' && "Overlapping blocks.");
+                        field[x + y * size.x] = '0' + r;
+                    }
+            }
+        }
+    }
+
     // Mark gray block elements.
-    for (ind g = 0; g < GOGSubBlocks.size(); ++g) {
-        auto& gray = GOGSubBlocks[g];
-        if (gray.blockOffset().z <= slice && gray.blockOffset().z + gray.blockSize().z > slice) {
-            for (ind x = gray.blockOffset().x; x < gray.blockOffset().x + gray.blockSize().x; ++x)
-                for (ind y = gray.blockOffset().y; y < gray.blockOffset().y + gray.blockSize().y;
-                     ++y) {
-                    //                    assert(field[x + y * size.x] == ' ' && "Overlapping
-                    //                    blocks.");
-                    field[x + y * size.x] = 'a' + g;
-                }
+    if (selection == 0 || selection == 3) {
+        for (ind g = 0; g < GOGSubBlocks.size(); ++g) {
+            auto& gray = GOGSubBlocks[g];
+            if (gray.blockOffset().z <= slice &&
+                gray.blockOffset().z + gray.blockSize().z > slice) {
+                for (ind x = gray.blockOffset().x; x < gray.blockOffset().x + gray.blockSize().x;
+                     ++x)
+                    for (ind y = gray.blockOffset().y;
+                         y < gray.blockOffset().y + gray.blockSize().y; ++y) {
+                        //                    assert(field[x + y * size.x] == ' ' &&
+                        //                    "Overlapping blocks.");
+                        field[x + y * size.x] = 'a' + g;
+                    }
+            }
         }
     }
 }

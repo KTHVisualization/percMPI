@@ -139,8 +139,10 @@ int main(int argc, char** argv) {
     vec3i blockOffset = blockSize * idxNode;
     blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
-    // blockSize = {193, 194, 100};
-    // totalSize = {193, 194, 100};
+    // blockSize = {9, 9, 100};
+    // totalSize = {27, 27, 100};
+
+    // numNodes = {3, 3, 1};
 
     // Print status
     std::cout << "Processor " << currProcess << ", index " << idxNode << ", size " << blockSize
@@ -162,6 +164,40 @@ int main(int argc, char** argv) {
     PerformanceTimer timer;
     timer.Reset();
     float timeElapsed;
+
+    std::vector<LocalBlock> localBlocks;
+
+    //#ifdef ANKE
+    // The first slice of blocks for debugging.
+    std::vector<char> debugSlice(totalSize.x * totalSize.y, ' ');
+
+#ifdef FULL_LOCAL_TEST
+    for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
+        std::cout << "Node " << nodeIdx << std::endl;
+        idxNode = vec3i::fromIndexOfTotal(nodeIdx, numNodes);
+        blockOffset = blockSize * idxNode;
+        blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
+
+        localBlocks.emplace_back(blockSize, blockOffset, totalSize);
+
+        localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
+    }
+#else
+    localBlocks.emplace_back(blockSize, blockOffset, totalSize);
+    localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
+#endif
+    std::cout << "---------Global Block--------" << std::endl;
+    GlobalBlock globalBlock(blockSize, totalSize, numNodes);
+
+#ifdef FULL_LOCAL_TEST
+    for (ind y = 0; y < totalSize.y; ++y) {
+        for (ind x = 0; x < totalSize.x; ++x) {
+            std::cout << debugSlice[x + y * totalSize.x];
+        }
+        std::cout << '\n';
+    }
+    return 0;
+#endif
 
 #ifdef SINGLENODE
 

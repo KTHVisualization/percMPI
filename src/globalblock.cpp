@@ -79,7 +79,7 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
 
     // The 3x3xS edges between them.
     for (ind dim = 0; dim < 3; ++dim) {
-        vec3i numSticks = numBlocks - 1;
+        vec3i numSticks = numNodes - 1;
         numSticks[dim]++;
         numBlocks += numSticks.prod();
 
@@ -117,11 +117,13 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
 
     // Results for all nodes.
     std::vector<std::vector<ind>> neighbors(numNodes.prod());
+    PerProcessData.resize(NumNodes.prod());
 
     // Assemble.
     for (ind z = 0; z < numNodes.z; ++z)
         for (ind y = 0; y < numNodes.y; ++y)
             for (ind x = 0; x < numNodes.x; ++x) {
+                directions.clear();
                 vec3i node(x, y, z);
                 vec3i min = node * blockSize;
                 vec3i potentialMax = (node + 1) * blockSize;
@@ -133,18 +135,24 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                         vec3i dir(0);
                         dir[dim] = 1;
 
-                        // Add to possible direction combinations.
-                        for (ind d = 0; d < directions.size(); ++d)
-                            directions.push_back(directions[d] + dir);
+                        // Doing this first ensures a sorted vector
                         directions.push_back(dir);
+
+                        // Combine the new direction with all previous ones (-> exclude the one just
+                        // pushed)
+                        for (ind d = directions.size() - 2; d >= 0; --d)
+                            directions.push_back(directions[d] + dir);
                     }
 
-                for (vec3i& dir : directions) {
-                    // Buildng red adjacent blocks.
-                    interfaceblockbuilder::buildRedBlocks<GrayProcessor>(
-                        max - min, min, totalSize, LOGSubBlocks, memoryRed, sizeRed, whiteSize,
-                        whiteOffset, *this, []() { return GrayProcessor(); });
+                memoryRed = nullptr;
+                // Buildng red adjacent blocks.
+                interfaceblockbuilder::buildRedBlocks<GrayProcessor>(
+                    max - min, min, totalSize, LOGSubBlocks, memoryRed, sizeRed, whiteSize,
+                    whiteOffset, *this, []() { return GrayProcessor(); });
+                PerProcessData[node.toIndexOfTotal(numNodes)].MemoryLOG = memoryRed;
+                PerProcessData[node.toIndexOfTotal(numNodes)].MemoryLOGSize = sizeRed;
 
+                for (vec3i& dir : directions) {
                     // Building green adjacent blocks.
                     GOGSubBlocks.push_back(interfaceblockbuilder::buildGreenBlock<GreenProcessor>(
                         dir, whiteSize, whiteOffset, totalSize, memOngoing, *this,
@@ -165,8 +173,11 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                 }
             }
 
+    ReceivedMerges.resize(NumNodes.prod());
+
     for (ind nodeIdx = 0; nodeIdx < neighbors.size(); ++nodeIdx) {
         PerProcessData[nodeIdx].GreenAdjacent = neighbors[nodeIdx];
+        ReceivedMerges[nodeIdx] = PerProcessData[nodeIdx].Merges;
     }
 
     assert(memOngoing == MemoryGreen + totalBlockSize &&

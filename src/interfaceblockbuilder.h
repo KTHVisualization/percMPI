@@ -73,7 +73,8 @@ void buildRedBlocks(const vec3i& parentBlockSize, const vec3i& parentBlockOffset
         if (whiteBlockOffset[dim] + whiteBlockSize[dim] < totalSize[dim]) {
 
             vec3i blockOffset = whiteBlockOffset;
-            blockOffset[dim] += whiteBlockSize[dim] - 1;
+            // WhiteBlockSize has already been adapted for the red block
+            blockOffset[dim] += whiteBlockSize[dim];
 
             // Create block.
             newBlocks.emplace_back(blockSize, blockOffset, totalSize, parent, blockConstructor(),
@@ -135,7 +136,7 @@ UnionFindSubBlock<BlockType> buildGreenBlock(const vec3i& direction, const vec3i
 
         // Side or edge slice.
     } else {
-        // blockOffset = whiteBlockOffset;
+        blockOffset = whiteBlockOffset;
         blockSize = whiteBlockSize;
 
         blockSize[nonZeroDim] = 1;

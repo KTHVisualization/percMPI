@@ -135,7 +135,8 @@ int main(int argc, char** argv) {
     int currProcess;
     MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
 
-    vec3i idxNode = vec3i::fromIndexOfTotal(currProcess, numNodes);
+    // Process 0 is master rank -> -1
+    vec3i idxNode = vec3i::fromIndexOfTotal(currProcess - 1, numNodes);
     vec3i blockOffset = blockSize * idxNode;
     blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
@@ -145,8 +146,8 @@ int main(int argc, char** argv) {
     // numNodes = {3, 3, 1};
 
     // Print status
-    std::cout << "Processor " << currProcess << ", index " << idxNode << ", size " << blockSize
-              << std::endl;
+    std::cout << "Processor " << currProcess << ", index " << idxNode << ", offset " << blockOffset
+              << ", size " << blockSize << std::endl;
 
     // TODO, put settings in command line arguments
     float hMin = 0.0;
@@ -182,14 +183,9 @@ int main(int argc, char** argv) {
 
         localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
     }
-#else
-    localBlocks.emplace_back(blockSize, blockOffset, totalSize);
-    localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
-#endif
     std::cout << "---------Global Block--------" << std::endl;
     GlobalBlock globalBlock(blockSize, totalSize, numNodes);
 
-#ifdef FULL_LOCAL_TEST
     for (ind y = 0; y < totalSize.y; ++y) {
         for (ind x = 0; x < totalSize.x; ++x) {
             std::cout << debugSlice[x + y * totalSize.x];
@@ -197,6 +193,13 @@ int main(int argc, char** argv) {
         std::cout << '\n';
     }
     return 0;
+
+    // Check that the global block has the same information for each node that the node also has
+    for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
+        // Red in Local, Gray in Global
+
+        // Green in Global, Gray in Local
+    }
 #endif
 
 #ifdef SINGLENODE
@@ -583,7 +586,7 @@ int main(int argc, char** argv) {
 
 #ifndef NDEBUG
     // Keeps groundtruth block to compare against
-    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
+    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(totalSize, vec3i(0), totalSize);
 #endif  // NDEBUG
 
     // Master process
@@ -597,7 +600,7 @@ int main(int argc, char** argv) {
         maxVolumes.reserve(hSamples);
         totalVolumes.reserve(hSamples);
 
-        GlobalBlock globalBlock(blockSize, blockOffset, totalSize, numNodes);
+        GlobalBlock globalBlock(blockSize, totalSize, numNodes);
 
         timeElapsed = timer.ElapsedTimeAndReset();
         std::cout << "Processor " << currProcess << ": Loaded and sorted data in " << timeElapsed
@@ -612,8 +615,25 @@ int main(int argc, char** argv) {
             h.push_back(currentH);
 #ifndef NDEBUG
             groundtruth->doWatershed(currentH);
-            if (globalBlock.numClustersCombined() != groundtruth->numClustersCombined() ||
-                globalBlock.totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
+            bool correct =
+                globalBlock.numClustersCombined() == groundtruth->numClustersCombined() &&
+                globalBlock.totalVolumeCombined() == groundtruth->totalVolumeCombined();
+            // Let the other processes know something is wrong
+
+#ifndef COLLECTIVES
+            MPI_Request* requests = new MPI_Request[numNodes.prod()];
+            for (ind p = 0; p < numNodes.prod(); p++) {
+                ind processIndex = p + 1;
+                std::cout << "0: Letting process " << processIndex << " know the step was "
+                          << (correct ? "correct." : "incorrect.") << std::endl;
+                MPI_Isend(&correct, 1, MPI_CXX_BOOL, processIndex, MPICommunication::ERRORFLAG,
+                          MPI_COMM_WORLD, &requests[p]);
+            }
+            MPI_Waitall(numNodes.prod(), requests, MPI_STATUSES_IGNORE);
+#else
+            // TODO: Broadcast
+#endif
+            if (!correct) {
 
                 if (globalBlock.numClustersCombined() != groundtruth->numClustersCombined())
                     std::cout << "Number of clusters is " << globalBlock.numClustersCombined()
@@ -621,19 +641,6 @@ int main(int argc, char** argv) {
                 if (globalBlock.totalVolumeCombined() != groundtruth->totalVolumeCombined())
                     std::cout << "Total volume is " << ind(globalBlock.totalVolumeCombined())
                               << '\\' << ind(groundtruth->totalVolumeCombined()) << std::endl;
-
-                // Let the other processes know something is wrong
-                bool correct;
-#ifndef COLLECTIVES
-                MPI_Request* requests = new MPI_Request[numNodes.prod()];
-                for (ind p = 0; p < numNodes.prod(); p++) {
-                    ind processindex = p + 1;
-                    MPI_Isend(&correct, 1, MPI_CXX_BOOL, processindex, MPICommunication::ERRORFLAG,
-                              MPI_COMM_WORLD, &requests[p]);
-                }
-#else
-                // TODO: Broadcast
-#endif
 
                 // We can only check if newely processed green indices have the correct volume
                 // (White and red data is held by other nodes)
@@ -661,9 +668,11 @@ int main(int argc, char** argv) {
 
                 // Receive red indices to check from each node
                 for (ind p = 0; p < numNodes.prod(); p++) {
-                    ind processindex = p + 1;
-                    // redIndices.clear();
-                    MPICommunication::RecvVectorUknownSize(redIndices, processindex,
+                    ind processIndex = p + 1;
+                    std::cout << "0: Receiving red indices from process  " << processIndex
+                              << std::endl;
+                    redIndices.clear();
+                    MPICommunication::RecvVectorUknownSize(redIndices, processIndex,
                                                            MPICommunication::REDINDICES,
                                                            MPI_COMM_WORLD, &statuses[p]);
 
@@ -709,15 +718,17 @@ int main(int argc, char** argv) {
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
             localBlock.doWatershed(currentH);
             localBlock.sendData();
-            std::cout << currentH << "/ " << hStep << "\t - " << localBlock.numClusters()
-                      << std::endl;
+            localBlock.receiveData();
+            std::cout << currProcess << ": "
+                      << "/ " << hStep << "\t - " << localBlock.numClusters() << std::endl;
 #ifndef NDEBUG
             groundtruth->doWatershed(currentH);
 
             bool correct;
             MPI_Recv(&correct, 1, MPI_CXX_BOOL, 0, MPICommunication::ERRORFLAG, MPI_COMM_WORLD,
                      MPI_STATUS_IGNORE);
-
+            std::cout << currProcess << ": Received information that the step was "
+                      << (correct ? "correct." : "incorrect.") << std::endl;
             if (!correct) {
                 std::vector<vec3i> redIndices;
 
@@ -748,15 +759,15 @@ int main(int argc, char** argv) {
                 }
 
                 MPI_Request request;
+                std::cout << currProcess << ": Sending red indices to process 0." << std::endl;
                 int err = MPICommunication::IsendVector(redIndices, 0, MPICommunication::ERRORFLAG,
                                                         MPI_COMM_WORLD, &request);
                 MPI_Wait(&request, MPI_STATUS_IGNORE);
+                std::cout << currProcess << ": Finished sending red indices to process 0."
+                          << std::endl;
             }
 
 #endif  // NDEBUG
-
-            // Prepate local block for next step
-            localBlock.receiveData();
         }
     }
 

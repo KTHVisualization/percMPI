@@ -262,6 +262,12 @@ void LocalBlock::receiveData() {
     ind startOfLocalPlog;
     std::vector<int> merges;
 #ifdef COMMUNICATION
+#ifndef NDEBUG
+    int currProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
+    std::cout << currProcess << ": Receiving data from process 0" << std::endl;
+#endif
+
     MPI_Status status;
     int err;
 #ifdef COLLECTIVES
@@ -283,6 +289,10 @@ void LocalBlock::receiveData() {
                        MPI_BYTE, 0, MPICommunication::GREENPOINTERS & counter, MPI_COMM_WORLD,
                        &status);
     }
+#ifndef NDEBUG
+    std::cout << currProcess << ": Finished receiving data from process 0" << std::endl;
+#endif
+
 #else   // !COMMUNICATION
     numNewLOGs = CommPLOGs.size();
     startOfLocalPlog = 0;
@@ -327,6 +337,12 @@ void LocalBlock::sendData() {
     RefPLOGs.clear();
 
 #ifdef COMMUNICATION
+#ifndef NDEBUG
+    int currProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
+    std::cout << currProcess << ": Sending data to process 0" << std::endl;
+#endif
+
     ind numMessages = 7;
     MPI_Request* requests = new MPI_Request[numMessages];
     int err;
@@ -361,9 +377,18 @@ void LocalBlock::sendData() {
     err = MPI_Isend(MemoryLOG, MemoryLOGSize * sizeof(ID), MPI_BYTE, 0,
                     MPICommunication::REDPOINTERS, MPI_COMM_WORLD, &requests[messageId++]);
 
+#ifndef NDEBUG
+    std::cout << currProcess << ": Waiting for messages to be received by process 0" << std::endl;
+#endif
+
 #ifndef SINGLENODE
-    MPI_Waitall(7, requests, MPI_STATUS_IGNORE);
+    MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
 #endif  // SINGLENODE
+
+#ifndef NDEBUG
+    std::cout << currProcess << ": Finished sending data to process 0" << std::endl;
+#endif
+
 #endif  // COMMUNCATION
 }
 

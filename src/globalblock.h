@@ -14,8 +14,6 @@ class GlobalBlock : public UnionFindBlock {
 public:
     struct InfoPerProcess;
 
-    GlobalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
-                const vec3i& numNodes);
     GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const vec3i& numNodes);
     GlobalBlock(const GlobalBlock&) = delete;
     GlobalBlock operator=(const GlobalBlock&) = delete;

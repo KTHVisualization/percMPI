@@ -14,9 +14,23 @@
     },
     "tasks": [
         {
-            "taskName": "Single node",
+            "taskName": "Single node, No Communcation",
             "args": [
-                "mkdir -p builds && cd builds && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000"
+                "mkdir -p builds && cd builds && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE -DFULL_LOCAL_TEST' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000 0"
+            ],
+            "isBuildCommand": true
+        },
+        {
+            "taskName": "Single Node, Communication",
+            "args": [
+                "mkdir -p buildsc; cd buildsc; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE -DCOMMUNICATION' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000 0"
+            ],
+            "isBuildCommand": true
+        },
+        {
+            "taskName": "Multiple Nodes",
+            "args": [
+                "mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DCOMMUNICATION' .. && make -j 8 && mpirun -np 3 ./PercMPI ../../Data/Percolation/P3 uv_005 20 20 100 20 20 50 0"
             ],
             "isBuildCommand": true
         },
@@ -30,27 +44,6 @@
             "taskName": "make",
             "args": [
                 "cd build && make -j 8"
-            ],
-            "isBuildCommand": true
-        },
-        {
-            "taskName": "Single Node, Communication, Test",
-            "args": [
-                "mkdir -p buildsct; cd buildsct; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DGREEN -DSINGLENODE -DCOMMUNICATION -DTEST' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000"
-            ],
-            "isBuildCommand": true
-        },
-        {
-            "taskName": "Single Node, No Communicate, Test",
-            "args": [
-                "mkdir -p buildst; cd buildst; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DGREEN -DSINGLENODE -DTEST' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000"
-            ],
-            "isBuildCommand": true
-        },
-        {
-            "taskName": "Multiple nodes",
-            "args": [
-                "mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DCOMMUNICATION' .. && make -j 8 && mpirun -np 8 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 125"
             ],
             "isBuildCommand": true
         },

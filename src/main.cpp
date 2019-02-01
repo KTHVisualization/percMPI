@@ -16,6 +16,16 @@
 
 using namespace perc;
 
+enum Mode {
+    REAL = 0,
+    TEST_LOCALONLY_WHITERED = 1,
+    TEST_GLOBALONLY_GREEN = 2,
+    TEST_WHITERED = 3,
+    TEST_WHITEREDGREEN = 4,
+    TEST_COMMUNICATION = 10,
+    TEST_MERGING = 11,
+};
+
 void testingMPIVectors() {
     // MPI init
     MPI_Init(NULL, NULL);
@@ -88,362 +98,14 @@ void testClusterMerges() {
     for (ind n : graphAsOne) std::cout << ID(n).baseID() << ", ";
 }
 
-// Input args:
-// - path:        folder with data
-// - rms:         name of rms file
-// - xT, yT, zT:  total size
-// - xB, yB, zB:  block size
-int main(int argc, char** argv) {
-
-    // testingMPIVectors();
-    // testClusterMerges();
-
-    // Directory path and sizes from args
-    if (argc < 9) {
-        std::cerr << "Not enough arguments.\n";
-        return 1;
-    }
-
-    // First argument is the executable name.
-    // for (int a = 0; a < argc; ++a) std::cout << a << ": " << argv[a] << std::endl;
-    char* baseFolder = argv[1];
-    char* rmsFilename = argv[2];
-    vec3i totalSize(atoi(argv[3]), atoi(argv[4]), atoi(argv[5]));
-    vec3i blockSize(atoi(argv[6]), atoi(argv[7]), atoi(argv[8]));
-    vec3i numNodes;
-
-    for (int n = 0; n < 3; ++n) {
-        double s = static_cast<double>(totalSize[n]) / blockSize[n];
-        numNodes[n] = static_cast<int>(ceil(s));
-    }
-
-    // MPI init
-    MPI_Init(NULL, NULL);
-
-    int numProcesses;
-    MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
-
-    // One master node and one node for each block
-#ifndef SINGLENODE
-    if (numNodes.prod() + 1 > numProcesses) {
-        std::cerr << "Too few nodes. Needing " << numNodes.x << " x " << numNodes.y << " x "
-                  << numNodes.z << " and one additional master" << std::endl;
-        return 1;
-    }
-#endif
-
-    int currProcess;
-    MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
-
-    // Process 0 is master rank -> -1
-    vec3i idxNode = vec3i::fromIndexOfTotal(currProcess - 1, numNodes);
-    vec3i blockOffset = blockSize * idxNode;
-    blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
-
-    // blockSize = {9, 9, 100};
-    // totalSize = {27, 27, 100};
-
-    // numNodes = {3, 3, 1};
-
-    // Print status
-    std::cout << "Processor " << currProcess << ", index " << idxNode << ", offset " << blockOffset
-              << ", size " << blockSize << std::endl;
-
-    // TODO, put settings in command line arguments
-    float hMin = 0.0;
-    float hMax = 2;
-    assert(hMax > hMin && "HMax needs to be larger than hMin.");
-    int hSamples = 101;
-    float hStep = (hMax - hMin) / (hSamples - 1);
-
-    // Keep track of threshold h, number of components, volume largest component, volume total
-    std::vector<float> h;
-    std::vector<ind> numClusters;
-    std::vector<float> maxVolumes;
-    std::vector<float> totalVolumes;
-
-    PerformanceTimer timer;
-    timer.Reset();
-    float timeElapsed;
-
-    std::vector<LocalBlock> localBlocks;
-
-    //#ifdef ANKE
-    // The first slice of blocks for debugging.
-    std::vector<char> debugSlice(totalSize.x * totalSize.y, ' ');
-
-#ifdef FULL_LOCAL_TEST
-    for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
-        std::cout << "Node " << nodeIdx << std::endl;
-        idxNode = vec3i::fromIndexOfTotal(nodeIdx, numNodes);
-        blockOffset = blockSize * idxNode;
-        blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
-
-        localBlocks.emplace_back(blockSize, blockOffset, totalSize);
-
-        localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
-    }
-    std::cout << "---------Global Block--------" << std::endl;
-    GlobalBlock globalBlock(blockSize, totalSize, numNodes);
-
-    for (ind y = 0; y < totalSize.y; ++y) {
-        for (ind x = 0; x < totalSize.x; ++x) {
-            std::cout << debugSlice[x + y * totalSize.x];
-        }
-        std::cout << '\n';
-    }
-    return 0;
-
-    // Check that the global block has the same information for each node that the node also has
-    for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
-        // Red in Local, Gray in Global
-
-        // Green in Global, Gray in Local
-    }
-#endif
-
-#ifdef SINGLENODE
-
-    if (numProcesses > 1) {
-        std::cerr << "Using single node mode with " << numProcesses << " processes. " << std::endl;
-        return 1;
-    }
-
-    h.reserve(hSamples);
-    numClusters.reserve(hSamples);
-    maxVolumes.reserve(hSamples);
-    totalVolumes.reserve(hSamples);
-
-#ifdef COMMUNICATION
-
-    std::cout << "Running single node communication test: WhiteRed and WhiteRedGreen." << std::endl;
-
-#ifndef NDEBUG
-    // Keeps groundtruth block to compare against
-    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
-#endif  // !NDEBUG
-
-    // WhiteRed
-    LocalBlock* localBlockWhiteRed =
-        LocalBlock::makeWhiteRedTest(blockSize, blockOffset, totalSize);
-    GlobalBlock* globalBlockRed = GlobalBlock::makeWhiteRedTest(blockSize, blockOffset, totalSize);
-
-#ifdef GREEN
-    // WhiteRedGreen
-    LocalBlock* localBlockWhiteRedGreen =
-        LocalBlock::makeWhiteRedGreenTest(blockSize, blockOffset, totalSize);
-    GlobalBlock* globalBlockRedGreen =
-        GlobalBlock::makeWhiteRedGreenTest(blockSize, blockOffset, totalSize);
-#endif  // GREEN
-
-    timeElapsed = timer.ElapsedTimeAndReset();
-    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
-
-    for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
-        localBlockWhiteRed->doWatershed(currentH);
-        localBlockWhiteRed->sendData();
-        globalBlockRed->receiveData();
-        globalBlockRed->doWatershed(currentH);
-        globalBlockRed->sendData();
-        localBlockWhiteRed->receiveData();
-        std::cout << currentH << "/ " << hStep << "\t - "
-                  << "(WhiteRed) " << globalBlockRed->numClustersCombined() << std::endl;
-
-#ifdef GREEN
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        localBlockWhiteRedGreen->doWatershed(currentH);
-        localBlockWhiteRedGreen->sendData();
-        globalBlockRedGreen->receiveData();
-        globalBlockRedGreen->doWatershed(currentH);
-        globalBlockRedGreen->sendData();
-        localBlockWhiteRedGreen->receiveData();
-        std::cout << currentH << "/ " << hStep << "\t - "
-                  << "(WhiteRedGreen) " << globalBlockRedGreen->numClustersCombined() << std::endl;
-#endif  // GREEN
-        h.push_back(currentH);
-
-#ifndef NDEBUG
-        groundtruth->doWatershed(currentH);
-        // WhiteRed
-        if (globalBlockRed->numClustersCombined() != groundtruth->numClustersCombined() ||
-            globalBlockRed->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
-
-            if (globalBlockRed->numClustersCombined() != groundtruth->numClustersCombined())
-                std::cout << "(WhiteRed) Number of clusters is "
-                          << globalBlockRed->numClustersCombined() << '\\'
-                          << groundtruth->numClustersCombined() << std::endl;
-            if (globalBlockRed->totalVolumeCombined() != groundtruth->totalVolumeCombined())
-                std::cout << "(WhiteRed) Total volume is "
-                          << ind(globalBlockRed->totalVolumeCombined()) << '\\'
-                          << ind(groundtruth->totalVolumeCombined()) << std::endl;
-
-            // Compare newet additions by related cluster volume.
-            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
-            auto localStats = localBlockWhiteRed->getVoluminaForAddedVertices(currentH + hStep);
-            auto globalStats = globalBlockRed->getVoluminaForAddedVertices(currentH + hStep);
-
-            assert(localStats.size() + globalStats.size() == groundStats.size() &&
-                   "(WhiteRed) Test is incorrect.");
-            for (int i = 0; i < groundStats.size(); ++i) {
-                auto& currentStat = groundStats[i];
-                // Find in both local and global
-                auto localIt =
-                    std::find_if(localStats.begin(), localStats.end(),
-                                 [&currentStat](const std::pair<vec3i, double>& element) {
-                                     return currentStat.first == element.first;
-                                 });
-
-                auto globalIt =
-                    std::find_if(globalStats.begin(), globalStats.end(),
-                                 [&currentStat](const std::pair<vec3i, double>& element) {
-                                     return currentStat.first == element.first;
-                                 });
-
-                // Green
-                if (globalIt != globalStats.end()) {
-                    if (currentStat.second != globalIt->second) {
-                        std::cout << "(WhiteRed in Green part) \t" << currentStat.first
-                                  << ":\tcorrect " << currentStat.second
-                                  << " != " << globalIt->second << std::endl;
-                    }
-                }
-                // Red or white
-                else if (localIt != localStats.end()) {
-                    vec3i dummy(-1, -1, -1);
-                    ClusterID* id = localBlockWhiteRed->findClusterID(currentStat.first, dummy);
-                    // Red
-                    if (id->isGlobal()) {
-                        if (localIt->second != 0) {
-                            std::cout
-                                << "(WhiteRed in Red part) \t correct 0 != " << localIt->second
-                                << std::endl;
-                        }
-                        double volRed = globalBlockRed->getClusterVolume(*id);
-                        if (currentStat.second != volRed) {
-                            std::cout << "(WhiteRed in Red part) \t" << currentStat.first
-                                      << ":\tcorrect " << currentStat.second << " != " << volRed
-                                      << std::endl;
-                        }
-                    } else {
-                        if (currentStat.second != localIt->second) {
-                            std::cout << "(WhiteRed in White part) \t" << currentStat.first
-                                      << ":\tcorrect " << currentStat.second
-                                      << " != " << localIt->second << std::endl;
-                        }
-                    }
-                }
-            }
-
-            assert(globalBlockRed->numClustersCombined() == groundtruth->numClusters() &&
-                   "(WhiteRed) Groundtruth has other num clusters.");
-            assert(globalBlockRed->totalVolumeCombined() == groundtruth->totalVolume() &&
-                   "(WhiteRed) Groundtruth has other total volume.");
-        }
-#ifdef GREEN
-        // WhiteRedGreen
-        if (globalBlockRedGreen->numClustersCombined() != groundtruth->numClustersCombined() ||
-            globalBlockRedGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
-
-            if (globalBlockRedGreen->numClustersCombined() != groundtruth->numClustersCombined())
-                std::cout << "(WhiteRedGreen) Number of clusters is "
-                          << globalBlockRedGreen->numClustersCombined() << '\\'
-                          << groundtruth->numClustersCombined() << std::endl;
-            if (globalBlockRedGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined())
-                std::cout << "(WhiteRedGreen) Total volume is "
-                          << ind(globalBlockRedGreen->totalVolumeCombined()) << '\\'
-                          << ind(groundtruth->totalVolumeCombined()) << std::endl;
-
-            // Compare newet additions by related cluster volume.
-            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
-            auto localStats =
-                localBlockWhiteRedGreen->getVoluminaForAddedVertices(currentH + hStep);
-            auto globalStats = globalBlockRedGreen->getVoluminaForAddedVertices(currentH + hStep);
-
-            assert(localStats.size() + globalStats.size() == groundStats.size() &&
-                   "(WhiteRedGreen) Test is incorrect.");
-            for (int i = 0; i < groundStats.size(); ++i) {
-                auto& currentStat = groundStats[i];
-                // Find in both local and global
-                auto localIt =
-                    std::find_if(localStats.begin(), localStats.end(),
-                                 [&currentStat](const std::pair<vec3i, double>& element) {
-                                     return currentStat.first == element.first;
-                                 });
-
-                auto globalIt =
-                    std::find_if(globalStats.begin(), globalStats.end(),
-                                 [&currentStat](const std::pair<vec3i, double>& element) {
-                                     return currentStat.first == element.first;
-                                 });
-
-                // Green
-                if (globalIt != globalStats.end()) {
-                    if (currentStat.second != globalIt->second) {
-                        std::cout << "(WhiteRedGreen in Green part) \t" << currentStat.first
-                                  << ":\tcorrect " << currentStat.second
-                                  << " != " << globalIt->second << std::endl;
-                    }
-                }
-                // Red or white
-                else if (localIt != localStats.end()) {
-                    vec3i dummy(-1, -1, -1);
-                    ClusterID* id =
-                        localBlockWhiteRedGreen->findClusterID(currentStat.first, dummy);
-                    // Red
-                    if (id->isGlobal()) {
-                        if (localIt->second != 0) {
-                            std::cout
-                                << "(WhiteRedGreen in Red part) \t correct 0 != " << localIt->second
-                                << std::endl;
-                        }
-                        double volRed = globalBlockRedGreen->getClusterVolume(*id);
-                        if (currentStat.second != volRed) {
-                            std::cout << "(WhiteRedGreen in Red part) \t" << currentStat.first
-                                      << ":\tcorrect " << currentStat.second << " != " << volRed
-                                      << std::endl;
-                        }
-                    } else {
-                        if (currentStat.second != localIt->second) {
-                            std::cout << "(WhiteRedGreen in White part) \t" << currentStat.first
-                                      << ":\tcorrect " << currentStat.second
-                                      << " != " << localIt->second << std::endl;
-                        }
-                    }
-                }
-
-                assert(globalBlockRedGreen->numClustersCombined() == groundtruth->numClusters() &&
-                       "(WhiteRedGreen) Groundtruth has other num clusters.");
-                assert(globalBlockRedGreen->totalVolumeCombined() == groundtruth->totalVolume() &&
-                       "(WhiteRedGreen) Groundtruth has other total volume.");
-            }
-        }
-#endif  // GREEN
-#endif  // !NDEBUG
-        numClusters.push_back(globalBlockRed->numClustersCombined());
-        maxVolumes.push_back(globalBlockRed->maxVolumeCombined());
-        totalVolumes.push_back(globalBlockRed->totalVolumeCombined());
-    }
-
-    delete localBlockWhiteRed;
-    delete globalBlockRed;
-#ifdef GREEN
-    delete localBlockWhiteRedGreen;
-    delete globalBlockRedGreen;
-#endif  // GREEN
-#ifndef NDEBUG
-    delete groundtruth;
-#endif  // !NDEBUG
-
-#else  // !COMMUNICATION
-
-#ifndef TEST
-
-    // Just localNode White (no comparison to groundtruth (This is groundtruth essentially))
-
+void watershedSequential(vec3i blockSize, vec3i blockOffset, vec3i totalSize, float hMin,
+                         float hMax, float hStep, std::vector<float>& h,
+                         std::vector<ind>& numClusters, std::vector<float>& maxVolumes,
+                         std::vector<float>& totalVolumes, PerformanceTimer& timer) {
+    // Just localNode White: Groundtruth for all other cases
     LocalBlock localBlock(blockSize, blockOffset, totalSize);
 
-    timeElapsed = timer.ElapsedTimeAndReset();
+    float timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
 
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
@@ -454,136 +116,133 @@ int main(int argc, char** argv) {
         maxVolumes.push_back(localBlock.maxVolume());
         totalVolumes.push_back(localBlock.totalVolume());
     }
+}
 
-#else  // TEST
-
-    std::cout << "Running single node tests: Local WhiteRed and Global Green." << std::endl;
-
+void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOffset,
+                                 vec3i totalSize, float hMin, float hMax, float hStep,
+                                 std::vector<float>& h, std::vector<ind>& numClusters,
+                                 std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
+                                 PerformanceTimer& timer) {
 #ifndef NDEBUG
     // Keeps groundtruth block to compare against
-    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
-#endif  // !NDEBUG
+    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(totalSize, vec3i(0), totalSize);
+    // The first slice of blocks for debugging.
+    std::vector<char> debugSlice(totalSize.x * totalSize.y, ' ');
+#endif  // NDEBUG
+    std::vector<LocalBlock> localBlocks;
 
-    LocalBlock* localBlockWhiteRed =
-        LocalBlock::makeWhiteRedTest(blockSize, blockOffset, totalSize);
-#ifdef GREEN
-    GlobalBlock* globalBlockGreen = GlobalBlock::makeGreenTest(blockSize, blockOffset, totalSize);
-#endif  // GREEN
+    vec3i idxNode;
+    for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
+        // std::cout << "Node " << nodeIdx << std::endl;
+        idxNode = vec3i::fromIndexOfTotal(nodeIdx, numNodes);
+        blockOffset = blockSize * idxNode;
+        blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
-    timeElapsed = timer.ElapsedTimeAndReset();
+        localBlocks.emplace_back(blockSize, blockOffset, totalSize);
+#ifndef NDEBUG
+        localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
+#endif
+    }
+    // Master block
+    GlobalBlock globalBlock(blockSize, totalSize, numNodes);
+
+#ifndef NDEBUG
+    for (ind y = 0; y < totalSize.y; ++y) {
+        for (ind x = 0; x < totalSize.x; ++x) {
+            std::cout << debugSlice[x + y * totalSize.x];
+        }
+        std::cout << '\n';
+    }
+#endif
+
+    // Check that the global block has the same information for each node that the node also has
+    for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
+        // Red in Local, Gray in Global
+        // Green in Global, Gray in Local
+    }
+
+    float timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
 
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
-        localBlockWhiteRed->doWatershed(currentH);
-        // Send and receive models the receiving and sending process, but actually just cleans
-        // up
-        localBlockWhiteRed->sendData();
-        localBlockWhiteRed->receiveData();
-        std::cout << currentH << "/ " << hStep << "\t - "
-                  << "(WhiteRed) " << localBlockWhiteRed->numClustersCombined() << std::endl;
+        for (auto itLocalBlock = localBlocks.begin(); itLocalBlock != localBlocks.end();
+             itLocalBlock++) {
+            itLocalBlock->doWatershed(currentH);
+            itLocalBlock->sendData();
+        }
 
-#ifdef GREEN
-        globalBlockGreen->doWatershed(currentH);
-        // No send/receive
-        std::cout << currentH << "/ " << hStep << "\t - "
-                  << "(Green) " << globalBlockGreen->numClustersCombined() << std::endl;
-#endif  //  GREEN
+        globalBlock.receiveData();
+        globalBlock.doWatershed(currentH);
+        globalBlock.sendData();
 
+        for (auto itLocalBlock = localBlocks.begin(); itLocalBlock != localBlocks.end();
+             itLocalBlock++) {
+            itLocalBlock->receiveData();
+        }
+
+        std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClustersCombined()
+                  << std::endl;
         h.push_back(currentH);
 #ifndef NDEBUG
         groundtruth->doWatershed(currentH);
-        // WhiteRed
-        if (localBlockWhiteRed->numClustersCombined() != groundtruth->numClustersCombined() ||
-            localBlockWhiteRed->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
 
-            if (localBlockWhiteRed->numClustersCombined() != groundtruth->numClustersCombined())
-                std::cout << "(WhiteRed) Number of clusters is "
-                          << localBlockWhiteRed->numClustersCombined() << '\\'
+        if (globalBlock.numClustersCombined() != groundtruth->numClustersCombined() ||
+            globalBlock.totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
+
+            if (globalBlock.numClustersCombined() != groundtruth->numClustersCombined())
+                std::cout << "Number of clusters is " << globalBlock.numClustersCombined() << '\\'
                           << groundtruth->numClustersCombined() << std::endl;
-            if (localBlockWhiteRed->totalVolumeCombined() != groundtruth->totalVolumeCombined())
-                std::cout << "(WhiteRed) Total volume is "
-                          << ind(localBlockWhiteRed->totalVolumeCombined()) << '\\'
+            if (globalBlock.totalVolumeCombined() != groundtruth->totalVolumeCombined())
+                std::cout << "Total volume is " << ind(globalBlock.totalVolumeCombined()) << '\\'
                           << ind(groundtruth->totalVolumeCombined()) << std::endl;
 
-            // Compare newet additions by related cluster volume.
+            // Compate against green
             auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
-            auto whiteRedStats = localBlockWhiteRed->getVoluminaForAddedVertices(currentH + hStep);
+            auto greenStats = globalBlock.getVoluminaForAddedVertices(currentH + hStep);
 
-            assert(groundStats.size() == whiteRedStats.size() && "(WhiteRed) Test is incorrect.");
-            for (int i = 0; i < groundStats.size(); ++i) {
-                assert(groundStats[i].first == whiteRedStats[i].first &&
-                       "(WhiteRed) Test is incorrect.");
-                if (groundStats[i].second != whiteRedStats[i].second) {
-                    std::cout << "(WhiteRed) \t" << groundStats[i].first << ":\tcorrect "
-                              << groundStats[i].second << " != " << whiteRedStats[i].second
-                              << std::endl;
+            for (int i = 0; i < greenStats.size(); ++i) {
+                auto& currentStat = greenStats[i];
+                // Find corresponding value in ground truth
+                auto truthIt =
+                    std::find_if(groundStats.begin(), groundStats.end(),
+                                 [&currentStat](const std::pair<vec3i, double>& element) {
+                                     return currentStat.first == element.first;
+                                 });
+                assert(truthIt != groundStats.end() && "Test is incorrect.");
+                if (currentStat.second != truthIt->second) {
+                    std::cout << "Green part "
+                              << "\t" << currentStat.first << ":\tcorrect " << truthIt->second
+                              << " != " << currentStat.second << std::endl;
                 }
             }
 
-            assert(localBlockWhiteRed->numClustersCombined() == groundtruth->numClusters() &&
-                   "(WhiteRed) Groundtruth has other num clusters.");
-            assert(localBlockWhiteRed->totalVolumeCombined() == groundtruth->totalVolume() &&
-                   "(WhiteRed) Groundtruth has other total volume.");
-        }
-#ifdef GREEN
-        // Green
-        if (globalBlockGreen->numClustersCombined() != groundtruth->numClustersCombined() ||
-            globalBlockGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
-
-            if (globalBlockGreen->numClustersCombined() != groundtruth->numClustersCombined())
-                std::cout << "(Green) Number of clusters is "
-                          << globalBlockGreen->numClustersCombined() << '\\'
-                          << groundtruth->numClustersCombined() << std::endl;
-            if (globalBlockGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined())
-                std::cout << "(Green) Total volume is "
-                          << ind(globalBlockGreen->totalVolumeCombined()) << '\\'
-                          << ind(groundtruth->totalVolumeCombined()) << std::endl;
-
-            // Compare newest additions by related cluster volume.
-            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
-            auto greenStats = globalBlockGreen->getVoluminaForAddedVertices(currentH + hStep);
-
-            assert(groundStats.size() == greenStats.size() && "(Green) Test is incorrect.");
-            for (int i = 0; i < groundStats.size(); ++i) {
-                assert(groundStats[i].first == greenStats[i].first && "(Green) Test is incorrect.");
-                if (groundStats[i].second != greenStats[i].second) {
-                    std::cout << "(Green) \t" << groundStats[i].first << ":\tcorrect "
-                              << groundStats[i].second << " != " << greenStats[i].second
-                              << std::endl;
-                }
+            for (auto itLocalBlock = localBlocks.begin(); itLocalBlock != localBlocks.end();
+                 itLocalBlock++) {
+                // TODO: Check red and white for each node
             }
 
-            assert(globalBlockGreen->numClustersCombined() == groundtruth->numClusters() &&
-                   "(Green) Groundtruth has other num clusters.");
-            assert(globalBlockGreen->totalVolumeCombined() == groundtruth->totalVolume() &&
-                   "(Green) Groundtruth has other total volume.");
+            assert(globalBlock.numClustersCombined() == groundtruth->numClustersCombined() &&
+                   "Groundtruth has other num clusters.");
+            assert(globalBlock.totalVolumeCombined() == groundtruth->totalVolumeCombined() &&
+                   "Groundtruth has other total volume.");
         }
-#endif  // GREEN
-#endif  // !NDEBUG
-        numClusters.push_back(localBlockWhiteRed->numClustersCombined());
-        maxVolumes.push_back(localBlockWhiteRed->maxVolumeCombined());
-        totalVolumes.push_back(localBlockWhiteRed->totalVolumeCombined());
+
+#endif  // NDEBUG
+        numClusters.push_back(globalBlock.numClustersCombined());
+        maxVolumes.push_back(globalBlock.maxVolumeCombined());
+        totalVolumes.push_back(globalBlock.totalVolumeCombined());
     }
 
-    delete localBlockWhiteRed;
-#ifdef GREEN
-    delete globalBlockGreen;
-#endif  // GREEN
 #ifndef NDEBUG
     delete groundtruth;
-#endif  // !NDEBUG
+#endif  // NDEBUG
+}
 
-#endif  // TEST
-#endif  // COMMUNICATION
-
-// Not single node use -> The real parallel distributed thing
-#else  // !SINGLENODE
-
-    if (numProcesses == 1) {
-        std::cerr << "Using multiple node mode with a single processes. " << std::endl;
-        return 1;
-    }
-
+void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, vec3i blockOffset,
+                             vec3i totalSize, float hMin, float hMax, float hStep,
+                             std::vector<float>& h, std::vector<ind>& numClusters,
+                             std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
+                             PerformanceTimer& timer) {
 #ifndef NDEBUG
     // Keeps groundtruth block to compare against
     LocalBlock* groundtruth = LocalBlock::makeGroundtruth(totalSize, vec3i(0), totalSize);
@@ -592,17 +251,9 @@ int main(int argc, char** argv) {
     // Master process
     if (currProcess == 0) {
 
-        std::cout << "Running in parallel." << std::endl;
-
-        // Prepare output
-        h.reserve(hSamples);
-        numClusters.reserve(hSamples);
-        maxVolumes.reserve(hSamples);
-        totalVolumes.reserve(hSamples);
-
         GlobalBlock globalBlock(blockSize, totalSize, numNodes);
 
-        timeElapsed = timer.ElapsedTimeAndReset();
+        float timeElapsed = timer.ElapsedTimeAndReset();
         std::cout << "Processor " << currProcess << ": Loaded and sorted data in " << timeElapsed
                   << " seconds." << std::endl;
 
@@ -618,9 +269,8 @@ int main(int argc, char** argv) {
             bool correct =
                 globalBlock.numClustersCombined() == groundtruth->numClustersCombined() &&
                 globalBlock.totalVolumeCombined() == groundtruth->totalVolumeCombined();
-            // Let the other processes know something is wrong
 
-#ifndef COLLECTIVES
+            // Let the other processes know something is wrong
             MPI_Request* requests = new MPI_Request[numNodes.prod()];
             for (ind p = 0; p < numNodes.prod(); p++) {
                 ind processIndex = p + 1;
@@ -630,9 +280,6 @@ int main(int argc, char** argv) {
                           MPI_COMM_WORLD, &requests[p]);
             }
             MPI_Waitall(numNodes.prod(), requests, MPI_STATUSES_IGNORE);
-#else
-            // TODO: Broadcast
-#endif
             if (!correct) {
 
                 if (globalBlock.numClustersCombined() != groundtruth->numClustersCombined())
@@ -711,7 +358,7 @@ int main(int argc, char** argv) {
     // All other processes: currProcess != 0
     else {
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
-        timeElapsed = timer.ElapsedTimeAndReset();
+        float timeElapsed = timer.ElapsedTimeAndReset();
         std::cout << "Processor " << currProcess << ": Loaded and sorted data in " << timeElapsed
                   << " seconds." << std::endl;
 
@@ -773,9 +420,585 @@ int main(int argc, char** argv) {
 
 #ifndef NDEBUG
     delete groundtruth;
+#endif  // NDEBUG
+}
+
+void watershedLocalWhiteRed(vec3i blockSize, vec3i blockOffset, vec3i totalSize, float hMin,
+                            float hMax, float hStep, std::vector<float>& h,
+                            std::vector<ind>& numClusters, std::vector<float>& maxVolumes,
+                            std::vector<float>& totalVolumes, PerformanceTimer& timer) {
+
+#ifndef NDEBUG
+    // Keeps groundtruth block to compare against
+    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
+#endif  // !NDEBUG
+
+    LocalBlock* localBlockWhiteRed =
+        LocalBlock::makeWhiteRedTest(blockSize, blockOffset, totalSize);
+
+    float timeElapsed = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
+
+    for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
+        localBlockWhiteRed->doWatershed(currentH);
+        // Send and receive models the receiving and sending process, but actually just cleans
+        // up
+        localBlockWhiteRed->sendData();
+        localBlockWhiteRed->receiveData();
+        std::cout << currentH << "/ " << hStep << "\t - "
+                  << localBlockWhiteRed->numClustersCombined() << std::endl;
+
+        h.push_back(currentH);
+#ifndef NDEBUG
+        groundtruth->doWatershed(currentH);
+        // WhiteRed
+        if (localBlockWhiteRed->numClustersCombined() != groundtruth->numClustersCombined() ||
+            localBlockWhiteRed->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
+
+            if (localBlockWhiteRed->numClustersCombined() != groundtruth->numClustersCombined())
+                std::cout << "Number of clusters is " << localBlockWhiteRed->numClustersCombined()
+                          << '\\' << groundtruth->numClustersCombined() << std::endl;
+            if (localBlockWhiteRed->totalVolumeCombined() != groundtruth->totalVolumeCombined())
+                std::cout << "Total volume is " << ind(localBlockWhiteRed->totalVolumeCombined())
+                          << '\\' << ind(groundtruth->totalVolumeCombined()) << std::endl;
+
+            // Compare newet additions by related cluster volume.
+            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
+            auto whiteRedStats = localBlockWhiteRed->getVoluminaForAddedVertices(currentH + hStep);
+
+            assert(groundStats.size() == whiteRedStats.size() && "Test is incorrect.");
+            for (int i = 0; i < groundStats.size(); ++i) {
+                assert(groundStats[i].first == whiteRedStats[i].first && "Test is incorrect.");
+                if (groundStats[i].second != whiteRedStats[i].second) {
+                    std::cout << groundStats[i].first << ":\tcorrect " << groundStats[i].second
+                              << " != " << whiteRedStats[i].second << std::endl;
+                }
+            }
+
+            assert(localBlockWhiteRed->numClustersCombined() == groundtruth->numClusters() &&
+                   "Groundtruth has other num clusters.");
+            assert(localBlockWhiteRed->totalVolumeCombined() == groundtruth->totalVolume() &&
+                   "Groundtruth has other total volume.");
+        }
+
+#endif  // !NDEBUG
+        numClusters.push_back(localBlockWhiteRed->numClustersCombined());
+        maxVolumes.push_back(localBlockWhiteRed->maxVolumeCombined());
+        totalVolumes.push_back(localBlockWhiteRed->totalVolumeCombined());
+    }
+
+    delete localBlockWhiteRed;
+#ifndef NDEBUG
+    delete groundtruth;
+#endif  // !NDEBUG
+}
+
+void watershedGlobalGreen(vec3i blockSize, vec3i blockOffset, vec3i totalSize, float hMin,
+                          float hMax, float hStep, std::vector<float>& h,
+                          std::vector<ind>& numClusters, std::vector<float>& maxVolumes,
+                          std::vector<float>& totalVolumes, PerformanceTimer& timer) {
+
+#ifndef NDEBUG
+    // Keeps groundtruth block to compare against
+    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
+#endif  // !NDEBUG
+
+    GlobalBlock* globalBlockGreen = GlobalBlock::makeGreenTest(blockSize, blockOffset, totalSize);
+
+    float timeElapsed = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
+
+    for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
+        globalBlockGreen->doWatershed(currentH);
+        // No send/receive
+        std::cout << currentH << "/ " << hStep << "\t - " << globalBlockGreen->numClustersCombined()
+                  << std::endl;
+        h.push_back(currentH);
+#ifndef NDEBUG
+        groundtruth->doWatershed(currentH);
+        if (globalBlockGreen->numClustersCombined() != groundtruth->numClustersCombined() ||
+            globalBlockGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
+
+            if (globalBlockGreen->numClustersCombined() != groundtruth->numClustersCombined())
+                std::cout << "Number of clusters is " << globalBlockGreen->numClustersCombined()
+                          << '\\' << groundtruth->numClustersCombined() << std::endl;
+            if (globalBlockGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined())
+                std::cout << "Total volume is " << ind(globalBlockGreen->totalVolumeCombined())
+                          << '\\' << ind(groundtruth->totalVolumeCombined()) << std::endl;
+
+            // Compare newest additions by related cluster volume.
+            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
+            auto greenStats = globalBlockGreen->getVoluminaForAddedVertices(currentH + hStep);
+
+            assert(groundStats.size() == greenStats.size() && "Test is incorrect.");
+            for (int i = 0; i < groundStats.size(); ++i) {
+                assert(groundStats[i].first == greenStats[i].first && "Test is incorrect.");
+                if (groundStats[i].second != greenStats[i].second) {
+                    std::cout << groundStats[i].first << ":\tcorrect " << groundStats[i].second
+                              << " != " << greenStats[i].second << std::endl;
+                }
+            }
+
+            assert(globalBlockGreen->numClustersCombined() == groundtruth->numClusters() &&
+                   "Groundtruth has other num clusters.");
+            assert(globalBlockGreen->totalVolumeCombined() == groundtruth->totalVolume() &&
+                   "Groundtruth has other total volume.");
+        }
+#endif  // !NDEBUG
+        numClusters.push_back(globalBlockGreen->numClustersCombined());
+        maxVolumes.push_back(globalBlockGreen->maxVolumeCombined());
+        totalVolumes.push_back(globalBlockGreen->totalVolumeCombined());
+    }
+
+    delete globalBlockGreen;
+#ifndef NDEBUG
+    delete groundtruth;
+#endif  // !NDEBUG
+}
+
+void watershedWhiteRed(vec3i blockSize, vec3i blockOffset, vec3i totalSize, float hMin, float hMax,
+                       float hStep, std::vector<float>& h, std::vector<ind>& numClusters,
+                       std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
+                       PerformanceTimer& timer) {
+#ifndef NDEBUG
+    // Keeps groundtruth block to compare against
+    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
+#endif  // !NDEBUG
+
+    // WhiteRed
+    LocalBlock* localBlockWhiteRed =
+        LocalBlock::makeWhiteRedTest(blockSize, blockOffset, totalSize);
+    GlobalBlock* globalBlockRed = GlobalBlock::makeWhiteRedTest(blockSize, blockOffset, totalSize);
+
+    float timeElapsed = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
+
+    for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
+        localBlockWhiteRed->doWatershed(currentH);
+        localBlockWhiteRed->sendData();
+        globalBlockRed->receiveData();
+        globalBlockRed->doWatershed(currentH);
+        globalBlockRed->sendData();
+        localBlockWhiteRed->receiveData();
+        std::cout << currentH << "/ " << hStep << "\t - " << globalBlockRed->numClustersCombined()
+                  << std::endl;
+        h.push_back(currentH);
+
+#ifndef NDEBUG
+        groundtruth->doWatershed(currentH);
+        // WhiteRed
+        if (globalBlockRed->numClustersCombined() != groundtruth->numClustersCombined() ||
+            globalBlockRed->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
+
+            if (globalBlockRed->numClustersCombined() != groundtruth->numClustersCombined())
+                std::cout << "Number of clusters is " << globalBlockRed->numClustersCombined()
+                          << '\\' << groundtruth->numClustersCombined() << std::endl;
+            if (globalBlockRed->totalVolumeCombined() != groundtruth->totalVolumeCombined())
+                std::cout << "Total volume is " << ind(globalBlockRed->totalVolumeCombined())
+                          << '\\' << ind(groundtruth->totalVolumeCombined()) << std::endl;
+
+            // Compare newet additions by related cluster volume.
+            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
+            auto localStats = localBlockWhiteRed->getVoluminaForAddedVertices(currentH + hStep);
+            auto globalStats = globalBlockRed->getVoluminaForAddedVertices(currentH + hStep);
+
+            assert(localStats.size() + globalStats.size() == groundStats.size() &&
+                   "Test is incorrect.");
+            for (int i = 0; i < groundStats.size(); ++i) {
+                auto& currentStat = groundStats[i];
+                // Find in both local and global
+                auto localIt =
+                    std::find_if(localStats.begin(), localStats.end(),
+                                 [&currentStat](const std::pair<vec3i, double>& element) {
+                                     return currentStat.first == element.first;
+                                 });
+
+                auto globalIt =
+                    std::find_if(globalStats.begin(), globalStats.end(),
+                                 [&currentStat](const std::pair<vec3i, double>& element) {
+                                     return currentStat.first == element.first;
+                                 });
+
+                // Green
+                if (globalIt != globalStats.end()) {
+                    if (currentStat.second != globalIt->second) {
+                        std::cout << "(Green part) \t" << currentStat.first << ":\tcorrect "
+                                  << currentStat.second << " != " << globalIt->second << std::endl;
+                    }
+                }
+                // Red or white
+                else if (localIt != localStats.end()) {
+                    vec3i dummy(-1, -1, -1);
+                    ClusterID* id = localBlockWhiteRed->findClusterID(currentStat.first, dummy);
+                    // Red
+                    if (id->isGlobal()) {
+                        if (localIt->second != 0) {
+                            std::cout << "(Red part) \t correct 0 != " << localIt->second
+                                      << std::endl;
+                        }
+                        double volRed = globalBlockRed->getClusterVolume(*id);
+                        if (currentStat.second != volRed) {
+                            std::cout << "(Red part) \t" << currentStat.first << ":\tcorrect "
+                                      << currentStat.second << " != " << volRed << std::endl;
+                        }
+                    } else {
+                        if (currentStat.second != localIt->second) {
+                            std::cout << "(White part) \t" << currentStat.first << ":\tcorrect "
+                                      << currentStat.second << " != " << localIt->second
+                                      << std::endl;
+                        }
+                    }
+                }
+            }
+
+            assert(globalBlockRed->numClustersCombined() == groundtruth->numClusters() &&
+                   "Groundtruth has other num clusters.");
+            assert(globalBlockRed->totalVolumeCombined() == groundtruth->totalVolume() &&
+                   "Groundtruth has other total volume.");
+        }
+#endif  // !NDEBUG
+        numClusters.push_back(globalBlockRed->numClustersCombined());
+        maxVolumes.push_back(globalBlockRed->maxVolumeCombined());
+        totalVolumes.push_back(globalBlockRed->totalVolumeCombined());
+    }
+
+    delete localBlockWhiteRed;
+    delete globalBlockRed;
+#ifndef NDEBUG
+    delete groundtruth;
+#endif  // !NDEBUG
+}
+
+void watershedWhiteRedGreen(vec3i blockSize, vec3i blockOffset, vec3i totalSize, float hMin,
+                            float hMax, float hStep, std::vector<float>& h,
+                            std::vector<ind>& numClusters, std::vector<float>& maxVolumes,
+                            std::vector<float>& totalVolumes, PerformanceTimer& timer) {
+
+#ifndef NDEBUG
+    // Keeps groundtruth block to compare against
+    LocalBlock* groundtruth = LocalBlock::makeGroundtruth(blockSize, blockOffset, totalSize);
+#endif  // !NDEBUG
+
+    LocalBlock* localBlockWhiteRedGreen =
+        LocalBlock::makeWhiteRedGreenTest(blockSize, blockOffset, totalSize);
+    GlobalBlock* globalBlockRedGreen =
+        GlobalBlock::makeWhiteRedGreenTest(blockSize, blockOffset, totalSize);
+
+    float timeElapsed = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
+
+    for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
+        localBlockWhiteRedGreen->doWatershed(currentH);
+        localBlockWhiteRedGreen->sendData();
+        globalBlockRedGreen->receiveData();
+        globalBlockRedGreen->doWatershed(currentH);
+        globalBlockRedGreen->sendData();
+        localBlockWhiteRedGreen->receiveData();
+        std::cout << currentH << "/ " << hStep << "\t - "
+                  << globalBlockRedGreen->numClustersCombined() << std::endl;
+        h.push_back(currentH);
+
+#ifndef NDEBUG
+        groundtruth->doWatershed(currentH);
+        if (globalBlockRedGreen->numClustersCombined() != groundtruth->numClustersCombined() ||
+            globalBlockRedGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined()) {
+
+            if (globalBlockRedGreen->numClustersCombined() != groundtruth->numClustersCombined())
+                std::cout << "Number of clusters is " << globalBlockRedGreen->numClustersCombined()
+                          << '\\' << groundtruth->numClustersCombined() << std::endl;
+            if (globalBlockRedGreen->totalVolumeCombined() != groundtruth->totalVolumeCombined())
+                std::cout << "Total volume is " << ind(globalBlockRedGreen->totalVolumeCombined())
+                          << '\\' << ind(groundtruth->totalVolumeCombined()) << std::endl;
+
+            // Compare newet additions by related cluster volume.
+            auto groundStats = groundtruth->getVoluminaForAddedVertices(currentH + hStep);
+            auto localStats =
+                localBlockWhiteRedGreen->getVoluminaForAddedVertices(currentH + hStep);
+            auto globalStats = globalBlockRedGreen->getVoluminaForAddedVertices(currentH + hStep);
+
+            assert(localStats.size() + globalStats.size() == groundStats.size() &&
+                   "Test is incorrect.");
+            for (int i = 0; i < groundStats.size(); ++i) {
+                auto& currentStat = groundStats[i];
+                // Find in both local and global
+                auto localIt =
+                    std::find_if(localStats.begin(), localStats.end(),
+                                 [&currentStat](const std::pair<vec3i, double>& element) {
+                                     return currentStat.first == element.first;
+                                 });
+
+                auto globalIt =
+                    std::find_if(globalStats.begin(), globalStats.end(),
+                                 [&currentStat](const std::pair<vec3i, double>& element) {
+                                     return currentStat.first == element.first;
+                                 });
+
+                // Green
+                if (globalIt != globalStats.end()) {
+                    if (currentStat.second != globalIt->second) {
+                        std::cout << "(Green part) \t" << currentStat.first << ":\tcorrect "
+                                  << currentStat.second << " != " << globalIt->second << std::endl;
+                    }
+                }
+                // Red or white
+                else if (localIt != localStats.end()) {
+                    vec3i dummy(-1, -1, -1);
+                    ClusterID* id =
+                        localBlockWhiteRedGreen->findClusterID(currentStat.first, dummy);
+                    // Red
+                    if (id->isGlobal()) {
+                        if (localIt->second != 0) {
+                            std::cout << "(Red part) \t correct 0 != " << localIt->second
+                                      << std::endl;
+                        }
+                        double volRed = globalBlockRedGreen->getClusterVolume(*id);
+                        if (currentStat.second != volRed) {
+                            std::cout << "(Red part) \t" << currentStat.first << ":\tcorrect "
+                                      << currentStat.second << " != " << volRed << std::endl;
+                        }
+                    } else {
+                        if (currentStat.second != localIt->second) {
+                            std::cout << "(White part) \t" << currentStat.first << ":\tcorrect "
+                                      << currentStat.second << " != " << localIt->second
+                                      << std::endl;
+                        }
+                    }
+                }
+
+                assert(globalBlockRedGreen->numClustersCombined() == groundtruth->numClusters() &&
+                       "Groundtruth has other num clusters.");
+                assert(globalBlockRedGreen->totalVolumeCombined() == groundtruth->totalVolume() &&
+                       "Groundtruth has other total volume.");
+            }
+        }
+#endif  // !NDEBUG
+        numClusters.push_back(globalBlockRedGreen->numClustersCombined());
+        maxVolumes.push_back(globalBlockRedGreen->maxVolumeCombined());
+        totalVolumes.push_back(globalBlockRedGreen->totalVolumeCombined());
+    }
+
+    delete localBlockWhiteRedGreen;
+    delete globalBlockRedGreen;
+#ifndef NDEBUG
+    delete groundtruth;
+#endif  // !NDEBUG
+}
+
+// Input args:
+// - path:        folder with data
+// - rms:         name of rms file
+// - xT, yT, zT:  total size
+// - xB, yB, zB:  block size
+// - s:           mode
+int main(int argc, char** argv) {
+
+    // Directory path and sizes from args
+    if (argc < 10) {
+        std::cerr << "Not enough arguments.\n";
+        return 1;
+    }
+
+    ind mode = atoi(argv[9]);
+
+    // Test cases -> no need to parse other info
+    if (mode == TEST_COMMUNICATION) {
+        std::cout << "Testing MPI Communication." << std::endl;
+        testingMPIVectors();
+        return 0;
+    } else if (mode == TEST_MERGING) {
+        std::cout << "Testing Cluster Merges." << std::endl;
+        testClusterMerges();
+        return 0;
+    }
+
+    // First argument is the executable name.
+    // for (int a = 0; a < argc; ++a) std::cout << a << ": " << argv[a] << std::endl;
+    char* baseFolder = argv[1];
+    char* rmsFilename = argv[2];
+    vec3i totalSize(atoi(argv[3]), atoi(argv[4]), atoi(argv[5]));
+    vec3i blockSize(atoi(argv[6]), atoi(argv[7]), atoi(argv[8]));
+    vec3i numNodes;
+
+    for (int n = 0; n < 3; ++n) {
+        double s = static_cast<double>(totalSize[n]) / blockSize[n];
+        numNodes[n] = static_cast<int>(ceil(s));
+    }
+
+    // MPI init
+    MPI_Init(NULL, NULL);
+
+    int numProcesses;
+    MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
+
+#ifndef SINGLENODE
+    // One master node and one node for each block
+    if (numNodes.prod() + 1 > numProcesses) {
+        std::cerr << "Too few nodes. Needing " << numNodes.x << " x " << numNodes.y << " x "
+                  << numNodes.z << " and one additional master" << std::endl;
+        MPI_Finalize();
+        return 1;
+    }
+#else
+    if (numProcesses > 1) {
+        std::cerr << "Using single node mode with " << numProcesses << " processes. " << std::endl;
+        MPI_Finalize();
+        return 2;
+    }
+#endif  // SINGLENODE
+
+    int currProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
+
+    // Process 0 is master rank -> -1
+    vec3i idxNode;
+    if (numProcesses == 1) {
+        idxNode = vec3i::fromIndexOfTotal(0, numNodes);
+    } else {
+        idxNode = vec3i::fromIndexOfTotal(currProcess - 1, numNodes);
+    }
+    vec3i blockOffset = blockSize * idxNode;
+    blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
+
+    // Print status
+#ifndef SINGLENODE
+    std::cout << "Processor " << currProcess << ", index " << idxNode << ", offset " << blockOffset
+              << ", size " << blockSize << std::endl;
 #endif
 
+    // TODO, put settings in command line arguments
+    float hMin = 0.0;
+    float hMax = 2;
+    assert(hMax > hMin && "HMax needs to be larger than hMin.");
+    int hSamples = 101;
+    float hStep = (hMax - hMin) / (hSamples - 1);
+
+    // Keep track of threshold h, number of components, volume largest component, volume
+    // total
+    std::vector<float> h;
+    std::vector<ind> numClusters;
+    std::vector<float> maxVolumes;
+    std::vector<float> totalVolumes;
+
+    if (currProcess == 0) {
+        h.reserve(hSamples);
+        numClusters.reserve(hSamples);
+        maxVolumes.reserve(hSamples);
+        totalVolumes.reserve(hSamples);
+    }
+
+    PerformanceTimer timer;
+    timer.Reset();
+    float timeElapsed;
+
+    switch (mode) {
+        case REAL:
+#ifdef SINGLENODE
+#ifndef COMMUNICATION
+            std::cout << "Watershedding sequentially." << std::endl;
+            watershedSequential(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
+                                numClusters, maxVolumes, totalVolumes, timer);
+#else
+            std::cout << "Watershedding sequentially, but distributed" << std::endl;
+            watershedParallelSingleRank(numNodes, blockSize, blockOffset, totalSize, hMin, hMax,
+                                        hStep, h, numClusters, maxVolumes, totalVolumes, timer);
+#endif  // COMMUNCATION
+#else   // !SINGLENODE
+#ifdef COMMUNICATION
+            std::cout << "Watershedding parallel and distributed" << std::endl;
+            whatershedMultipleRanks(currProcess, numNodes, blockSize, blockOffset, totalSize, hMin,
+                                    hMax, hStep, h, numClusters, maxVolumes, totalVolumes, timer);
+#else   // !COMMUNCATION
+            std::cerr << "Cannot watershed on multiple nodes without communcation "
+                         "enabled."
+                      << std::endl;
+            MPI_Finalize();
+            return 1;
+#endif  // COMMUNCATION
 #endif  // SINGLENODE
+            break;
+
+        case TEST_LOCALONLY_WHITERED:
+#ifndef SINGLENODE
+            std::cerr << "Testing single node mode (Local, WhiteRed) is not intended for "
+                         "multiple nodes."
+                      << std::endl;
+            MPI_Finalize();
+            return 1;
+#else  // SINGLENODE
+#ifdef COMMUNICATION
+            std::cerr << "Testing without communication locally (WhiteRed) cannot be used with "
+                         "communication."
+                      << std::endl;
+            MPI_Finalize();
+            return 1;
+#else
+            std::cout << "Watershedding locally (WhiteRed) without communication" << std::endl;
+            watershedLocalWhiteRed(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
+                                   numClusters, maxVolumes, totalVolumes, timer);
+#endif  //! COMMUNICATION
+#endif  // !SINGLENODE
+            break;
+
+        case TEST_GLOBALONLY_GREEN:
+#ifndef SINGLENODE
+            std::cerr << "Testing single node mode (Global, Green) is not intended for "
+                         "multiple nodes."
+                      << std::endl;
+            MPI_Finalize();
+            return 1;
+#else   // SINGLENODE
+            std::cout << "Watershedding locally (Green) without communication" << std::endl;
+            watershedGlobalGreen(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
+                                 numClusters, maxVolumes, totalVolumes, timer);
+#endif  // !SINGLENODE
+            break;
+
+        case TEST_WHITERED:
+#ifndef SINGLENODE
+            std::cerr << "Testing single node mode (Global, Green) is not intended for "
+                         "multiple nodes."
+                      << std::endl;
+            MPI_Finalize();
+            return 1;
+#else  // SINGLENODE
+#ifndef COMMUNICATION
+            std::cerr
+                << "Testing communication locally (WhiteRed) cannot be used without communication."
+                << std::endl;
+            MPI_Finalize();
+            return 1;
+#else
+            watershedWhiteRed(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h, numClusters,
+                              maxVolumes, totalVolumes, timer);
+#endif  // COMMUNICATION
+#endif  // !SINGLENODE
+            break;
+
+        case TEST_WHITEREDGREEN:
+#ifndef SINGLENODE
+            std::cerr << "Testing single node mode (Global, Green) is not intended for "
+                         "multiple nodes."
+                      << std::endl;
+            MPI_Finalize();
+            return 1;
+#else  // SINGLENODE
+#ifndef COMMUNICATION
+            std::cerr << "Testing communication locally (WhiteRedGreen) cannot be used without "
+                         "communication."
+                      << std::endl;
+            MPI_Finalize();
+            return 1;
+#else
+            watershedWhiteRedGreen(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
+                                   numClusters, maxVolumes, totalVolumes, timer);
+#endif  // COMMUNICATION
+#endif  // !SINGLENODE
+            break;
+        default:
+            std::cerr << "Mode " << mode << " is not a valid mode." << std::endl;
+            return 1;
+            break;
+    }
 
     timeElapsed = timer.ElapsedTimeAndReset();
     std::cout << "Processor " << currProcess << ": Watershedding took " << timeElapsed
@@ -792,11 +1015,12 @@ int main(int argc, char** argv) {
         percFile.open(fileName, std::ios::out);
 
         if (percFile.is_open()) {
-            percFile
-                << "H; Number of connected components; Maximum number of connected components; "
-                   "Number of connected components / Maximum number of connected components;  "
-                   "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
-                << std::endl;
+            percFile << "H; Number of connected components; Maximum number of connected "
+                        "components; "
+                        "Number of connected components / Maximum number of connected "
+                        "components;  "
+                        "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
+                     << std::endl;
             for (int line = 0; line < h.size(); line++) {
                 percFile << h[line] << ";" << float(numClusters[line]) << ";" << float(maxClusters)
                          << ";" << float(numClusters[line]) / float(maxClusters) << ";"

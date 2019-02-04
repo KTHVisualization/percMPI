@@ -31,10 +31,7 @@ public:
     // 0: All, 1: Only White, 2: Only Red, 3: Only Green
     void outputFrontBlocks(std::vector<char>& field, ind slice, ind selection);
 
-    ~LocalBlock() {
-        delete[] MemoryLOG;
-        delete LOLSubBlock;
-    }
+    ~LocalBlock();
 
     virtual void doWatershed(const double minVal) override;
     virtual ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID) override;
@@ -44,19 +41,19 @@ public:
 
     virtual void receiveData() override;
     virtual void sendData() override;
-    virtual ind numClusters() override { return LOLs.numClusters(); }
+    virtual ind numClusters() override { return LOLs->numClusters(); }
     virtual ind numClustersCombined() override {
-        assert(LOLs.numClusters() + LOGs.numClusters() >= 0 &&
+        assert(LOLs->numClusters() + LOGs->numClusters() >= 0 &&
                "Combined number of clusters smaller then 0. Not initialized?");
-        return LOLs.numClusters() + LOGs.numClusters();
+        return LOLs->numClusters() + LOGs->numClusters();
     }
-    virtual double totalVolume() override { return LOLs.totalVolume(); }
+    virtual double totalVolume() override { return LOLs->totalVolume(); }
     virtual double totalVolumeCombined() override {
-        return LOLs.totalVolume() + LOGs.totalVolume();
+        return LOLs->totalVolume() + LOGs->totalVolume();
     }
-    virtual double maxVolume() override { return LOLs.maxVolume(); }
+    virtual double maxVolume() override { return LOLs->maxVolume(); }
     virtual double maxVolumeCombined() override {
-        return std::max(LOLs.maxVolume(), LOGs.maxVolume());
+        return std::max(LOLs->maxVolume(), LOGs->maxVolume());
     }
 
     void checkConsistency() const override;
@@ -84,11 +81,13 @@ private:
     std::vector<UnionFindSubBlock<GrayProcessor>> GOGSubBlocks;
 
     // Local representations of local clusters.
-    ClusterList LOLs;
+    ClusterList* LOLs;
     // Local representations of global clusters.
-    ClusterListRecordingSingle LOGs;
+    ClusterListRecordingSingle* LOGs;
+
+    using RefPLOGtype = std::unordered_set<ClusterID, ClusterID::hash_type>;
     // Potential LOGs: LOLs that touch the boundary.
-    std::unordered_set<ClusterID, ClusterID::hash_type> RefPLOGs;
+    RefPLOGtype* RefPLOGs;
     // List of PLOGS that will be used for sending and receiving data.
     std::vector<ClusterData> CommPLOGs;
 };

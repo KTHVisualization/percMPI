@@ -6,12 +6,12 @@ namespace perc {
 
 LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
     : UnionFindBlock(totalSize)
-    , RefPLOGs(10000, &ClusterID::hash)
-    , LOLs(LOCAL_LIST)
-    , LOGs(GLOBAL_LIST)
+    , RefPLOGs(new RefPLOGtype(10000, &ClusterID::hash))
+    , LOLs(new ClusterList(LOCAL_LIST))
+    , LOGs(new ClusterListRecordingSingle(GLOBAL_LIST))
     , LOGSubBlocks() {
 
-    auto constructor = [this]() -> RedProcessor { return RedProcessor(LOLs, LOGs, RefPLOGs); };
+    auto constructor = [this]() -> RedProcessor { return RedProcessor(*LOLs, *LOGs, *RefPLOGs); };
     vec3i whiteBlockSize, whiteBlockOffset;
     interfaceblockbuilder::buildRedBlocks<RedProcessor>(
         blockSize, blockOffset, totalSize, LOGSubBlocks, MemoryLOG, MemoryLOGSize, whiteBlockSize,
@@ -19,7 +19,7 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
 
     LOLSubBlock =
         new UnionFindSubBlock<WhiteProcessor>(whiteBlockSize, whiteBlockOffset, totalSize, *this,
-                                              WhiteProcessor(LOLs, LOGs, RefPLOGs), nullptr);
+                                              WhiteProcessor(*LOLs, *LOGs, *RefPLOGs), nullptr);
 
     LOLSubBlock->loadData();
     for (auto& red : LOGSubBlocks) red.loadData();
@@ -31,8 +31,8 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
         for (ind sign = -1; sign <= 1; sign += 2) {
             vec3i dir(0);
             // Green side in the lower or upper limits
-            if (sign == -1 && blockOffset[dim] > 0 ||
-                sign == 1 && potentialMax[dim] < totalSize[dim]) {
+            if ((sign == -1 && blockOffset[dim] > 0) ||
+                (sign == 1 && potentialMax[dim] < totalSize[dim])) {
                 // Direction the green side lies at.
                 dir[dim] = sign;
 
@@ -74,17 +74,15 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
 LocalBlock::LocalBlock(const vec3i& totalSize)
     : UnionFindBlock(totalSize)
     , Rank(1)
-    , RefPLOGs(10000, &ClusterID::hash)
-    , LOLs(LOCAL_LIST)
-    , LOGs(GLOBAL_LIST) {}
+    , RefPLOGs(new RefPLOGtype(10000, &ClusterID::hash))
+    , LOLs(new ClusterList(LOCAL_LIST))
+    , LOGs(new ClusterListRecordingSingle(GLOBAL_LIST)) {}
 
 LocalBlock::LocalBlock(LocalBlock&& other)
     : UnionFindBlock(other.TotalSize)
     , Rank(std::move(other.Rank))
     , LOGSubBlocks(std::move(other.LOGSubBlocks))
     , GOGSubBlocks(std::move(other.GOGSubBlocks))
-    , LOLs(std::move(other.LOLs))
-    , LOGs(std::move(other.LOGs))
     , RefPLOGs(std::move(other.RefPLOGs))
     , CommPLOGs(std::move(other.CommPLOGs)) {
     // Take over log memory.
@@ -92,6 +90,14 @@ LocalBlock::LocalBlock(LocalBlock&& other)
     other.MemoryLOG = nullptr;
     MemoryLOGSize = other.MemoryLOGSize;
     other.MemoryLOGSize = 0;
+
+    // Take over cluster lists.
+    LOLs = other.LOLs;
+    other.LOLs = nullptr;
+    LOGs = other.LOGs;
+    other.LOGs = nullptr;
+    RefPLOGs = other.RefPLOGs;
+    other.RefPLOGs = nullptr;
 
     // Take over white block on heap.
     LOLSubBlock = other.LOLSubBlock;
@@ -115,12 +121,20 @@ LocalBlock::LocalBlock(LocalBlock&& other)
 //     other.MemoryLOGSize = 0;
 // }
 
+LocalBlock::~LocalBlock() {
+    delete[] MemoryLOG;
+    delete LOLSubBlock;
+    delete LOLs;
+    delete LOGs;
+    delete RefPLOGs;
+}
+
 LocalBlock* LocalBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blockOffset,
                                         const vec3i& totalSize) {
     LocalBlock* block = new LocalBlock(totalSize);
     block->LOLSubBlock = new UnionFindSubBlock<WhiteProcessor>(
         blockSize, blockOffset, totalSize, *block,
-        WhiteProcessor(block->LOLs, block->LOGs, block->RefPLOGs));
+        WhiteProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs));
     block->LOLSubBlock->loadData();
 
     // Id Block for Red is empty
@@ -144,7 +158,7 @@ LocalBlock* LocalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& bl
 
     block->LOLSubBlock = new UnionFindSubBlock<WhiteProcessor>(
         max - min, min, totalSize, *block,
-        WhiteProcessor(block->LOLs, block->LOGs, block->RefPLOGs));
+        WhiteProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs));
     block->LOLSubBlock->loadData();
 
     block->MemoryLOGSize = sliceSize.prod() * 3;
@@ -153,17 +167,17 @@ LocalBlock* LocalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& bl
     block->LOGSubBlocks.reserve(3);
     // Left slice.
     block->LOGSubBlocks.emplace_back(sliceSize, blockOffset, totalSize, *block,
-                                     RedProcessor(block->LOLs, block->LOGs, block->RefPLOGs),
+                                     RedProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs),
                                      block->MemoryLOG);
 
     // Two slices right.
     block->LOGSubBlocks.emplace_back(sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z),
                                      totalSize, *block,
-                                     RedProcessor(block->LOLs, block->LOGs, block->RefPLOGs),
+                                     RedProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs),
                                      block->MemoryLOG + sliceSize.prod());
     block->LOGSubBlocks.emplace_back(
         sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z), totalSize, *block,
-        RedProcessor(block->LOLs, block->LOGs, block->RefPLOGs),
+        RedProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs),
         block->MemoryLOG + 2 * sliceSize.prod());
     for (auto& red : block->LOGSubBlocks) red.loadData();
 
@@ -185,7 +199,7 @@ LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3
 
     block->LOLSubBlock = new UnionFindSubBlock<WhiteProcessor>(
         max - min, min, totalSize, *block,
-        WhiteProcessor(block->LOLs, block->LOGs, block->RefPLOGs));
+        WhiteProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs));
     block->LOLSubBlock->loadData();
 
     block->MemoryLOGSize = sliceSize.prod() * 2;
@@ -196,12 +210,12 @@ LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3
     // Left slice.
     block->LOGSubBlocks.emplace_back(
         sliceSize, vec3i(blockOffset.x, blockOffset.y, min.z - sliceSize.z), totalSize, *block,
-        RedProcessor(block->LOLs, block->LOGs, block->RefPLOGs), block->MemoryLOG);
+        RedProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs), block->MemoryLOG);
 
     // Right right.
     block->LOGSubBlocks.emplace_back(sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z),
                                      totalSize, *block,
-                                     RedProcessor(block->LOLs, block->LOGs, block->RefPLOGs),
+                                     RedProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs),
                                      block->MemoryLOG + sliceSize.prod());
     for (auto& red : block->LOGSubBlocks) red.loadData();
 
@@ -262,7 +276,7 @@ ID* LocalBlock::setID(const vec3i& idx, const ID& id) {
 }
 
 double LocalBlock::getClusterVolume(ClusterID cluster) {
-    return cluster.isGlobal() ? LOGs.getClusterVolume(cluster) : LOLs.getClusterVolume(cluster);
+    return cluster.isGlobal() ? LOGs->getClusterVolume(cluster) : LOLs->getClusterVolume(cluster);
 }
 
 void LocalBlock::receiveData() {
@@ -310,29 +324,29 @@ void LocalBlock::receiveData() {
 #else   // !COMMUNICATION
     numNewLOGs = CommPLOGs.size();
     startOfLocalPlog = 0;
-    merges = ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists({LOGs.Merges}));
+    merges = ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists({LOGs->Merges}));
 #endif  // COMMUNICATION
 
     // Add some incognito clusters of other compute nodes.
-    LOGs.addClusters(startOfLocalPlog);
+    LOGs->addClusters(startOfLocalPlog);
 
     // For each PLOG, add a new cluster and reference it.
     for (ClusterData& c : CommPLOGs) {
         vec3i cPos = vec3i::fromIndexOfTotal(c.Index.RawID, TotalSize);
-        ClusterID newID = LOGs.addCluster(c.Volume);
+        ClusterID newID = LOGs->addCluster(c.Volume);
         // Add representative and repointer PLOG (now LOG)
 
         setID(cPos, newID);
-        LOGs.setRepresentative(newID, c.Index);
+        LOGs->setRepresentative(newID, c.Index);
     }
     // Add Remaining new Clusters
-    LOGs.addClusters(numNewLOGs - startOfLocalPlog - CommPLOGs.size());
-    LOGs.clearVolumesAndMerges();
+    LOGs->addClusters(numNewLOGs - startOfLocalPlog - CommPLOGs.size());
+    LOGs->clearVolumesAndMerges();
     CommPLOGs.clear();
 
     // First change pointers, then merge (cluster representative information is lost on merge).
     repointerMultipleMerges(merges);
-    LOGs.mergeClusterFromList(merges);
+    LOGs->mergeClusterFromList(merges);
 
     checkConsistency();
 }
@@ -341,14 +355,14 @@ void LocalBlock::sendData() {
     checkConsistency();
 
     CommPLOGs.clear();
-    CommPLOGs.reserve(RefPLOGs.size());
+    CommPLOGs.reserve(RefPLOGs->size());
 
-    for (ClusterID plog : RefPLOGs) {
-        Cluster c = LOLs.getCluster(plog);
+    for (ClusterID plog : *RefPLOGs) {
+        Cluster c = LOLs->getCluster(plog);
         CommPLOGs.emplace_back(c.Index, c.Volume);
-        LOLs.removeCluster(plog);
+        LOLs->removeCluster(plog);
     }
-    RefPLOGs.clear();
+    RefPLOGs->clear();
 
 #ifdef COMMUNICATION
 #ifndef NDEBUG
@@ -375,7 +389,7 @@ void LocalBlock::sendData() {
                     MPI_COMM_WORLD, &requests[messageId++]);
 
     // Volumes for LOGs (Additional volume)
-    const std::vector<double>& commVolumes = LOGs.volumes();
+    const std::vector<double>& commVolumes = LOGs->volumes();
     err = MPI_Isend(commVolumes.data(), commVolumes.size(), MPI_DOUBLE, 0,
                     MPICommunication::VOLUMES | rankTag, MPI_COMM_WORLD, &requests[messageId++]);
 
@@ -384,7 +398,7 @@ void LocalBlock::sendData() {
                                         MPI_COMM_WORLD, &requests[messageId++]);
 
     // Merges, nothing more to be done here with them
-    std::vector<ClusterMerge>& merges = LOGs.Merges;
+    std::vector<ClusterMerge>& merges = LOGs->Merges;
     err = MPICommunication::IsendVector(merges, 0, MPICommunication::MERGES | rankTag,
                                         MPI_COMM_WORLD, &requests[messageId++]);
 
@@ -415,14 +429,14 @@ void LocalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
         ClusterID ontoCluster(*(++it), false);
         for (ind c = 0; c < compSize - 1; ++c) {
             ClusterID fromCluster(*(++it), false);
-            VertexID fromRep = LOGs.getCluster(fromCluster).Index;
-            VertexID ontoRep = LOGs.getCluster(ontoCluster).Index;
+            VertexID fromRep = LOGs->getCluster(fromCluster).Index;
+            VertexID ontoRep = LOGs->getCluster(ontoCluster).Index;
             // The from rep may not be part of this node (-> Empty Rep)
             if (fromRep.RawID != -1) {
                 // Onto Rep not part of this node, make fromRep the Representative
                 if (ontoRep.RawID == -1) {
                     setID(fromRep, ontoCluster);
-                    LOGs.setRepresentative(ontoCluster, fromRep);
+                    LOGs->setRepresentative(ontoCluster, fromRep);
                 } else  // Both reps are part of this node
                 {
                     assert(fromRep != ontoRep && "Self pointing rep");
@@ -438,10 +452,10 @@ void LocalBlock::checkConsistency() const {
     LOLSubBlock->checkConsistency();
     for (auto& log : LOGSubBlocks) log.checkConsistency();
 
-    for (auto& merge : LOGs.Merges) {
-        assert(LOGs.getClusterVolume(merge.From) >= 0 &&
+    for (auto& merge : LOGs->Merges) {
+        assert(LOGs->getClusterVolume(merge.From) >= 0 &&
                "Cluster recorded to merge from does not exist.");
-        assert(LOGs.getClusterVolume(merge.Onto) > 0 &&
+        assert(LOGs->getClusterVolume(merge.Onto) > 0 &&
                "Cluster recorded to merge onto does not exist.");
     }
 #endif

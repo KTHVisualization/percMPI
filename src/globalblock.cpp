@@ -361,13 +361,18 @@ void GlobalBlock::receiveData() {
 
         ind processDataIndex = p;
         ind processIndex = p + 1;
+        ind rank = 0;
 #ifdef SINGLENODE
         // There is just a single node we will be receiving from
+        // Encode the theoretical process index within the tag
+        rank = processIndex;
         processIndex = 0;
 #endif  // SINGLENODE
+
 #ifndef NDEBUG
-        std::cout << "0: Receiving data from process " << processIndex << std::endl;
+        std::cout << "0: Receiving data from process " << (processIndex | rank) << std::endl;
 #endif
+        ind rankTag = rank << MPICommunication::RANK_SHIFT;
 
         ind numMessages = 7;
         MPI_Status status;
@@ -376,25 +381,24 @@ void GlobalBlock::receiveData() {
         // Receive number of local Clusters and maxVolume and totalVolume (TODO: Might want to be
         // gathers)
         int numClusters;
-
-        err = MPI_Recv(&numClusters, 1, MPI_INT, processIndex, MPICommunication::NUMCLUSTERS,
-                       MPI_COMM_WORLD, &status);
+        err = MPI_Recv(&numClusters, 1, MPI_INT, processIndex,
+                       MPICommunication::NUMCLUSTERS | rankTag, MPI_COMM_WORLD, &status);
 
         NumClustersLocal += numClusters;
         double maxVolume;
-        err = MPI_Recv(&maxVolume, 1, MPI_DOUBLE, processIndex, MPICommunication::MAXVOLUME,
-                       MPI_COMM_WORLD, &status);
+        err = MPI_Recv(&maxVolume, 1, MPI_DOUBLE, processIndex,
+                       MPICommunication::MAXVOLUME | rankTag, MPI_COMM_WORLD, &status);
         MaxVolumeLocal = std::max(maxVolume, MaxVolumeLocal);
         double volume;
-        err = MPI_Recv(&volume, 1, MPI_DOUBLE, processIndex, MPICommunication::TOTALVOLUME,
-                       MPI_COMM_WORLD, &status);
+        err = MPI_Recv(&volume, 1, MPI_DOUBLE, processIndex,
+                       MPICommunication::TOTALVOLUME | rankTag, MPI_COMM_WORLD, &status);
         TotalVolumeLocal += volume;
 
         // Receive volumes for LOGs (Additional volume) and update volumes (Should be some collected
         // for this too)
         std::vector<double> commVolumes(GOGs.volumes().size());
         err = MPI_Recv(commVolumes.data(), commVolumes.size(), MPI_DOUBLE, processIndex,
-                       MPICommunication::VOLUMES, MPI_COMM_WORLD, &status);
+                       MPICommunication::VOLUMES | rankTag, MPI_COMM_WORLD, &status);
 
         ind counter = 0;
         for (double vol : commVolumes) {
@@ -408,20 +412,22 @@ void GlobalBlock::receiveData() {
         // volume
         std::vector<ClusterData> commPLOGs;
         err = MPICommunication::RecvVectorUknownSize(
-            commPLOGs, processIndex, MPICommunication::PLOGS, MPI_COMM_WORLD, &status);
+            commPLOGs, processIndex, MPICommunication::PLOGS | rankTag, MPI_COMM_WORLD, &status);
 
         // Receive merges, nothing more to be done here with them
         std::vector<ClusterMerge>& merges = ReceivedMerges[processDataIndex];
-        err = MPICommunication::RecvVectorUknownSize(merges, processIndex, MPICommunication::MERGES,
-                                                     MPI_COMM_WORLD, &status);
+        err = MPICommunication::RecvVectorUknownSize(
+            merges, processIndex, MPICommunication::MERGES | rankTag, MPI_COMM_WORLD, &status);
 
         // Receive updated red blocks
         err = MPI_Recv(PerProcessData[processDataIndex].MemoryLOG,
                        PerProcessData[processDataIndex].MemoryLOGSize * sizeof(ID), MPI_BYTE,
-                       processIndex, MPICommunication::REDPOINTERS, MPI_COMM_WORLD, &status);
+                       processIndex, MPICommunication::REDPOINTERS | rankTag, MPI_COMM_WORLD,
+                       &status);
 
 #ifndef NDEBUG
-        std::cout << "Finished receiving data from process " << processIndex << std::endl;
+        std::cout << "0: Finished receiving data from process " << (processIndex | rank)
+                  << std::endl;
 #endif
 
         // Record where PLOGS for this process start (as in: How many other PLOGs for other
@@ -457,13 +463,18 @@ void GlobalBlock::sendData() {
     for (ind p = 0; p < NumNodes.prod(); p++) {
         ind processDataIndex = p;
         ind processIndex = p + 1;
+        ind rank = 0;
 #ifdef SINGLENODE
         // There is just a single node we will be receiving from
+        // but the tag encodes with process it would be
+        rank = processIndex;
         processIndex = 0;
+
 #endif  // SINGLENODE
 #ifndef NDEBUG
-        std::cout << "0: Sending data to process " << processIndex << std::endl;
+        std::cout << "0: Sending data to process " << (processIndex | rank) << std::endl;
 #endif
+        ind rankTag = rank << MPICommunication::RANK_SHIFT;
 
         // NumNewClusters, Merges Vector, PLOG range,
         ind numMessages = 1 + PerProcessData[processDataIndex].GreenAdjacent.size();
@@ -472,29 +483,36 @@ void GlobalBlock::sendData() {
 #endif
 
         MPI_Request* requests = new MPI_Request[numMessages];
-
-        // Updated green blocks
-        const std::vector<ind>& greenIndices = PerProcessData[processDataIndex].GreenAdjacent;
         ind messageID = 0;
-        for (ind id : greenIndices) {
-            auto& gogBlock = GOGSubBlocks[id];
-            MPI_Isend(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
-                      MPI_BYTE, processIndex, MPICommunication::GREENPOINTERS & messageID,
-                      MPI_COMM_WORLD, &requests[messageID++]);
-        }
+#ifndef COLLECTIVES
+        MPI_Isend(&NumNewClusters, 1, MPI_INT, processIndex,
+                  MPICommunication::NUMNEWCLUSTERS | rankTag, MPI_COMM_WORLD,
+                  &requests[messageID++]);
+        MPICommunication::IsendVector(Merges, processIndex, MPICommunication::MERGES | rankTag,
+                                      MPI_COMM_WORLD, &requests[messageID++]);
+#endif  // COLLECTIVES
 
         // Plog Range (This might want to be a scatter operation) (TODO)
         MPI_Isend(&PerProcessData[processDataIndex].StartOfLocalPlog, 1, MPI_INT, processIndex,
-                  MPICommunication::STARTOFPLOG, MPI_COMM_WORLD, &requests[messageID++]);
+                  MPICommunication::STARTOFPLOG | rankTag, MPI_COMM_WORLD, &requests[messageID++]);
 
-#ifndef COLLECTIVES
-        MPI_Isend(&NumNewClusters, 1, MPI_INT, processIndex, MPICommunication::NUMNEWCLUSTERS,
-                  MPI_COMM_WORLD, &requests[messageID++]);
-        MPICommunication::IsendVector(Merges, processIndex, MPICommunication::MERGES,
-                                      MPI_COMM_WORLD, &requests[messageID++]);
-#endif  // COLLECTIVES
+        // Updated green blocks
+        const std::vector<ind>& greenIndices = PerProcessData[processDataIndex].GreenAdjacent;
+        int counter = 0;
+        for (ind id : greenIndices) {
+            auto& gogBlock = GOGSubBlocks[id];
+            std::cout << (processIndex | rank) << " Sending Greenblock " << counter << " of size "
+                      << gogBlock.blockSize().prod() * sizeof(ID) << " and tag "
+                      << (MPICommunication::GREENPOINTERS | rankTag | counter) << std::endl;
+            MPI_Isend(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
+                      MPI_BYTE, processIndex, MPICommunication::GREENPOINTERS | rankTag | counter,
+                      MPI_COMM_WORLD, &requests[messageID++]);
+            counter++;
+        }
+
 #ifndef NDEBUG
-        std::cout << "Waiting for messages to be received by process " << processIndex << std::endl;
+        std::cout << "0: Waiting for messages to be received by process " << (processIndex | rank)
+                  << std::endl;
 #endif
 #ifndef SINGLENODE
         // This should free our requests as well??? -> Would mean blocking after each process,
@@ -502,7 +520,7 @@ void GlobalBlock::sendData() {
         MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
 #endif  // SINGLENODE
 #ifndef NDEBUG
-        std::cout << "Finished sending data to process " << processIndex << std::endl;
+        std::cout << "0: Finished sending data to process " << (processIndex | rank) << std::endl;
 #endif
     }
 }  // namespace perc

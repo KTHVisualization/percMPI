@@ -63,16 +63,24 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
             []() { return GrayProcessor(); }));
     }
 
+#ifdef SINGLENODE
+    Rank = MPICommunication::computeRank(blockOffset, blockSize, TotalSize);
+#else
+    Rank = 0;
+#endif
+
 }  // namespace perc
 
 LocalBlock::LocalBlock(const vec3i& totalSize)
     : UnionFindBlock(totalSize)
+    , Rank(1)
     , RefPLOGs(10000, &ClusterID::hash)
     , LOLs(LOCAL_LIST)
     , LOGs(GLOBAL_LIST) {}
 
 LocalBlock::LocalBlock(LocalBlock&& other)
     : UnionFindBlock(other.TotalSize)
+    , Rank(std::move(other.Rank))
     , LOGSubBlocks(std::move(other.LOGSubBlocks))
     , GOGSubBlocks(std::move(other.GOGSubBlocks))
     , LOLs(std::move(other.LOLs))
@@ -262,22 +270,25 @@ void LocalBlock::receiveData() {
     ind startOfLocalPlog;
     std::vector<int> merges;
 #ifdef COMMUNICATION
+    MPI_Status status;
+    int err;
+
 #ifndef NDEBUG
     int currProcess;
     MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
-    std::cout << currProcess << ": Receiving data from process 0" << std::endl;
+    std::cout << (currProcess | Rank) << ": Receiving data from process 0" << std::endl;
 #endif
 
-    MPI_Status status;
-    int err;
+    ind rankTag = Rank << MPICommunication::RANK_SHIFT;
+
 #ifdef COLLECTIVES
     // TODO: Broadcasts
 #else
-    err = MPI_Recv(&numNewLOGs, 1, MPI_INT, 0, MPICommunication::NUMNEWCLUSTERS, MPI_COMM_WORLD,
-                   &status);
-    err = MPI_Recv(&startOfLocalPlog, 1, MPI_INT, 0, MPICommunication::STARTOFPLOG, MPI_COMM_WORLD,
-                   &status);
-    err = MPICommunication::RecvVectorUknownSize(merges, 0, MPICommunication::MERGES,
+    err = MPI_Recv(&numNewLOGs, 1, MPI_INT, 0, MPICommunication::NUMNEWCLUSTERS | rankTag,
+                   MPI_COMM_WORLD, &status);
+    err = MPI_Recv(&startOfLocalPlog, 1, MPI_INT, 0, MPICommunication::STARTOFPLOG | rankTag,
+                   MPI_COMM_WORLD, &status);
+    err = MPICommunication::RecvVectorUknownSize(merges, 0, MPICommunication::MERGES | rankTag,
                                                  MPI_COMM_WORLD, &status);
 #endif  // COLLECTIVES
         // Receive updated green blocks
@@ -285,12 +296,15 @@ void LocalBlock::receiveData() {
     for (int counter = 0; counter < GOGSubBlocks.size(); ++counter) {
         auto& gogBlock = GOGSubBlocks[counter];
         // Should this potentially be Non-Blocking?
+        std::cout << (currProcess | Rank) << " Receiving Greenblock " << counter << " of size "
+                  << gogBlock.blockSize().prod() * sizeof(ID) << " and tag "
+                  << (MPICommunication::GREENPOINTERS | rankTag | counter) << std::endl;
         err = MPI_Recv(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
-                       MPI_BYTE, 0, MPICommunication::GREENPOINTERS & counter, MPI_COMM_WORLD,
-                       &status);
+                       MPI_BYTE, 0, MPICommunication::GREENPOINTERS | rankTag | counter,
+                       MPI_COMM_WORLD, &status);
     }
 #ifndef NDEBUG
-    std::cout << currProcess << ": Finished receiving data from process 0" << std::endl;
+    std::cout << (currProcess | Rank) << ": Finished receiving data from process 0" << std::endl;
 #endif
 
 #else   // !COMMUNICATION
@@ -340,8 +354,9 @@ void LocalBlock::sendData() {
 #ifndef NDEBUG
     int currProcess;
     MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
-    std::cout << currProcess << ": Sending data to process 0" << std::endl;
+    std::cout << (currProcess | Rank) << ": Sending data to process 0" << std::endl;
 #endif
+    ind rankTag = Rank << MPICommunication::RANK_SHIFT;
 
     ind numMessages = 7;
     MPI_Request* requests = new MPI_Request[numMessages];
@@ -350,35 +365,37 @@ void LocalBlock::sendData() {
 
     // Number of local Clusters, maxVolume and totalVolume
     int numClustersLocal = numClusters();
-    err = MPI_Isend(&numClustersLocal, 1, MPI_INT, 0, MPICommunication::NUMCLUSTERS, MPI_COMM_WORLD,
-                    &requests[messageId++]);
+    err = MPI_Isend(&numClustersLocal, 1, MPI_INT, 0, MPICommunication::NUMCLUSTERS | rankTag,
+                    MPI_COMM_WORLD, &requests[messageId++]);
     double maxVolumeLocal = maxVolume();
-    err = MPI_Isend(&maxVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::MAXVOLUME, MPI_COMM_WORLD,
-                    &requests[messageId++]);
+    err = MPI_Isend(&maxVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::MAXVOLUME | rankTag,
+                    MPI_COMM_WORLD, &requests[messageId++]);
     double totalVolumeLocal = totalVolume();
-    err = MPI_Isend(&totalVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::TOTALVOLUME,
+    err = MPI_Isend(&totalVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::TOTALVOLUME | rankTag,
                     MPI_COMM_WORLD, &requests[messageId++]);
 
     // Volumes for LOGs (Additional volume)
     const std::vector<double>& commVolumes = LOGs.volumes();
     err = MPI_Isend(commVolumes.data(), commVolumes.size(), MPI_DOUBLE, 0,
-                    MPICommunication::VOLUMES, MPI_COMM_WORLD, &requests[messageId++]);
+                    MPICommunication::VOLUMES | rankTag, MPI_COMM_WORLD, &requests[messageId++]);
 
     // New global clusters in red
-    err = MPICommunication::IsendVector(CommPLOGs, 0, MPICommunication::PLOGS, MPI_COMM_WORLD,
-                                        &requests[messageId++]);
+    err = MPICommunication::IsendVector(CommPLOGs, 0, MPICommunication::PLOGS | rankTag,
+                                        MPI_COMM_WORLD, &requests[messageId++]);
 
     // Merges, nothing more to be done here with them
     std::vector<ClusterMerge>& merges = LOGs.Merges;
-    err = MPICommunication::IsendVector(merges, 0, MPICommunication::MERGES, MPI_COMM_WORLD,
-                                        &requests[messageId++]);
+    err = MPICommunication::IsendVector(merges, 0, MPICommunication::MERGES | rankTag,
+                                        MPI_COMM_WORLD, &requests[messageId++]);
 
     // Send updated red blocks
-    err = MPI_Isend(MemoryLOG, MemoryLOGSize * sizeof(ID), MPI_BYTE, 0,
-                    MPICommunication::REDPOINTERS, MPI_COMM_WORLD, &requests[messageId++]);
+    err =
+        MPI_Isend(MemoryLOG, MemoryLOGSize * sizeof(ID), MPI_BYTE, 0,
+                  MPICommunication::REDPOINTERS | rankTag, MPI_COMM_WORLD, &requests[messageId++]);
 
 #ifndef NDEBUG
-    std::cout << currProcess << ": Waiting for messages to be received by process 0" << std::endl;
+    std::cout << (currProcess | Rank) << ": Waiting for messages to be received by process 0"
+              << std::endl;
 #endif
 
 #ifndef SINGLENODE
@@ -386,7 +403,7 @@ void LocalBlock::sendData() {
 #endif  // SINGLENODE
 
 #ifndef NDEBUG
-    std::cout << currProcess << ": Finished sending data to process 0" << std::endl;
+    std::cout << (currProcess | Rank) << ": Finished sending data to process 0" << std::endl;
 #endif
 
 #endif  // COMMUNCATION

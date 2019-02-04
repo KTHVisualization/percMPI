@@ -66,6 +66,9 @@ protected:
     void repointerMultipleMerges(const std::vector<ind>& connComps);
 
 private:
+    // This blocks rank (if on a single node)
+    ind Rank;
+
     // The local local part for this block
     UnionFindSubBlock<WhiteProcessor>* LOLSubBlock;
 

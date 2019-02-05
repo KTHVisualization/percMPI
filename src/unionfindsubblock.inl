@@ -28,7 +28,7 @@ UnionFindSubBlock<ClusterProcessor>::UnionFindSubBlock(const vec3i& size, const 
 template <typename ClusterProcessor>
 UnionFindSubBlock<ClusterProcessor>::UnionFindSubBlock(UnionFindSubBlock<ClusterProcessor>&& other)
     : PointerBlock(std::move(other.PointerBlock))
-    , Parent(nullptr)
+    , Parent(other.Parent)
     , CurrentWatershedIndex(other.CurrentWatershedIndex)
     , NeighborProcessor(std::move(other.NeighborProcessor)) {
     Data = other.Data;

@@ -104,6 +104,8 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                         dir, whiteSize, whiteOffset, totalSize, memOngoing, *this,
                         [this]() { return GreenProcessor(GOGs); }));
 
+                    GOGSubBlocks.back().loadData();
+
                     // Add to neighborhood lists.
                     // Current node.
                     neighbors[node.toIndexOfTotal(numNodes)].push_back(GOGSubBlocks.size() - 1);
@@ -444,7 +446,7 @@ void GlobalBlock::receiveData() {
                     break;
                 }
             assert(parentBlock && "No Block for PLOG found");
-            ClusterID newCluster = GOGs.addCluster(cluster.Index, cluster.Volume, parentBlock);
+            ClusterID newCluster = GOGs.addCluster(cluster.Volume);
             parentBlock->PointerBlock.setPointer(cPos, newCluster);
         }
     }

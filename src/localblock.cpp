@@ -68,8 +68,7 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
 #else
     Rank = 0;
 #endif
-
-}  // namespace perc
+}
 
 LocalBlock::LocalBlock(const vec3i& totalSize)
     : UnionFindBlock(totalSize)
@@ -82,9 +81,7 @@ LocalBlock::LocalBlock(LocalBlock&& other)
     : UnionFindBlock(other.TotalSize)
     , Rank(std::move(other.Rank))
     , LOGSubBlocks(std::move(other.LOGSubBlocks))
-    , GOGSubBlocks(std::move(other.GOGSubBlocks))
-    , RefPLOGs(std::move(other.RefPLOGs))
-    , CommPLOGs(std::move(other.CommPLOGs)) {
+    , GOGSubBlocks(std::move(other.GOGSubBlocks)) {
     // Take over log memory.
     MemoryLOG = other.MemoryLOG;
     other.MemoryLOG = nullptr;
@@ -114,7 +111,7 @@ LocalBlock::LocalBlock(LocalBlock&& other)
 //     LOLSubBlock(std::move(other.LOLSubBlock)) LOGSubBlocks(std::move(other.LOGSubBlocks));
 //     GOGSubBlocks(std::move(other.GOGSubBlocks)) LOLs(std::move(other.LOLs));
 //     LOGs(std::move(other.LOGs)) RefPLOGs(std::move(other.RefPLOGs));
-//     CommPLOGs(std::move(other.CommPLOGs));
+//     CommData(std::move(other.CommData));
 //     MemoryLOG = other.MemoryLOG;
 //     other.MemoryLOG = nullptr;
 //     MemoryLOGSize = other.MemoryLOGSize;
@@ -322,7 +319,7 @@ void LocalBlock::receiveData() {
 #endif
 
 #else   // !COMMUNICATION
-    numNewLOGs = CommPLOGs.size();
+    numNewLOGs = CommData.PLOGs.size();
     startOfLocalPlog = 0;
     merges = ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists({LOGs->Merges}));
 #endif  // COMMUNICATION
@@ -331,7 +328,7 @@ void LocalBlock::receiveData() {
     LOGs->addClusters(startOfLocalPlog);
 
     // For each PLOG, add a new cluster and reference it.
-    for (ClusterData& c : CommPLOGs) {
+    for (ClusterData& c : CommData.PLOGs) {
         vec3i cPos = vec3i::fromIndexOfTotal(c.Index.RawID, TotalSize);
         ClusterID newID = LOGs->addCluster(c.Volume);
         // Add representative and repointer PLOG (now LOG)
@@ -340,9 +337,9 @@ void LocalBlock::receiveData() {
         LOGs->setRepresentative(newID, c.Index);
     }
     // Add Remaining new Clusters
-    LOGs->addClusters(numNewLOGs - startOfLocalPlog - CommPLOGs.size());
+    LOGs->addClusters(numNewLOGs - startOfLocalPlog - CommData.PLOGs.size());
     LOGs->clearVolumesAndMerges();
-    CommPLOGs.clear();
+    CommData.PLOGs.clear();
 
     // First change pointers, then merge (cluster representative information is lost on merge).
     repointerMultipleMerges(merges);
@@ -354,12 +351,12 @@ void LocalBlock::receiveData() {
 void LocalBlock::sendData() {
     checkConsistency();
 
-    CommPLOGs.clear();
-    CommPLOGs.reserve(RefPLOGs->size());
+    CommData.PLOGs.clear();
+    CommData.PLOGs.reserve(RefPLOGs->size());
 
     for (ClusterID plog : *RefPLOGs) {
         Cluster c = LOLs->getCluster(plog);
-        CommPLOGs.emplace_back(c.Index, c.Volume);
+        CommData.PLOGs.emplace_back(c.Index, c.Volume);
         LOLs->removeCluster(plog);
     }
     RefPLOGs->clear();
@@ -378,28 +375,27 @@ void LocalBlock::sendData() {
     ind messageId = 0;
 
     // Number of local Clusters, maxVolume and totalVolume
-    int numClustersLocal = numClusters();
-    err = MPI_Isend(&numClustersLocal, 1, MPI_INT, 0, MPICommunication::NUMCLUSTERS | rankTag,
+    CommData.NumClusters = numClusters();
+    err = MPI_Isend(&CommData.NumClusters, 1, MPI_INT, 0, MPICommunication::NUMCLUSTERS | rankTag,
                     MPI_COMM_WORLD, &requests[messageId++]);
-    double maxVolumeLocal = maxVolume();
-    err = MPI_Isend(&maxVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::MAXVOLUME | rankTag,
+    CommData.MaxVolume = maxVolume();
+    err = MPI_Isend(&CommData.MaxVolume, 1, MPI_DOUBLE, 0, MPICommunication::MAXVOLUME | rankTag,
                     MPI_COMM_WORLD, &requests[messageId++]);
-    double totalVolumeLocal = totalVolume();
-    err = MPI_Isend(&totalVolumeLocal, 1, MPI_DOUBLE, 0, MPICommunication::TOTALVOLUME | rankTag,
-                    MPI_COMM_WORLD, &requests[messageId++]);
+    CommData.TotalVolume = totalVolume();
+    err =
+        MPI_Isend(&CommData.TotalVolume, 1, MPI_DOUBLE, 0, MPICommunication::TOTALVOLUME | rankTag,
+                  MPI_COMM_WORLD, &requests[messageId++]);
 
     // Volumes for LOGs (Additional volume)
-    const std::vector<double>& commVolumes = LOGs->volumes();
-    err = MPI_Isend(commVolumes.data(), commVolumes.size(), MPI_DOUBLE, 0,
-                    MPICommunication::VOLUMES | rankTag, MPI_COMM_WORLD, &requests[messageId++]);
+    err = MPICommunication::IsendVector(LOGs->volumes(), 0, MPICommunication::VOLUMES | rankTag,
+                                        MPI_COMM_WORLD, &requests[messageId++]);
 
     // New global clusters in red
-    err = MPICommunication::IsendVector(CommPLOGs, 0, MPICommunication::PLOGS | rankTag,
+    err = MPICommunication::IsendVector(CommData.PLOGs, 0, MPICommunication::PLOGS | rankTag,
                                         MPI_COMM_WORLD, &requests[messageId++]);
 
     // Merges, nothing more to be done here with them
-    std::vector<ClusterMerge>& merges = LOGs->Merges;
-    err = MPICommunication::IsendVector(merges, 0, MPICommunication::MERGES | rankTag,
+    err = MPICommunication::IsendVector(LOGs->Merges, 0, MPICommunication::MERGES | rankTag,
                                         MPI_COMM_WORLD, &requests[messageId++]);
 
     // Send updated red blocks

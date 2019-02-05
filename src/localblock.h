@@ -63,6 +63,15 @@ protected:
     void repointerMultipleMerges(const std::vector<ind>& connComps);
 
 private:
+    // Data send to the global node
+    struct DataToSend {
+        ind NumClusters;
+        double MaxVolume;
+        double TotalVolume;
+        // List of PLOGS
+        std::vector<ClusterData> PLOGs;
+    } CommData;
+
     // This blocks rank (if on a single node)
     ind Rank;
 
@@ -88,8 +97,6 @@ private:
     using RefPLOGtype = std::unordered_set<ClusterID, ClusterID::hash_type>;
     // Potential LOGs: LOLs that touch the boundary.
     RefPLOGtype* RefPLOGs;
-    // List of PLOGS that will be used for sending and receiving data.
-    std::vector<ClusterData> CommPLOGs;
 };
 
 }  // namespace perc

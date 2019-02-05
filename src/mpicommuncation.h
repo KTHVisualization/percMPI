@@ -30,10 +30,10 @@ public:
     };
 
     template <typename T>
-    static int SendVector(std::vector<T>& vector, int dest, int tag, MPI_Comm comm);
+    static int SendVector(const std::vector<T>& vector, int dest, int tag, MPI_Comm comm);
 
     template <typename T>
-    static int IsendVector(std::vector<T>& vector, int dest, int tag, MPI_Comm comm,
+    static int IsendVector(const std::vector<T>& vector, int dest, int tag, MPI_Comm comm,
                            MPI_Request* request);
 
     template <typename T>
@@ -47,12 +47,12 @@ public:
 };
 
 template <typename T>
-int MPICommunication::SendVector(std::vector<T>& vector, int dest, int tag, MPI_Comm comm) {
+int MPICommunication::SendVector(const std::vector<T>& vector, int dest, int tag, MPI_Comm comm) {
     return MPI_Send(vector.data(), vector.size() * sizeof(T), MPI_BYTE, dest, tag, comm);
 }
 
 template <typename T>
-int MPICommunication::IsendVector(std::vector<T>& vector, int dest, int tag, MPI_Comm comm,
+int MPICommunication::IsendVector(const std::vector<T>& vector, int dest, int tag, MPI_Comm comm,
                                   MPI_Request* request) {
     // Sends an empty message for size equal to zero, bugger does not matter send
     return MPI_Isend(vector.data(), vector.size() * sizeof(T), MPI_BYTE, dest, tag, comm, request);

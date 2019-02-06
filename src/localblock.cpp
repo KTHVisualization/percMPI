@@ -47,13 +47,20 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
     }
 
     // Sort directions, such that the blocks will have the same order as in the global block
-    std::sort(directions.begin(), directions.end(), [this](auto& a, auto& b) {
-        return a.toIndexOfTotal(TotalSize) < b.toIndexOfTotal(TotalSize);
+    // first come all that have -1 in z, then all that have -1 in y, then in x.
+    // If both are -1 or not -1 on all dimension, order according to linear index
+    std::sort(directions.begin(), directions.end(), [](auto& a, auto& b) {
+        for (ind dim = 2; dim >= 0; --dim) {
+            if (a[dim] == -1 && b[dim] != -1) return true;
+            if (a[dim] != -1 && b[dim] == -1) return false;
+        }
+        return (a + 1).toIndexOfTotal(vec3i(3)) < (b + 1).toIndexOfTotal(vec3i(3));
     });
 
     // Setup global block vector.
     GOGSubBlocks.reserve(directions.size());
     ID* dummyMemory;
+
     for (auto& dir : directions) {
         dummyMemory = nullptr;
 
@@ -68,6 +75,14 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
 #else
     Rank = 0;
 #endif
+
+    /*
+        std::cout << Rank << ": ";
+        for (auto& gogBlock : GOGSubBlocks) {
+            std::cout << gogBlock.blockOffset() << "\t";
+        }
+        std::cout << std::endl;
+        */
 }
 
 LocalBlock::LocalBlock(const vec3i& totalSize)

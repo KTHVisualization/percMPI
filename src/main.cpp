@@ -36,7 +36,7 @@ void testingMPIVectors() {
     int currProcess;
     MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
 
-    // Processor 0 is just testing some basic things before sending anything
+    // Rank  0 is just testing some basic things before sending anything
     if (currProcess == 0) {
         // Initially empty vector, push some elements
         std::vector<double> doubleVector;
@@ -254,7 +254,7 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         GlobalBlock globalBlock(blockSize, totalSize, numNodes);
 
         float timeElapsed = timer.ElapsedTimeAndReset();
-        std::cout << "Processor " << currProcess << ": Loaded and sorted data in " << timeElapsed
+        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << timeElapsed
                   << " seconds." << std::endl;
 
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
@@ -274,8 +274,6 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             MPI_Request* requests = new MPI_Request[numNodes.prod()];
             for (ind p = 0; p < numNodes.prod(); p++) {
                 ind processIndex = p + 1;
-                std::cout << "0: Letting process " << processIndex << " know the step was "
-                          << (correct ? "correct." : "incorrect.") << std::endl;
                 MPI_Isend(&correct, 1, MPI_CXX_BOOL, processIndex, MPICommunication::ERRORFLAG,
                           MPI_COMM_WORLD, &requests[p]);
             }
@@ -359,7 +357,7 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
     else {
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
         float timeElapsed = timer.ElapsedTimeAndReset();
-        std::cout << "Processor " << currProcess << ": Loaded and sorted data in " << timeElapsed
+        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << timeElapsed
                   << " seconds." << std::endl;
 
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
@@ -372,8 +370,6 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             bool correct;
             MPI_Recv(&correct, 1, MPI_CXX_BOOL, 0, MPICommunication::ERRORFLAG, MPI_COMM_WORLD,
                      MPI_STATUS_IGNORE);
-            std::cout << currProcess << ": Received information that the step was "
-                      << (correct ? "correct." : "incorrect.") << std::endl;
             if (!correct) {
                 std::vector<vec3i> redIndices;
 
@@ -404,12 +400,9 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
                 }
 
                 MPI_Request request;
-                std::cout << currProcess << ": Sending red indices to process 0." << std::endl;
                 int err = MPICommunication::IsendVector(redIndices, 0, MPICommunication::ERRORFLAG,
                                                         MPI_COMM_WORLD, &request);
                 MPI_Wait(&request, MPI_STATUS_IGNORE);
-                std::cout << currProcess << ": Finished sending red indices to process 0."
-                          << std::endl;
             }
 
 #endif  // NDEBUG
@@ -857,10 +850,11 @@ int main(int argc, char** argv) {
     vec3i blockOffset = blockSize * idxNode;
     blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
-    // Print status
 #ifndef SINGLENODE
-    std::cout << "Processor " << currProcess << ", index " << idxNode << ", offset " << blockOffset
-              << ", size " << blockSize << std::endl;
+    // Print process info
+    if (currProcess != 0 && mode == REAL)
+        std::cout << "Rank " << currProcess << ", index " << idxNode << ", offset " << blockOffset
+                  << ", size " << blockSize << std::endl;
 #endif
 
     // TODO, put settings in command line arguments
@@ -893,11 +887,8 @@ int main(int argc, char** argv) {
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
             std::cout << "Watershedding sequentially." << std::endl;
-            if (blockSize != totalSize) {
-                std::cout << "Watershedding with only a part.";
-            }
-            watershedSequential(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
-                                numClusters, maxVolumes, totalVolumes, timer);
+            watershedSequential(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h, numClusters,
+                                maxVolumes, totalVolumes, timer);
 #else
             std::cout << "Watershedding sequentially, but distributed." << std::endl;
             watershedParallelSingleRank(numNodes, blockSize, blockOffset, totalSize, hMin, hMax,
@@ -905,7 +896,8 @@ int main(int argc, char** argv) {
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
-            std::cout << "Watershedding parallel and distributed." << std::endl;
+            if (currProcess == 0)
+                std::cout << "Watershedding parallel and distributed." << std::endl;
             whatershedMultipleRanks(currProcess, numNodes, blockSize, blockOffset, totalSize, hMin,
                                     hMax, hStep, h, numClusters, maxVolumes, totalVolumes, timer);
 #else   // !COMMUNCATION
@@ -920,9 +912,10 @@ int main(int argc, char** argv) {
 
         case TEST_LOCALONLY_WHITERED:
 #ifndef SINGLENODE
-            std::cerr << "Testing single node mode (Local, WhiteRed) is not intended for "
-                         "multiple nodes."
-                      << std::endl;
+            if (currProcess == 0)
+                std::cerr << "Testing single node mode (Local, WhiteRed) is not intended for "
+                             "multiple nodes."
+                          << std::endl;
             MPI_Finalize();
             return 1;
 #else  // SINGLENODE
@@ -933,8 +926,8 @@ int main(int argc, char** argv) {
             MPI_Finalize();
             return 1;
 #else
-            std::cout << "Watershedding locally (WhiteRed) without communication" << std::endl;
-            watershedLocalWhiteRed(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
+            std::cout << "Watershedding locally (WhiteRed) without communication," << std::endl;
+            watershedLocalWhiteRed(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h,
                                    numClusters, maxVolumes, totalVolumes, timer);
 #endif  //! COMMUNICATION
 #endif  // !SINGLENODE
@@ -942,23 +935,25 @@ int main(int argc, char** argv) {
 
         case TEST_GLOBALONLY_GREEN:
 #ifndef SINGLENODE
-            std::cerr << "Testing single node mode (Global, Green) is not intended for "
-                         "multiple nodes."
-                      << std::endl;
+            if (currProcess == 0)
+                std::cerr << "Testing single node mode (Global, Green) is not intended for "
+                             "multiple nodes."
+                          << std::endl;
             MPI_Finalize();
             return 1;
 #else   // SINGLENODE
-            std::cout << "Watershedding locally (Green) without communication" << std::endl;
-            watershedGlobalGreen(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
-                                 numClusters, maxVolumes, totalVolumes, timer);
+            std::cout << "Watershedding locally (Green) without communication." << std::endl;
+            watershedGlobalGreen(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h, numClusters,
+                                 maxVolumes, totalVolumes, timer);
 #endif  // !SINGLENODE
             break;
 
         case TEST_WHITERED:
 #ifndef SINGLENODE
-            std::cerr << "Testing single node mode (Global, Green) is not intended for "
-                         "multiple nodes."
-                      << std::endl;
+            if (currProcess == 0)
+                std::cerr << "Testing single node mode (Global, Green) is not intended for "
+                             "multiple nodes."
+                          << std::endl;
             MPI_Finalize();
             return 1;
 #else  // SINGLENODE
@@ -969,7 +964,10 @@ int main(int argc, char** argv) {
             MPI_Finalize();
             return 1;
 #else
-            watershedWhiteRed(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h, numClusters,
+            std::cout
+                << "Watershedding locally (WhiteRed) with communication (Global without Green)."
+                << std::endl;
+            watershedWhiteRed(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h, numClusters,
                               maxVolumes, totalVolumes, timer);
 #endif  // COMMUNICATION
 #endif  // !SINGLENODE
@@ -977,9 +975,10 @@ int main(int argc, char** argv) {
 
         case TEST_WHITEREDGREEN:
 #ifndef SINGLENODE
-            std::cerr << "Testing single node mode (Global, Green) is not intended for "
-                         "multiple nodes."
-                      << std::endl;
+            if (currProcess == 0)
+                std::cerr << "Testing single node mode (Global, Green) is not intended for "
+                             "multiple nodes."
+                          << std::endl;
             MPI_Finalize();
             return 1;
 #else  // SINGLENODE
@@ -990,23 +989,25 @@ int main(int argc, char** argv) {
             MPI_Finalize();
             return 1;
 #else
-            watershedWhiteRedGreen(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
+            std::cout
+                << "Watershedding locally (WhiteRedGreen) with communication (Global with Green)."
+                << std::endl;
+            watershedWhiteRedGreen(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h,
                                    numClusters, maxVolumes, totalVolumes, timer);
 #endif  // COMMUNICATION
 #endif  // !SINGLENODE
             break;
         default:
-            std::cerr << "Mode " << mode << " is not a valid mode." << std::endl;
+            if (currProcess == 0)
+                std::cerr << "Mode " << mode << " is not a valid mode." << std::endl;
             return 1;
             break;
     }
 
-    timeElapsed = timer.ElapsedTimeAndReset();
-    std::cout << "Processor " << currProcess << ": Watershedding took " << timeElapsed
-              << " seconds." << std::endl;
-
     // Only master process writes out statistics
     if (currProcess == 0) {
+        timeElapsed = timer.ElapsedTimeAndReset();
+        std::cout << "Watershedding took " << timeElapsed << " seconds." << std::endl;
 
         const int maxClusters = *(std::max_element(numClusters.cbegin(), numClusters.cend()));
 

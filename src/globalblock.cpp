@@ -66,6 +66,8 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
     PerProcessData.resize(NumNodes.prod());
 
     // Assemble.
+    std::vector<vec3i> neighBlocks;
+    neighBlocks.reserve(7);
     for (ind z = 0; z < numNodes.z; ++z)
         for (ind y = 0; y < numNodes.y; ++y)
             for (ind x = 0; x < numNodes.x; ++x) {
@@ -86,7 +88,8 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
 
                         // Combine the new direction with all previous ones (-> exclude the one just
                         // pushed)
-                        for (ind d = directions.size() - 2; d >= 0; --d)
+                        ind size = directions.size();
+                        for (ind d = 0; d < size - 1; ++d)
                             directions.push_back(directions[d] + dir);
                     }
 
@@ -111,13 +114,26 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                     neighbors[node.toIndexOfTotal(numNodes)].push_back(GOGSubBlocks.size() - 1);
 
                     // Respective neighboring nodes.
+                    neighBlocks.clear();
                     for (ind dim = 0; dim < 3; ++dim)
                         if (dir[dim]) {
-                            vec3i neighNode = node;
-                            neighNode[dim]++;
-                            neighbors[neighNode.toIndexOfTotal(numNodes)].push_back(
-                                GOGSubBlocks.size() - 1);
+                            // Direction the green side lies at.
+                            vec3i neighDir(0);
+                            neighDir[dim] = 1;
+
+                            // Doing this first ensures a sorted vector
+                            neighBlocks.push_back(neighDir);
+
+                            // Combine the new direction with all previous ones (-> exclude the one
+                            // just pushed)
+                            ind size = neighBlocks.size();
+                            for (ind d = 0; d < size - 1; ++d)
+                                neighBlocks.push_back(neighBlocks[d] + neighDir);
                         }
+
+                    for (auto& n : neighBlocks)
+                        neighbors[(node + n).toIndexOfTotal(numNodes)].push_back(
+                            GOGSubBlocks.size() - 1);
                 }
             }
 
@@ -125,6 +141,11 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
 
     for (ind nodeIdx = 0; nodeIdx < neighbors.size(); ++nodeIdx) {
         PerProcessData[nodeIdx].GreenAdjacent = neighbors[nodeIdx];
+        /*std::cout << nodeIdx + 1 << ": ";
+        for (auto gogIdx : PerProcessData[nodeIdx].GreenAdjacent) {
+            std::cout << GOGSubBlocks[gogIdx].blockOffset() << "\t";
+        }
+        std::cout << std::endl;*/
         ReceivedMerges[nodeIdx] = PerProcessData[nodeIdx].Merges;
     }
 

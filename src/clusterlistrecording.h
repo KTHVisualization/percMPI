@@ -15,7 +15,9 @@ struct ClusterMerge {
     ClusterMerge() : From(-1), Onto(-1) {}
 
     static inline std::vector<std::vector<ind>> mergeClustersFromLists(
-        const std::vector<std::vector<ClusterMerge>>& merges);
+        const std::vector<std::vector<ClusterMerge>*>& merges);
+    static inline std::vector<std::vector<ind>> mergeClustersFromLists(
+        std::vector<std::vector<ClusterMerge>>& merges);
     static inline std::vector<ind> mergeClusterAsList(
         const std::vector<std::vector<ind>>& mergeClusters);
 
@@ -136,7 +138,15 @@ inline VertexID ClusterListRecording<CL>::setRepresentative(ClusterID cluster, V
 }
 
 std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(
-    const std::vector<std::vector<ClusterMerge>>& merges) {
+    std::vector<std::vector<ClusterMerge>>& merges) {
+    std::vector<std::vector<ClusterMerge>*> mergesPointers;
+    mergesPointers.reserve(merges.size());
+    for (std::vector<ClusterMerge>& mergeList : merges) mergesPointers.push_back(&mergeList);
+    return mergeClustersFromLists(mergesPointers);
+}
+
+std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(
+    const std::vector<std::vector<ClusterMerge>*>& merges) {
 
     // Resulting list of components.
     std::vector<std::vector<ind>> mergeClusters;
@@ -145,7 +155,8 @@ std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(
 
     // Convert edge list (potentially with duplicates) into a graph
     std::map<ind, std::unordered_set<ind>> mergeGraph;
-    for (const std::vector<ClusterMerge>& mergeList : merges)
+    for (const std::vector<ClusterMerge>* pMergeList : merges) {
+        const std::vector<ClusterMerge>& mergeList = *pMergeList;
         for (const ClusterMerge& merge : mergeList) {
             ind from = merge.From.RawID;
             ind onto = merge.Onto.RawID;
@@ -164,6 +175,7 @@ std::vector<std::vector<ind>> ClusterMerge::mergeClustersFromLists(
             }
             todoClusters.insert(onto);
         }
+    }
 
     while (!todoClusters.empty()) {
         ind cluster = *todoClusters.begin();

@@ -23,7 +23,7 @@
         {
             "taskName": "Single Node, Communication",
             "args": [
-                "mkdir -p buildsc; cd buildsc; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE -DCOMMUNICATION' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000 0"
+                "mkdir -p buildsc; cd buildsc; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE -DCOMMUNICATION' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 20 20 100 5 5 25 0"
             ],
             "isBuildCommand": true
         },
@@ -31,6 +31,27 @@
             "taskName": "Multiple Nodes",
             "args": [
                 "mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DCOMMUNICATION' .. && make -j 8 && mpirun -np 3 ./PercMPI ../../Data/Percolation/P3 uv_005 20 20 100 20 20 50 0"
+            ],
+            "isBuildCommand": true
+        },
+        {
+            "taskName": "Single node, No Communcation Release",
+            "args": [
+                "mkdir -p builds && cd builds && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DSINGLENODE -DFULL_LOCAL_TEST' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 193 194 1000 193 194 1000 0"
+            ],
+            "isBuildCommand": true
+        },
+        {
+            "taskName": "Single Node, Communication Release",
+            "args": [
+                "mkdir -p buildsc; cd buildsc; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DSINGLENODE -DCOMMUNICATION' .. && make -j 8 && mpirun -np 1 ./PercMPI ../../Data/Percolation/P3 uv_005 20 20 100 5 5 25 0"
+            ],
+            "isBuildCommand": true
+        },
+        {
+            "taskName": "Multiple Nodes Release",
+            "args": [
+                "mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DCOMMUNICATION' .. && make -j 8 && mpirun -np 3 ./PercMPI ../../Data/Percolation/P3 uv_005 20 20 100 20 20 50 0"
             ],
             "isBuildCommand": true
         },

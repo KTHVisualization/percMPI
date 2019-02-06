@@ -101,7 +101,7 @@ private:
     double MaxVolumeLocal;
     double TotalVolumeLocal;
     // Merges received
-    std::vector<std::vector<ClusterMerge>> ReceivedMerges;
+    std::vector<std::vector<ClusterMerge>*> ReceivedMerges;
     // *** Mixed ***
     std::vector<InfoPerProcess> PerProcessData;
     // Green pointer blocks data

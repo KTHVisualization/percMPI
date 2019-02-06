@@ -324,7 +324,8 @@ void LocalBlock::receiveData() {
 #else   // !COMMUNICATION
     numNewLOGs = CommData.PLOGs.size();
     startOfLocalPlog = 0;
-    merges = ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists({LOGs->Merges}));
+    std::vector<std::vector<ClusterMerge>> mergesLocal = {LOGs->Merges};
+    merges = ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists(mergesLocal));
 #endif  // COMMUNICATION
 
     // Add some incognito clusters of other compute nodes.

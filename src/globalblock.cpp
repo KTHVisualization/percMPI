@@ -137,7 +137,7 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                 }
             }
 
-    ReceivedMerges.resize(NumNodes.prod());
+    ReceivedMerges.resize(NumNodes.prod() + 1);
 
     for (ind nodeIdx = 0; nodeIdx < neighbors.size(); ++nodeIdx) {
         PerProcessData[nodeIdx].GreenAdjacent = neighbors[nodeIdx];
@@ -146,8 +146,10 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
             std::cout << GOGSubBlocks[gogIdx].blockOffset() << "\t";
         }
         std::cout << std::endl;*/
-        ReceivedMerges[nodeIdx] = PerProcessData[nodeIdx].Merges;
+        ReceivedMerges[nodeIdx] = &PerProcessData[nodeIdx].Merges;
     }
+
+    ReceivedMerges[NumNodes.prod()] = &GOGs.Merges;
 
     assert(memOngoing == MemoryGreen + totalBlockSize &&
            "Allocated and filled memory do not match.");
@@ -186,10 +188,11 @@ GlobalBlock* GlobalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& 
     max[2] -= sliceSize.z * 2;
 
     // Set up data for sending and receiving as well as red blocks
-    block->ReceivedMerges.resize(block->NumNodes.prod());
+    block->ReceivedMerges.resize(1);
 
     InfoPerProcess dataPerProcess;
-    dataPerProcess.Merges = block->ReceivedMerges[0];
+    block->ReceivedMerges[0] = &dataPerProcess.Merges;
+    block->ReceivedMerges[1] = &(block->GOGs).Merges;
 
     // No green indices
     std::vector<ind> greenIndices;
@@ -230,10 +233,11 @@ GlobalBlock* GlobalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const ve
     max[2] -= sliceSize.z * 2;
 
     // Set up data for sending and receiving as well as red blocks
-    block->ReceivedMerges.resize(1);
+    block->ReceivedMerges.resize(2);
 
     InfoPerProcess dataPerProcess;
-    auto merges = &block->ReceivedMerges[0];
+    block->ReceivedMerges[0] = &dataPerProcess.Merges;
+    block->ReceivedMerges[1] = &(block->GOGs).Merges;
 
     std::vector<ind> greenIndices = {1, 2};
     dataPerProcess.GreenAdjacent = greenIndices;
@@ -284,16 +288,14 @@ void GlobalBlock::doWatershed(const double minVal) {
     NumNewClusters += GOGs.numClusters() - numClusters;
 
     // Merges have only been recorded -> Do merges now
-    ReceivedMerges.push_back(GOGs.Merges);
     // PerformanceTimer timer;
     // timer.Reset();
     // std::cout << "Merge ";
     Merges = ClusterMerge::mergeClusterAsList(ClusterMerge::mergeClustersFromLists(ReceivedMerges));
     // std::cout << "took " << timer.ElapsedTimeAndReset() << " seconds." << std::endl;
 
-    // Merges are processed, clear for next step (remove from received again)
+    // Merges are processed, clear for next step
     GOGs.Merges.clear();
-    ReceivedMerges.pop_back();
 
     // Do the representatives merge and repointering first
     repointerMultipleMerges(Merges);
@@ -434,7 +436,7 @@ void GlobalBlock::receiveData() {
             commPLOGs, processIndex, MPICommunication::PLOGS | rankTag, MPI_COMM_WORLD, &status);
 
         // Receive merges, nothing more to be done here with them
-        std::vector<ClusterMerge>& merges = ReceivedMerges[processDataIndex];
+        std::vector<ClusterMerge>& merges = *ReceivedMerges[processDataIndex];
         err = MPICommunication::RecvVectorUknownSize(
             merges, processIndex, MPICommunication::MERGES | rankTag, MPI_COMM_WORLD, &status);
 

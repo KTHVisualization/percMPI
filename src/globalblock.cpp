@@ -370,10 +370,6 @@ void GlobalBlock::receiveData() {
         rank = processIndex;
         processIndex = 0;
 #endif  // SINGLENODE
-
-#ifndef NDEBUG
-        std::cout << "0: Receiving data from process " << (processIndex | rank) << std::endl;
-#endif
         ind rankTag = rank << MPICommunication::RANK_SHIFT;
 
         ind numMessages = 7;
@@ -427,11 +423,6 @@ void GlobalBlock::receiveData() {
                        processIndex, MPICommunication::REDPOINTERS | rankTag, MPI_COMM_WORLD,
                        &status);
 
-#ifndef NDEBUG
-        std::cout << "0: Finished receiving data from process " << (processIndex | rank)
-                  << std::endl;
-#endif
-
         // Record where PLOGS for this process start (as in: How many other PLOGs for other
         // processes where added before)
         PerProcessData[p].StartOfLocalPlog = plogsAddedSoFar;
@@ -473,9 +464,6 @@ void GlobalBlock::sendData() {
         processIndex = 0;
 
 #endif  // SINGLENODE
-#ifndef NDEBUG
-        std::cout << "0: Sending data to process " << (processIndex | rank) << std::endl;
-#endif
         ind rankTag = rank << MPICommunication::RANK_SHIFT;
 
         // NumNewClusters, Merges Vector, PLOG range,
@@ -503,27 +491,17 @@ void GlobalBlock::sendData() {
         int counter = 0;
         for (ind id : greenIndices) {
             auto& gogBlock = GOGSubBlocks[id];
-            std::cout << (processIndex | rank) << " Sending Greenblock " << counter << " of size "
-                      << gogBlock.blockSize().prod() * sizeof(ID) << " and tag "
-                      << (MPICommunication::GREENPOINTERS | rankTag | counter) << std::endl;
             MPI_Isend(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
                       MPI_BYTE, processIndex, MPICommunication::GREENPOINTERS | rankTag | counter,
                       MPI_COMM_WORLD, &requests[messageID++]);
             counter++;
         }
 
-#ifndef NDEBUG
-        std::cout << "0: Waiting for messages to be received by process " << (processIndex | rank)
-                  << std::endl;
-#endif
 #ifndef SINGLENODE
         // This should free our requests as well??? -> Would mean blocking after each process,
         // might not be what we want
         MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
 #endif  // SINGLENODE
-#ifndef NDEBUG
-        std::cout << "0: Finished sending data to process " << (processIndex | rank) << std::endl;
-#endif
     }
 }  // namespace perc
 

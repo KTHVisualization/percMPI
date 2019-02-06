@@ -22,7 +22,9 @@ UnionFindSubBlock<ClusterProcessor>::UnionFindSubBlock(const vec3i& size, const 
            "Given block would lay below the minimum.");
     NeighborCache.reserve(6);
     NeighborProcessor.setParent(this);
+#ifndef NDEBUG
     std::cout << " block\t" << offset << "\t - " << offset + size << std::endl;
+#endif
 }
 
 template <typename ClusterProcessor>

@@ -366,8 +366,6 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             localBlock.doWatershed(currentH);
             localBlock.sendData();
             localBlock.receiveData();
-            std::cout << currProcess << ": "
-                      << "/ " << hStep << "\t - " << localBlock.numClusters() << std::endl;
 #ifndef NDEBUG
             groundtruth->doWatershed(currentH);
 
@@ -895,16 +893,19 @@ int main(int argc, char** argv) {
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
             std::cout << "Watershedding sequentially." << std::endl;
+            if (blockSize != totalSize) {
+                std::cout << "Watershedding with only a part.";
+            }
             watershedSequential(blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
                                 numClusters, maxVolumes, totalVolumes, timer);
 #else
-            std::cout << "Watershedding sequentially, but distributed" << std::endl;
+            std::cout << "Watershedding sequentially, but distributed." << std::endl;
             watershedParallelSingleRank(numNodes, blockSize, blockOffset, totalSize, hMin, hMax,
                                         hStep, h, numClusters, maxVolumes, totalVolumes, timer);
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
-            std::cout << "Watershedding parallel and distributed" << std::endl;
+            std::cout << "Watershedding parallel and distributed." << std::endl;
             whatershedMultipleRanks(currProcess, numNodes, blockSize, blockOffset, totalSize, hMin,
                                     hMax, hStep, h, numClusters, maxVolumes, totalVolumes, timer);
 #else   // !COMMUNCATION

@@ -6,7 +6,9 @@ namespace perc {
 void RedProcessor::setParent(UnionFindSubBlock<RedProcessor>* parent) {
     // assert(!Parent && "Parent already set!");
     assert(&(parent->NeighborProcessor) == this && "This is not our parent.");
+#ifndef NDEBUG
     std::cout << "Red";
+#endif
     Parent = parent;
 }
 

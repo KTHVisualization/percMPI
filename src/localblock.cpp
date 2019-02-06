@@ -284,12 +284,6 @@ void LocalBlock::receiveData() {
     MPI_Status status;
     int err;
 
-#ifndef NDEBUG
-    int currProcess;
-    MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
-    std::cout << (currProcess | Rank) << ": Receiving data from process 0" << std::endl;
-#endif
-
     ind rankTag = Rank << MPICommunication::RANK_SHIFT;
 
 #ifdef COLLECTIVES
@@ -307,16 +301,10 @@ void LocalBlock::receiveData() {
     for (int counter = 0; counter < GOGSubBlocks.size(); ++counter) {
         auto& gogBlock = GOGSubBlocks[counter];
         // Should this potentially be Non-Blocking?
-        std::cout << (currProcess | Rank) << " Receiving Greenblock " << counter << " of size "
-                  << gogBlock.blockSize().prod() * sizeof(ID) << " and tag "
-                  << (MPICommunication::GREENPOINTERS | rankTag | counter) << std::endl;
         err = MPI_Recv(gogBlock.PointerBlock.PointerBlock, gogBlock.blockSize().prod() * sizeof(ID),
                        MPI_BYTE, 0, MPICommunication::GREENPOINTERS | rankTag | counter,
                        MPI_COMM_WORLD, &status);
     }
-#ifndef NDEBUG
-    std::cout << (currProcess | Rank) << ": Finished receiving data from process 0" << std::endl;
-#endif
 
 #else   // !COMMUNICATION
     numNewLOGs = CommData.PLOGs.size();
@@ -362,11 +350,6 @@ void LocalBlock::sendData() {
     RefPLOGs->clear();
 
 #ifdef COMMUNICATION
-#ifndef NDEBUG
-    int currProcess;
-    MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
-    std::cout << (currProcess | Rank) << ": Sending data to process 0" << std::endl;
-#endif
     ind rankTag = Rank << MPICommunication::RANK_SHIFT;
 
     ind numMessages = 7;
@@ -403,18 +386,9 @@ void LocalBlock::sendData() {
         MPI_Isend(MemoryLOG, MemoryLOGSize * sizeof(ID), MPI_BYTE, 0,
                   MPICommunication::REDPOINTERS | rankTag, MPI_COMM_WORLD, &requests[messageId++]);
 
-#ifndef NDEBUG
-    std::cout << (currProcess | Rank) << ": Waiting for messages to be received by process 0"
-              << std::endl;
-#endif
-
 #ifndef SINGLENODE
     MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
 #endif  // SINGLENODE
-
-#ifndef NDEBUG
-    std::cout << (currProcess | Rank) << ": Finished sending data to process 0" << std::endl;
-#endif
 
 #endif  // COMMUNCATION
 }

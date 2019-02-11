@@ -9,8 +9,8 @@
             "type": "gdb",
             "request": "launch",
             "target": "./PercMPI",
-            "arguments": "../../Data/Percolation/P3 uv_000 20 20 100 5 5 25 0",
-            "cwd": "${workspaceRoot}/buildsc"
+            "arguments": "../../Data/Percolation/P3 uv_005 193 194 1000 1 100 100 200 50 50 100 0.0 2.0 101 0",
+            "cwd": "${workspaceRoot}/builds"
         }
     ]
 }

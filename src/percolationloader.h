@@ -7,12 +7,10 @@ namespace perc {
 
 class PercolationLoader {
 public:
-    PercolationLoader(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
-        : BlockSize(blockSize), BlockOffset(blockOffset), TotalSize(totalSize) {}
+    PercolationLoader(const vec3i& blockSize, const vec3i& blockOffset)
+        : BlockSize(blockSize), BlockOffset(blockOffset) {}
 
-    double* loadScalarData(ind timeStep, const std::string& pathVelocity,
-                           const std::string& pathAverage, const std::string& pathRms,
-                           const std::string& pathVertex);
+    double* loadScalarData();
 
     double* loadBlock(const std::string& path, bool is2D = false) const;
 
@@ -30,12 +28,27 @@ public:
         }
     }
 
+    static void setSettings(vec3i totalSize, std::string directory, std::string rmsName,
+                            ind timeStep) {
+        TotalSizeFile = totalSize;
+        RmsFilename = rmsName;
+        Directory = directory;
+        TimeStep = timeStep;
+    }
+
+    static void setTimeStep(ind timeStep) { TimeStep = timeStep; }
+
 private:
     typedef double (*ScalarFunc)(const std::array<double, 3>&, const std::array<double, 3>&);
     static const std::unordered_map<std::string, ScalarFunc> ScalarVariants;
 
-    vec3i BlockSize, BlockOffset, TotalSize;
+    vec3i BlockSize, BlockOffset;
     ScalarFunc RmsFunction;
+
+    static vec3i TotalSizeFile;
+    static std::string RmsFilename;
+    static std::string Directory;
+    static ind TimeStep;
 };
 
 }  // namespace perc

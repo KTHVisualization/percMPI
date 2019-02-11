@@ -11,14 +11,11 @@ DataBlock::~DataBlock() {
     delete[] Indices;
 }
 
-bool DataBlock::loadData(ind timeSlice, const std::string& directory,
-                         const std::string& rmsFilename) {
+bool DataBlock::loadData() {
 
     // Init loader with size.
-    PercolationLoader loader(BlockSize, BlockOffset, TotalSize);
-    Scalars = loader.loadScalarData(timeSlice, directory + "/VELOCITY/", directory + "/STAT/",
-                                    directory + "/ZEXPORT_STAT_wall_correction/" + rmsFilename,
-                                    directory + "/STAT/");
+    PercolationLoader loader(BlockSize, BlockOffset);
+    Scalars = loader.loadScalarData();
     if (!Scalars) return false;
 
     // Volume just set to uniform for now.

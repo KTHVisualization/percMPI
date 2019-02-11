@@ -5,6 +5,12 @@
 
 namespace perc {
 
+// Static variables
+ind PercolationLoader::TimeStep = 1;
+std::string PercolationLoader::Directory = "";
+std::string PercolationLoader::RmsFilename = "uv_000";
+vec3i PercolationLoader::TotalSizeFile = vec3i(193, 194, 1000);
+
 const std::unordered_map<std::string, PercolationLoader::ScalarFunc>
     PercolationLoader::ScalarVariants(
         {{"uv", [](const std::array<double, 3>& data,
@@ -29,7 +35,7 @@ const std::unordered_map<std::string, PercolationLoader::ScalarFunc>
 double* PercolationLoader::loadBlock(const std::string& path, bool is2D) const {
 
     vec3i blockSize = BlockSize;
-    vec3i totalSize = TotalSize;
+    vec3i totalSize = {193, 194, 1000};
     vec3i blockOffset = BlockOffset;
 
     if (is2D) {
@@ -149,21 +155,23 @@ double* PercolationLoader::normalizedFromComponents(const std::array<double*, 3>
     return scalar;
 }
 
-double* PercolationLoader::loadScalarData(ind timeSlice, const std::string& pathVelocity,
-                                          const std::string& pathAverage,
-                                          const std::string& pathRms,
-                                          const std::string& pathVertex) {
+double* PercolationLoader::loadScalarData() {
+    const std::string& pathVelocity = Directory + "/VELOCITY/";
+    const std::string& pathAverage = Directory + "/STAT/";
+    const std::string& pathRms = Directory + "/ZEXPORT_STAT_wall_correction/" + RmsFilename;
+    const std::string& pathVertex = Directory + "/STAT/";
+
     ind numElements = BlockSize.prod();
 
     //    PerformanceTimer Timer;
-    ind numZeros = 4 - (ind)std::log10(timeSlice);
+    ind numZeros = 4 - (ind)std::log10(TimeStep);
     std::string zeros = std::string(numZeros, '0');
     zeros = zeros;
 
     std::array<double*, 3> dataBuffer = {
-        loadBlock(pathVelocity + zeros + std::to_string(timeSlice) + ".vx"),
-        loadBlock(pathVelocity + zeros + std::to_string(timeSlice) + ".vy"),
-        loadBlock(pathVelocity + zeros + std::to_string(timeSlice) + ".vx")};
+        loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vx"),
+        loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vy"),
+        loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vx")};
 
     std::array<double*, 3> avgBuffer = {loadBlock(pathAverage + "average_vx", true),
                                         loadBlock(pathAverage + "average_vy", true),

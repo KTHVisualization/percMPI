@@ -13,6 +13,7 @@
 #include "localblock.h"
 #include "globalblock.h"
 #include "clusterlistrecording.h"
+#include "percolationloader.h"
 
 using namespace perc;
 
@@ -778,18 +779,31 @@ void watershedWhiteRedGreen(vec3i blockSize, vec3i blockOffset, vec3i totalSize,
 // Input args:
 // - path:        folder with data
 // - rms:         name of rms file
+// - xF, yF, zF:  field size in file
+// - t            timestep
 // - xT, yT, zT:  total size
 // - xB, yB, zB:  block size
+// - hMin
+// - hMax
+// - hSamples
 // - s:           mode
 int main(int argc, char** argv) {
 
     // Directory path and sizes from args
-    if (argc < 10) {
-        std::cerr << "Not enough arguments.\n";
+    if (argc < 17) {
+        std::cerr
+            << "Not enough arguments. Arguments should be:" << std::endl
+            << "dataFolder rmsFile dataSizeX dataSizeY dataSizeZ TimeStep (>=1) (File loading "
+               "settings)"
+            << std::endl
+            << "totalSizeX totalSizeY totalSizeZ blockSizeX blockSizeY (Distribution settings)"
+            << std::endl
+            << "hMin hMax hSamples (Sampling settings)" << std::endl
+            << "mode (0-4)";
         return 1;
     }
 
-    ind mode = atoi(argv[9]);
+    ind mode = atoi(argv[16]);
 
     // Test cases -> no need to parse other info
     if (mode == TEST_COMMUNICATION) {
@@ -804,10 +818,15 @@ int main(int argc, char** argv) {
 
     // First argument is the executable name.
     // for (int a = 0; a < argc; ++a) std::cout << a << ": " << argv[a] << std::endl;
-    char* baseFolder = argv[1];
-    char* rmsFilename = argv[2];
-    vec3i totalSize(atoi(argv[3]), atoi(argv[4]), atoi(argv[5]));
-    vec3i blockSize(atoi(argv[6]), atoi(argv[7]), atoi(argv[8]));
+    ind argCounter = 1;
+    char* baseFolder = argv[argCounter++];
+    char* rmsFilename = argv[argCounter++];
+    vec3i fileSize(atoi(argv[argCounter++]), atoi(argv[argCounter++]), atoi(argv[argCounter++]));
+    ind timeStep = atoi(argv[argCounter++]);
+    PercolationLoader::setSettings(fileSize, baseFolder, rmsFilename, timeStep);
+
+    vec3i totalSize(atoi(argv[argCounter++]), atoi(argv[argCounter++]), atoi(argv[argCounter++]));
+    vec3i blockSize(atoi(argv[argCounter++]), atoi(argv[argCounter++]), atoi(argv[argCounter++]));
     vec3i numNodes;
 
     for (int n = 0; n < 3; ++n) {
@@ -858,10 +877,10 @@ int main(int argc, char** argv) {
 #endif
 
     // TODO, put settings in command line arguments
-    float hMin = 0.0;
-    float hMax = 2;
+    float hMin = atof(argv[argCounter++]);
+    float hMax = atof(argv[argCounter++]);
     assert(hMax > hMin && "HMax needs to be larger than hMin.");
-    int hSamples = 101;
+    int hSamples = atof(argv[argCounter++]);
     float hStep = (hMax - hMin) / (hSamples - 1);
 
     // Keep track of threshold h, number of components, volume largest component, volume

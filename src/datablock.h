@@ -11,7 +11,7 @@ public:
         : BlockSize(size), BlockOffset(offset), TotalSize(total), Indices(nullptr) {}
     ~DataBlock();
 
-    bool loadData(ind timeSlice, const std::string& directory, const std::string& rmsFilename);
+    bool loadData();
     void sort();
     vec3i toGlobalIndex(ind locIdx);
 

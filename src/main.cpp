@@ -858,7 +858,11 @@ int main(int argc, char** argv) {
 
     int currProcess;
     MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
-    if (currProcess >= numNodes.prod() + 1) return 0;
+    if (currProcess >= numNodes.prod() + 1) {
+        std::cout << "Rank " << currProcess << " has nothing to do." << std::endl;
+        MPI_Finalize();
+        return 0;
+    }
 
     // Process 0 is master rank -> -1
     vec3i idxNode;

@@ -4,8 +4,10 @@
 
 namespace perc {
 
-LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize)
+LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const vec3i& totalSize,
+                       const ind rank)
     : UnionFindBlock(totalSize)
+    , Rank(rank)
     , RefPLOGs(new RefPLOGtype(10000, &ClusterID::hash))
     , LOLs(new ClusterList(LOCAL_LIST))
     , LOGs(new ClusterListRecordingSingle(GLOBAL_LIST))
@@ -70,9 +72,7 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
             []() { return GrayProcessor(); }));
     }
 
-#ifdef SINGLENODE
-    Rank = MPICommunication::computeRank(blockOffset, blockSize, TotalSize);
-#else
+#ifndef SINGLENODE
     Rank = 0;
 #endif
 

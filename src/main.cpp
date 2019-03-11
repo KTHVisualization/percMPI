@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <cassert>
 #include <cmath>
 #include "vec.h"
@@ -17,7 +18,7 @@
 
 using namespace perc;
 
-enum Mode {
+enum ComputeMode {
     REAL = 0,
     TEST_LOCALONLY_WHITERED = 1,
     TEST_GLOBALONLY_GREEN = 2,
@@ -25,6 +26,12 @@ enum Mode {
     TEST_WHITEREDGREEN = 4,
     TEST_COMMUNICATION = 10,
     TEST_MERGING = 11,
+};
+
+enum OutputMode {
+    PERCOLATION_CURVES = 0,
+    TIMINGS = 1,        // Output Timings
+    ALGORITHM_DATA = 2  // Write data distribution
 };
 
 void testingMPIVectors() {
@@ -137,9 +144,8 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
         // std::cout << "Node " << nodeIdx << std::endl;
         idxNode = vec3i::fromIndexOfTotal(nodeIdx, numNodes);
         blockOffset = blockSize * idxNode;
-        blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
-
-        localBlocks.emplace_back(blockSize, blockOffset, totalSize);
+        vec3i localBlockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
+        localBlocks.emplace_back(localBlockSize, blockOffset, totalSize, nodeIdx + 1);
 #ifndef NDEBUG
         localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
 #endif
@@ -789,44 +795,168 @@ void watershedWhiteRedGreen(vec3i blockSize, vec3i blockOffset, vec3i totalSize,
 // - s:           mode
 int main(int argc, char** argv) {
 
-    // Directory path and sizes from args
-    if (argc < 17) {
-        std::cerr
-            << "Not enough arguments. Arguments should be:" << std::endl
-            << "dataFolder rmsFile dataSizeX dataSizeY dataSizeZ TimeStep (>=1) (File loading "
-               "settings)"
-            << std::endl
-            << "totalSizeX totalSizeY totalSizeZ blockSizeX blockSizeY (Distribution settings)"
-            << std::endl
-            << "hMin hMax hSamples (Sampling settings)" << std::endl
-            << "mode (0-4)";
-        return 1;
+    ind computeMode = -1;
+    ind outputMode = -1;
+
+    char* baseFolder = nullptr;
+    char* rmsFilename = nullptr;
+    vec3i dataSize(-1);
+    ind timeStep = -1;
+
+    vec3i totalSize(-1);
+    vec3i blockSize(-1);
+
+    float hMin = std::numeric_limits<float>::lowest();
+    bool hMinSet = false;
+    float hMax = std::numeric_limits<float>::max();
+    bool hMaxSet = false;
+    int hSamples = -1;
+
+    // First argument (argv[0]) is the executable name, therefore start at 1.
+    for (ind argId = 1; argId < argc; ++argId) {
+        // File loading settings
+        if (strcmp(argv[argId], "--dataPath") == 0 && (argc - argId) > 1) {
+            baseFolder = argv[++argId];
+        } else if (strcmp(argv[argId], "--rmsFile") == 0 && (argc - argId) > 1) {
+            rmsFilename = argv[++argId];
+        } else if (strcmp(argv[argId], "--dataSize") == 0 && (argc - argId) > 3) {
+            dataSize = vec3i(atoi(argv[argId + 1]), atoi(argv[argId + 2]), atoi(argv[argId + 3]));
+            argId += 3;
+        } else if (strcmp(argv[argId], "--timeStep") == 0 && (argc - argId) > 1) {
+            timeStep = atoi(argv[++argId]);
+        }
+        // Distribution settings
+        else if (strcmp(argv[argId], "--totalSize") == 0 && (argc - argId) > 3) {
+            totalSize = vec3i(atoi(argv[argId + 1]), atoi(argv[argId + 2]), atoi(argv[argId + 3]));
+            argId += 3;
+        } else if (strcmp(argv[argId], "--blockSize") == 0 && (argc - argId) > 3) {
+            blockSize = vec3i(atoi(argv[argId + 1]), atoi(argv[argId + 2]), atoi(argv[argId + 3]));
+            argId += 3;
+        }
+        // Sampling settings
+        else if (strcmp(argv[argId], "--hMin") == 0 && (argc - argId) > 1) {
+            hMin = atof(argv[++argId]);
+            hMinSet = true;
+        } else if (strcmp(argv[argId], "--hMax") == 0 && (argc - argId) > 1) {
+            hMax = atof(argv[++argId]);
+            hMaxSet = true;
+        } else if (strcmp(argv[argId], "--hSamples") == 0 && (argc - argId) > 1) {
+            hSamples = atoi(argv[++argId]);
+        }
+        // Modes
+        else if (strcmp(argv[argId], "--computeMode") == 0 && (argc - argId) > 1) {
+            computeMode = atoi(argv[++argId]);
+        } else if (strcmp(argv[argId], "--outputMode") == 0 && (argc - argId) > 1) {
+            outputMode = atoi(argv[++argId]);
+        }
+        // Default: Catch errors
+        else {
+            std::cerr << "Unknown option: " << argv[argId] << std::endl;
+            std::cerr << "Usage:" << std::endl
+                      << "--dataPath path --rmsFile file --dataSize dataSizeX dataSizeY dataSizeZ "
+                         "--timeStep timeStep (>=1) (File loading "
+                         "settings)"
+                      << std::endl
+                      << "--totalSize totalSizeX totalSizeY totalSizeZ --blockSize blockSizeX "
+                         "blockSizeY blockSizeZ (Distribution settings)"
+                      << std::endl
+                      << "--hMin hMin --hMax hMax --hSamples hSamples (Sampling settings)"
+                      << std::endl
+                      << "--computeMode computeMode (0-4) --outputMode outputMode (0-2)"
+                      << std::endl;
+            return 1;
+        }
     }
 
-    ind mode = atoi(argv[16]);
+    if (computeMode == -1) {
+        computeMode = 0;
+        std::cout << "Compute Mode (--computeMode) has not been set, using default " << computeMode
+                  << "." << std::endl;
+    }
 
-    // Test cases -> no need to parse other info
-    if (mode == TEST_COMMUNICATION) {
+    // Test cases (Test before checking other arguments)
+    if (computeMode == TEST_COMMUNICATION) {
         std::cout << "Testing MPI Communication." << std::endl;
         testingMPIVectors();
         return 0;
-    } else if (mode == TEST_MERGING) {
+    } else if (computeMode == TEST_MERGING) {
         std::cout << "Testing Cluster Merges." << std::endl;
         testClusterMerges();
         return 0;
     }
 
-    // First argument is the executable name.
-    // for (int a = 0; a < argc; ++a) std::cout << a << ": " << argv[a] << std::endl;
-    ind argCounter = 1;
-    char* baseFolder = argv[argCounter++];
-    char* rmsFilename = argv[argCounter++];
-    vec3i fileSize(atoi(argv[argCounter++]), atoi(argv[argCounter++]), atoi(argv[argCounter++]));
-    ind timeStep = atoi(argv[argCounter++]);
-    PercolationLoader::setSettings(fileSize, baseFolder, rmsFilename, timeStep);
+    // Check for unset arguments and set tot default values;
 
-    vec3i totalSize(atoi(argv[argCounter++]), atoi(argv[argCounter++]), atoi(argv[argCounter++]));
-    vec3i blockSize(atoi(argv[argCounter++]), atoi(argv[argCounter++]), atoi(argv[argCounter++]));
+    if (!baseFolder) {
+        std::cerr << "Path to data (--dataPath) has not been set." << std::endl;
+        return 1;
+    }
+    if (!rmsFilename) {
+        std::cerr << "RMS file name (--rmsFilename) has not been set." << std::endl;
+        return 1;
+    }
+    if (dataSize == vec3i(-1)) {
+        dataSize = vec3i(193, 194, 1000);
+        std::cout << "Dimensions of the data in files (--dataSize) has not been set, using default "
+                  << dataSize << "." << std::endl;
+    }
+    if (timeStep == -1) {
+        timeStep = 1;
+        std::cout << "Timestep (--timeStep) has not been set, using default " << timeStep << "."
+                  << std::endl;
+    }
+    // Distribution settings
+    if (totalSize == vec3i(-1)) {
+        totalSize = vec3i(193, 194, 1000);
+        std::cout << "Dimensions of the data to be processed (--totalSize) has not been set, using "
+                     "default "
+                  << totalSize << "." << std::endl;
+    }
+    if (totalSize == vec3i(-1)) {
+        blockSize = vec3i(100, 100, 500);
+        std::cout << "Blocksize per process (--blockSize) has not been set, using default "
+                  << blockSize << "." << std::endl;
+    }
+    // Sampling settings
+    if (!hMinSet) {
+        hMin = 0.0;
+        std::cout << "Minimum h value (--hMin) has not been set, using default " << hMin << "."
+                  << std::endl;
+    }
+    if (!hMaxSet) {
+        hMax = 2.0;
+        std::cout << "Maximum h value (--hMax) has not been set, using default " << hMax << "."
+                  << std::endl;
+    }
+    assert(hMax > hMin && "HMax needs to be larger than hMin.");
+    if (hSamples == -1) {
+        hSamples = 1001;
+        std::cout << "Number of samples in h (--hSamples) has not been set, using default "
+                  << hSamples << "." << std::endl;
+    }
+
+    // Output Mode
+    if (outputMode == -1) {
+        outputMode = 0;
+        std::cout << "Output Mode (--outputMode) has not been set, using default " << outputMode
+                  << "." << std::endl;
+    }
+
+    if (outputMode == ALGORITHM_DATA) {
+#if !defined(SINGLENODE) || !defined(COMMUNICATION)
+        std::cerr << "Output Mode is not compatible with settings. It can only be used in "
+                     "ComputeMode=0(REAL) with SINGLENODE and COMMUNICATION set.."
+                  << std::endl;
+        return 1;
+#else
+        if (computeMode != REAL)
+            std::cerr << "Output Mode is not compatible with settings. It can only be used in "
+                         "ComputeMode=0(REAL) with SINGLENODE and COMMUNICATION set."
+                      << std::endl;
+#endif
+    }
+
+    PercolationLoader::setSettings(dataSize, baseFolder, rmsFilename, timeStep);
     vec3i numNodes;
 
     for (int n = 0; n < 3; ++n) {
@@ -864,6 +994,22 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    if (currProcess == 0) {
+        std::cout << "******** Settings ********" << std::endl;
+        std::cout << "dataPath: \t\t" << baseFolder << std::endl;
+        std::cout << "rmsFile: \t\t" << rmsFilename << std::endl;
+        std::cout << "dataSize: \t\t" << dataSize << std::endl;
+        std::cout << "timeStep: \t\t" << timeStep << std::endl;
+        std::cout << "totalSize: \t\t" << totalSize << std::endl;
+        std::cout << "blockSize: \t\t" << blockSize << std::endl;
+        std::cout << "hMin: \t\t\t" << hMin << std::endl;
+        std::cout << "hMax: \t\t\t" << hMax << std::endl;
+        std::cout << "hSamples: \t\t" << hSamples << std::endl;
+        std::cout << "computeMode: \t" << computeMode << std::endl;
+        std::cout << "outputMode: \t" << outputMode << std::endl;
+        std::cout << "**************************" << std::endl;
+    }
+
     // Process 0 is master rank -> -1
     vec3i idxNode;
     if (numProcesses == 1) {
@@ -876,16 +1022,11 @@ int main(int argc, char** argv) {
 
 #ifndef SINGLENODE
     // Print process info
-    if (currProcess != 0 && mode == REAL)
+    if (currProcess != 0 && computeMode == REAL)
         std::cout << "Rank " << currProcess << ", index " << idxNode << ", offset " << blockOffset
                   << ", size " << blockSize << std::endl;
 #endif
 
-    // TODO, put settings in command line arguments
-    float hMin = atof(argv[argCounter++]);
-    float hMax = atof(argv[argCounter++]);
-    assert(hMax > hMin && "HMax needs to be larger than hMin.");
-    int hSamples = atof(argv[argCounter++]);
     float hStep = (hMax - hMin) / (hSamples - 1);
 
     // Keep track of threshold h, number of components, volume largest component, volume
@@ -906,7 +1047,7 @@ int main(int argc, char** argv) {
     timer.Reset();
     float timeElapsed;
 
-    switch (mode) {
+    switch (computeMode) {
         case REAL:
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
@@ -982,9 +1123,9 @@ int main(int argc, char** argv) {
             return 1;
 #else  // SINGLENODE
 #ifndef COMMUNICATION
-            std::cerr
-                << "Testing communication locally (WhiteRed) cannot be used without communication."
-                << std::endl;
+            std::cerr << "Testing communication locally (WhiteRed) cannot be used without "
+                         "communication."
+                      << std::endl;
             MPI_Finalize();
             return 1;
 #else
@@ -1013,9 +1154,9 @@ int main(int argc, char** argv) {
             MPI_Finalize();
             return 1;
 #else
-            std::cout
-                << "Watershedding locally (WhiteRedGreen) with communication (Global with Green)."
-                << std::endl;
+            std::cout << "Watershedding locally (WhiteRedGreen) with communication (Global "
+                         "with Green)."
+                      << std::endl;
             watershedWhiteRedGreen(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h,
                                    numClusters, maxVolumes, totalVolumes, timer);
 #endif  // COMMUNICATION
@@ -1023,7 +1164,7 @@ int main(int argc, char** argv) {
             break;
         default:
             if (currProcess == 0)
-                std::cerr << "Mode " << mode << " is not a valid mode." << std::endl;
+                std::cerr << "Compute mode " << computeMode << " is not a valid mode." << std::endl;
             return 1;
             break;
     }
@@ -1033,30 +1174,69 @@ int main(int argc, char** argv) {
         timeElapsed = timer.ElapsedTimeAndReset();
         std::cout << "Watershedding took " << timeElapsed << " seconds." << std::endl;
 
-        const int maxClusters = *(std::max_element(numClusters.cbegin(), numClusters.cend()));
+        std::stringstream ss;
+        time_t t = time(0);
+        struct tm* now = localtime(&t);
 
-        std::ofstream percFile;
-        std::string fileName = "percolation.csv";
+        ss << (now->tm_year + 1900) << "-" << (now->tm_mon + 1) << "-" << now->tm_mday << "_"
+           << now->tm_hour << ":" << now->tm_min << ":" << now->tm_sec << "_" << clock();
 
-        percFile.open(fileName, std::ios::out);
+        std::string timeStamp = ss.str();
 
-        if (percFile.is_open()) {
-            percFile << "H; Number of connected components; Maximum number of connected "
-                        "components; "
-                        "Number of connected components / Maximum number of connected "
-                        "components;  "
-                        "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
-                     << std::endl;
-            for (int line = 0; line < h.size(); line++) {
-                percFile << h[line] << ";" << float(numClusters[line]) << ";" << float(maxClusters)
-                         << ";" << float(numClusters[line]) / float(maxClusters) << ";"
-                         << maxVolumes[line] << ";" << totalVolumes[line] << ";"
-                         << maxVolumes[line] / totalVolumes[line] << ";" << std::endl;
+        if (outputMode == PERCOLATION_CURVES) {
+            const int maxClusters = *(std::max_element(numClusters.cbegin(), numClusters.cend()));
+
+            std::ofstream percFile;
+            std::string fileName = "percolation_" + timeStamp + ".csv";
+
+            percFile.open(fileName, std::ios::out);
+
+            if (percFile.is_open()) {
+                percFile << "H; Number of connected components; Maximum number of connected "
+                            "components; "
+                            "Number of connected components / Maximum number of connected "
+                            "components;  "
+                            "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
+                         << std::endl;
+                for (int line = 0; line < h.size(); line++) {
+                    percFile << h[line] << ";" << float(numClusters[line]) << ";"
+                             << float(maxClusters) << ";"
+                             << float(numClusters[line]) / float(maxClusters) << ";"
+                             << maxVolumes[line] << ";" << totalVolumes[line] << ";"
+                             << maxVolumes[line] / totalVolumes[line] << ";" << std::endl;
+                }
             }
-        }
 
-        timeElapsed = timer.ElapsedTime();
-        std::cout << "Writing statistics took " << timeElapsed << " seconds." << std::endl;
+            timeElapsed = timer.ElapsedTime();
+            std::cout << "Writing percolation curves took " << timeElapsed << " seconds."
+                      << std::endl;
+        } else if (outputMode == TIMINGS) {
+
+            std::ofstream timingsFile;
+            std::string fileName = "timings_" + timeStamp + ".csv";
+
+            timingsFile.open(fileName, std::ios::out);
+
+            if (timingsFile.is_open()) {
+                // dataSize should be fixed for dataPath, so it does not need to be included
+                timingsFile << "timeStamp; dataPath; rmsFilename; timeStep; "
+                               "totalSizeX; totalSizeY; totalSizeZ; "
+                               "blockSizeX; blockSizeY; blockSizeZ; "
+                               "numNodesX; numNodesY; numNodesZ; "
+                               "hMin; hMax; hSamples; totalTime;"
+                            << std::endl;
+                timingsFile << timeStamp << ";" << baseFolder << ";" << rmsFilename << ";"
+                            << timeStep << ";" << totalSize.x << ";" << totalSize.y << ";"
+                            << totalSize.z << ";" << blockSize.x << ";" << blockSize.y << ";"
+                            << blockSize.z << ";" << numNodes.x << ";" << numNodes.y << ";"
+                            << numNodes.z << ";" << hMin << ";" << hMax << ";" << hSamples << ";"
+                            << timeElapsed << ";" << std::endl;
+            }
+
+            timeElapsed = timer.ElapsedTime();
+            std::cout << "Writing timing statistics took " << timeElapsed << " seconds."
+                      << std::endl;
+        }
     }
 
     // Finalize the MPI environment. No more MPI calls can be made after this

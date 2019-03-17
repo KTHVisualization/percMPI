@@ -29,9 +29,10 @@ enum ComputeMode {
 };
 
 enum OutputMode {
-    PERCOLATION_CURVES = 0,
-    TIMINGS = 1,        // Output Timings
-    ALGORITHM_DATA = 2  // Write data distribution
+    CURVES = 0,              // Output computed curves
+    TIMINGS = 1,             // Output Timings
+    CURVES_AND_TIMINGS = 2,  // Output both curves and timings
+    ALGORITHM_DATA = 3       // Write data distribution
 };
 
 void testingMPIVectors() {
@@ -109,12 +110,14 @@ void testClusterMerges() {
 void watershedSequential(vec3i blockSize, vec3i blockOffset, vec3i totalSize, float hMin,
                          float hMax, float hStep, std::vector<float>& h,
                          std::vector<ind>& numClusters, std::vector<float>& maxVolumes,
-                         std::vector<float>& totalVolumes, PerformanceTimer& timer) {
+                         std::vector<float>& totalVolumes, float& loadTime, float& watershedTime) {
     // Just localNode White: Groundtruth for all other cases
+    PerformanceTimer timer;
+    timer.Reset();
     LocalBlock localBlock(blockSize, blockOffset, totalSize);
 
-    float timeElapsed = timer.ElapsedTimeAndReset();
-    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
+    loadTime = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted data in " << loadTime << " seconds." << std::endl;
 
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
         localBlock.doWatershed(currentH);
@@ -124,13 +127,17 @@ void watershedSequential(vec3i blockSize, vec3i blockOffset, vec3i totalSize, fl
         maxVolumes.push_back(localBlock.maxVolume());
         totalVolumes.push_back(localBlock.totalVolume());
     }
+    watershedTime = timer.ElapsedTimeAndReset();
 }
 
 void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOffset,
                                  vec3i totalSize, float hMin, float hMax, float hStep,
                                  std::vector<float>& h, std::vector<ind>& numClusters,
                                  std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
-                                 PerformanceTimer& timer) {
+                                 float& loadTime, float& communicationTime, float& watershedTime) {
+    PerformanceTimer timer;
+    timer.Reset();
+
 #ifndef NDEBUG
     // Keeps groundtruth block to compare against
     LocalBlock* groundtruth = LocalBlock::makeGroundtruth(totalSize, vec3i(0), totalSize);
@@ -162,29 +169,32 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
     }
 #endif
 
-    // Check that the global block has the same information for each node that the node also has
-    for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
-        // Red in Local, Gray in Global
-        // Green in Global, Gray in Local
-    }
+    loadTime = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted data in " << loadTime << " seconds." << std::endl;
 
-    float timeElapsed = timer.ElapsedTimeAndReset();
-    std::cout << "Loaded and sorted data in " << timeElapsed << " seconds." << std::endl;
+    communicationTime = 0.0;
+    watershedTime = 0.0;
 
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
         for (auto itLocalBlock = localBlocks.begin(); itLocalBlock != localBlocks.end();
              itLocalBlock++) {
             itLocalBlock->doWatershed(currentH);
+            watershedTime += timer.ElapsedTimeAndReset();
             itLocalBlock->sendData();
+            communicationTime += timer.ElapsedTimeAndReset();
         }
 
         globalBlock.receiveData();
+        communicationTime += timer.ElapsedTimeAndReset();
         globalBlock.doWatershed(currentH);
+        watershedTime += timer.ElapsedTimeAndReset();
         globalBlock.sendData();
+        communicationTime += timer.ElapsedTimeAndReset();
 
         for (auto itLocalBlock = localBlocks.begin(); itLocalBlock != localBlocks.end();
              itLocalBlock++) {
             itLocalBlock->receiveData();
+            communicationTime += timer.ElapsedTimeAndReset();
         }
 
         std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClustersCombined()
@@ -238,6 +248,8 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
         numClusters.push_back(globalBlock.numClustersCombined());
         maxVolumes.push_back(globalBlock.maxVolumeCombined());
         totalVolumes.push_back(globalBlock.totalVolumeCombined());
+        // Include statistics writing in timings
+        watershedTime += timer.ElapsedTimeAndReset();
     }
 
 #ifndef NDEBUG
@@ -249,7 +261,10 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
                              vec3i totalSize, float hMin, float hMax, float hStep,
                              std::vector<float>& h, std::vector<ind>& numClusters,
                              std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
-                             PerformanceTimer& timer) {
+                             float& loadTime, float& communicationTime, float& watershedTime) {
+    PerformanceTimer timer;
+    timer.Reset();
+
 #ifndef NDEBUG
     // Keeps groundtruth block to compare against
     LocalBlock* groundtruth = LocalBlock::makeGroundtruth(totalSize, vec3i(0), totalSize);
@@ -260,14 +275,20 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
 
         GlobalBlock globalBlock(blockSize, totalSize, numNodes);
 
-        float timeElapsed = timer.ElapsedTimeAndReset();
-        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << timeElapsed
+        loadTime = timer.ElapsedTimeAndReset();
+        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
+
+        communicationTime = 0.0;
+        watershedTime = 0.0;
 
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
             globalBlock.receiveData();
+            communicationTime += timer.ElapsedTimeAndReset();
             globalBlock.doWatershed(currentH);
+            watershedTime += timer.ElapsedTimeAndReset();
             globalBlock.sendData();
+            communicationTime += timer.ElapsedTimeAndReset();
             std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClustersCombined()
                       << std::endl;
             h.push_back(currentH);
@@ -357,20 +378,25 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             numClusters.push_back(globalBlock.numClustersCombined());
             maxVolumes.push_back(globalBlock.maxVolumeCombined());
             totalVolumes.push_back(globalBlock.totalVolumeCombined());
+            watershedTime += timer.ElapsedTimeAndReset();
         }
     }
 
     // All other processes: currProcess != 0
     else {
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
-        float timeElapsed = timer.ElapsedTimeAndReset();
-        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << timeElapsed
+        loadTime = timer.ElapsedTimeAndReset();
+        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
+        communicationTime = 0.0;
+        watershedTime = 0.0;
 
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
             localBlock.doWatershed(currentH);
+            watershedTime += timer.ElapsedTimeAndReset();
             localBlock.sendData();
             localBlock.receiveData();
+            communicationTime += timer.ElapsedTimeAndReset();
 #ifndef NDEBUG
             groundtruth->doWatershed(currentH);
 
@@ -413,6 +439,7 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             }
 
 #endif  // NDEBUG
+            watershedTime += timer.ElapsedTimeAndReset();
         }
     }
 
@@ -1045,7 +1072,7 @@ int main(int argc, char** argv) {
 
     PerformanceTimer timer;
     timer.Reset();
-    float timeElapsed;
+    float totalTime, loadTime, communicationTime, watershedTime;
 
     switch (computeMode) {
         case REAL:
@@ -1053,18 +1080,20 @@ int main(int argc, char** argv) {
 #ifndef COMMUNICATION
             std::cout << "Watershedding sequentially." << std::endl;
             watershedSequential(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h, numClusters,
-                                maxVolumes, totalVolumes, timer);
+                                maxVolumes, totalVolumes, loadTime, watershedTime);
 #else
             std::cout << "Watershedding sequentially, but distributed." << std::endl;
             watershedParallelSingleRank(numNodes, blockSize, blockOffset, totalSize, hMin, hMax,
-                                        hStep, h, numClusters, maxVolumes, totalVolumes, timer);
+                                        hStep, h, numClusters, maxVolumes, totalVolumes, loadTime,
+                                        communicationTime, watershedTime);
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
             if (currProcess == 0)
                 std::cout << "Watershedding parallel and distributed." << std::endl;
             whatershedMultipleRanks(currProcess, numNodes, blockSize, blockOffset, totalSize, hMin,
-                                    hMax, hStep, h, numClusters, maxVolumes, totalVolumes, timer);
+                                    hMax, hStep, h, numClusters, maxVolumes, totalVolumes, loadTime,
+                                    communicationTime, watershedTime);
 #else   // !COMMUNCATION
             std::cerr << "Cannot watershed on multiple nodes without communcation "
                          "enabled."
@@ -1171,19 +1200,19 @@ int main(int argc, char** argv) {
 
     // Only master process writes out statistics
     if (currProcess == 0) {
-        timeElapsed = timer.ElapsedTimeAndReset();
-        std::cout << "Watershedding took " << timeElapsed << " seconds." << std::endl;
+        totalTime = timer.ElapsedTimeAndReset();
+        std::cout << "Watershedding took " << totalTime << " seconds." << std::endl;
 
         std::stringstream ss;
         time_t t = time(0);
         struct tm* now = localtime(&t);
 
         ss << (now->tm_year + 1900) << "-" << (now->tm_mon + 1) << "-" << now->tm_mday << "_"
-           << now->tm_hour << ":" << now->tm_min << ":" << now->tm_sec << "_" << clock();
+           << now->tm_hour << "-" << now->tm_min << "-" << now->tm_sec << "_" << clock();
 
         std::string timeStamp = ss.str();
 
-        if (outputMode == PERCOLATION_CURVES) {
+        if (outputMode == CURVES || outputMode == CURVES_AND_TIMINGS) {
             const int maxClusters = *(std::max_element(numClusters.cbegin(), numClusters.cend()));
 
             std::ofstream percFile;
@@ -1207,10 +1236,11 @@ int main(int argc, char** argv) {
                 }
             }
 
-            timeElapsed = timer.ElapsedTime();
-            std::cout << "Writing percolation curves took " << timeElapsed << " seconds."
+            float writeTime = timer.ElapsedTime();
+            std::cout << "Writing percolation curves took " << writeTime << " seconds."
                       << std::endl;
-        } else if (outputMode == TIMINGS) {
+        }
+        if (outputMode == TIMINGS || outputMode == CURVES_AND_TIMINGS) {
 
             std::ofstream timingsFile;
             std::string fileName = "timings_" + timeStamp + ".csv";
@@ -1223,21 +1253,85 @@ int main(int argc, char** argv) {
                                "totalSizeX; totalSizeY; totalSizeZ; "
                                "blockSizeX; blockSizeY; blockSizeZ; "
                                "numNodesX; numNodesY; numNodesZ; "
-                               "hMin; hMax; hSamples; totalTime;"
-                            << std::endl;
+                               "hMin; hMax; hSamples; totalTime; ";
+#ifdef SINGLENODE
+#ifndef COMMUNICATION
+                if (computeMode == 0) timingsFile << "loadTime; watershedTime;";
+#else
+                if (computeMode == 0) timingsFile << "loadTime; communicationTime; watershedTime;";
+#endif  // COMMUNCATION
+#else   // !SINGLENODE
+#ifdef COMMUNICATION
+                if (computeMode == 0)
+                    timingsFile << "loadTimeGlobal; communicationTimeGlobal; watershedTimeGlobal; "
+                                   "loadTimeLocalAvg; communicationTimeAvg; watershedTimeAvg;";
+#endif  // COMMUNCATION
+#endif  // SINGLENODE
+                timingsFile << std::endl;
                 timingsFile << timeStamp << ";" << baseFolder << ";" << rmsFilename << ";"
                             << timeStep << ";" << totalSize.x << ";" << totalSize.y << ";"
                             << totalSize.z << ";" << blockSize.x << ";" << blockSize.y << ";"
                             << blockSize.z << ";" << numNodes.x << ";" << numNodes.y << ";"
                             << numNodes.z << ";" << hMin << ";" << hMax << ";" << hSamples << ";"
-                            << timeElapsed << ";" << std::endl;
+                            << totalTime << ";";
+#ifdef SINGLENODE
+#ifndef COMMUNICATION
+                if (computeMode == 0) timingsFile << loadTime << ";" << watershedTime << ";";
+#else
+                if (computeMode == 0)
+                    timingsFile << loadTime << ";" << communicationTime << ";" << watershedTime
+                                << ";";
+#endif  // COMMUNCATION
+#else   // !SINGLENODE
+#ifdef COMMUNICATION
+                if (computeMode == 0) {
+                    float loadTimeLocalAvg, communicationTimeLocalAvg, watershedTimeLocalAvg = 0.0f;
+                    MPI_Status status;
+
+                    MPI_Request* requests = new MPI_Request[3];
+                    for (ind p = 0; p < numNodes.prod(); p++) {
+                        ind processIndex = p + 1;
+
+                        float loadTimeLocal;
+                        MPI_Recv(&loadTimeLocal, 1, MPI_FLOAT, processIndex,
+                                 MPICommunication::LOADTIME, MPI_COMM_WORLD, &status);
+                        loadTimeLocalAvg += loadTimeLocal;
+                        float communicationTimeLocal;
+                        MPI_Recv(&communicationTimeLocal, 1, MPI_FLOAT, processIndex,
+                                 MPICommunication::COMMUNCATIONTIME, MPI_COMM_WORLD, &status);
+                        communicationTimeLocalAvg += communicationTimeLocal;
+                        float watershedTimeLocal;
+                        MPI_Recv(&watershedTimeLocal, 1, MPI_FLOAT, processIndex,
+                                 MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD, &status);
+                        watershedTimeLocalAvg += +watershedTimeLocal;
+                    }
+                    loadTimeLocalAvg /= numNodes.prod();
+                    communicationTimeLocalAvg /= numNodes.prod();
+                    watershedTimeLocalAvg /= numNodes.prod();
+
+                    timingsFile << loadTime << ";" << communicationTime << ";" << watershedTime
+                                << ";" << loadTimeLocalAvg << ";" << communicationTimeLocalAvg
+                                << ";" << watershedTimeLocalAvg << ";";
+                }
+
+#endif  // COMMUNCATION
+#endif  // SINGLENODE
+                timingsFile << std::endl;
             }
 
-            timeElapsed = timer.ElapsedTime();
-            std::cout << "Writing timing statistics took " << timeElapsed << " seconds."
-                      << std::endl;
+            totalTime = timer.ElapsedTime();
+            std::cout << "Writing timing statistics took " << totalTime << " seconds." << std::endl;
         }
     }
+#ifndef SINGLENODE
+    else if (computeMode == 0) {
+        // Send timings to master
+        MPI_Send(&loadTime, 1, MPI_FLOAT, 0, MPICommunication::LOADTIME, MPI_COMM_WORLD);
+        MPI_Send(&communicationTime, 1, MPI_FLOAT, 0, MPICommunication::COMMUNCATIONTIME,
+                 MPI_COMM_WORLD);
+        MPI_Send(&watershedTime, 1, MPI_FLOAT, 0, MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD);
+    }
+#endif
 
     // Finalize the MPI environment. No more MPI calls can be made after this
     MPI_Finalize();

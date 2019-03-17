@@ -26,7 +26,10 @@ public:
         REDPOINTERS,
         GREENPOINTERS = 1 << (RANK_SHIFT - 1),  // Up to 27 green blocks -> ids take up 5 bits
         REDINDICES,
-        ERRORFLAG
+        ERRORFLAG,
+        LOADTIME,
+        COMMUNCATIONTIME,
+        WATERSHEDTIME
     };
 
     template <typename T>

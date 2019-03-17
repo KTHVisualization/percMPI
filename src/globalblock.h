@@ -53,6 +53,8 @@ public:
     virtual double maxVolumeCombined() override {
         return std::max(GOGs.maxVolume(), MaxVolumeLocal);
     };
+    ind greenMemSize() { return MemoryGreenSize; };
+    ind redMemSize() { return MemoryRedSize; };
 
     virtual void checkConsistency() const override;
     virtual std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(
@@ -104,8 +106,10 @@ private:
     std::vector<std::vector<ClusterMerge>*> ReceivedMerges;
     // *** Mixed ***
     std::vector<InfoPerProcess> PerProcessData;
-    // Green pointer blocks data
+    // Green pointer blocks data and its size
     ID* MemoryGreen;
+    ind MemoryGreenSize;
+    ind MemoryRedSize;
 };
 
 }  // namespace perc

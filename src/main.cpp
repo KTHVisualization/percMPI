@@ -133,8 +133,10 @@ void watershedSequential(vec3i blockSize, vec3i blockOffset, vec3i totalSize, fl
 void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOffset,
                                  vec3i totalSize, float hMin, float hMax, float hStep,
                                  std::vector<float>& h, std::vector<ind>& numClusters,
+                                 std::vector<ind>& numClustersGlobal,
                                  std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
-                                 float& loadTime, float& communicationTime, float& watershedTime) {
+                                 ind& greenMemSize, ind& redMemSize, float& loadTime,
+                                 float& communicationTime, float& watershedTime) {
     PerformanceTimer timer;
     timer.Reset();
 
@@ -159,6 +161,8 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
     }
     // Master block
     GlobalBlock globalBlock(blockSize, totalSize, numNodes);
+    greenMemSize = globalBlock.greenMemSize();
+    redMemSize = globalBlock.redMemSize();
 
 #ifndef NDEBUG
     for (ind y = 0; y < totalSize.y; ++y) {
@@ -246,6 +250,7 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
 
 #endif  // NDEBUG
         numClusters.push_back(globalBlock.numClustersCombined());
+        numClustersGlobal.push_back(globalBlock.numClusters());
         maxVolumes.push_back(globalBlock.maxVolumeCombined());
         totalVolumes.push_back(globalBlock.totalVolumeCombined());
         // Include statistics writing in timings
@@ -260,7 +265,8 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
 void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, vec3i blockOffset,
                              vec3i totalSize, float hMin, float hMax, float hStep,
                              std::vector<float>& h, std::vector<ind>& numClusters,
-                             std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
+                             std::vector<ind>& numClustersGlobal, std::vector<float>& maxVolumes,
+                             std::vector<float>& totalVolumes, ind& greenMemSize, ind& redMemSize,
                              float& loadTime, float& communicationTime, float& watershedTime) {
     PerformanceTimer timer;
     timer.Reset();
@@ -274,6 +280,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
     if (currProcess == 0) {
 
         GlobalBlock globalBlock(blockSize, totalSize, numNodes);
+        greenMemSize = globalBlock.greenMemSize();
+        redMemSize = globalBlock.redMemSize();
 
         loadTime = timer.ElapsedTimeAndReset();
         std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
@@ -376,6 +384,7 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
 
 #endif  // NDEBUG
             numClusters.push_back(globalBlock.numClustersCombined());
+            numClustersGlobal.push_back(globalBlock.numClusters());
             maxVolumes.push_back(globalBlock.maxVolumeCombined());
             totalVolumes.push_back(globalBlock.totalVolumeCombined());
             watershedTime += timer.ElapsedTimeAndReset();
@@ -1060,19 +1069,27 @@ int main(int argc, char** argv) {
     // total
     std::vector<float> h;
     std::vector<ind> numClusters;
+#ifdef COMMUNICATION
+    std::vector<ind> numClustersGlobal;
+#endif
     std::vector<float> maxVolumes;
     std::vector<float> totalVolumes;
 
     if (currProcess == 0) {
         h.reserve(hSamples);
         numClusters.reserve(hSamples);
+#ifdef COMMUNICATION
+        numClustersGlobal.reserve(hSamples);
+#endif
         maxVolumes.reserve(hSamples);
         totalVolumes.reserve(hSamples);
     }
 
     PerformanceTimer timer;
     timer.Reset();
+    // Not all are used by all cases
     float totalTime, loadTime, communicationTime, watershedTime;
+    ind greenMemSize, redMemSize;
 
     switch (computeMode) {
         case REAL:
@@ -1084,7 +1101,8 @@ int main(int argc, char** argv) {
 #else
             std::cout << "Watershedding sequentially, but distributed." << std::endl;
             watershedParallelSingleRank(numNodes, blockSize, blockOffset, totalSize, hMin, hMax,
-                                        hStep, h, numClusters, maxVolumes, totalVolumes, loadTime,
+                                        hStep, h, numClusters, numClustersGlobal, maxVolumes,
+                                        totalVolumes, greenMemSize, redMemSize, loadTime,
                                         communicationTime, watershedTime);
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
@@ -1092,7 +1110,8 @@ int main(int argc, char** argv) {
             if (currProcess == 0)
                 std::cout << "Watershedding parallel and distributed." << std::endl;
             whatershedMultipleRanks(currProcess, numNodes, blockSize, blockOffset, totalSize, hMin,
-                                    hMax, hStep, h, numClusters, maxVolumes, totalVolumes, loadTime,
+                                    hMax, hStep, h, numClusters, numClustersGlobal, maxVolumes,
+                                    totalVolumes, greenMemSize, redMemSize, loadTime,
                                     communicationTime, watershedTime);
 #else   // !COMMUNCATION
             std::cerr << "Cannot watershed on multiple nodes without communcation "
@@ -1221,15 +1240,26 @@ int main(int argc, char** argv) {
             percFile.open(fileName, std::ios::out);
 
             if (percFile.is_open()) {
-                percFile << "H; Number of connected components; Maximum number of connected "
-                            "components; "
-                            "Number of connected components / Maximum number of connected "
-                            "components;  "
-                            "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
-                         << std::endl;
+                percFile << "H; Number of connected components;";
+#ifdef COMMUNICATION
+                percFile << "Number of global connected components;";
+#endif
+                percFile
+                    << "Maximum number of connected components; "
+                       "Number of connected components / Maximum number of connected components;  "
+                       "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
+                    << std::endl;
                 for (int line = 0; line < h.size(); line++) {
-                    percFile << h[line] << ";" << float(numClusters[line]) << ";"
-                             << float(maxClusters) << ";"
+                    percFile << h[line] << ";" << float(numClusters[line]) << ";";
+#ifdef COMMUNICATION
+                    if (computeMode == 0) {
+                        percFile << float(numClustersGlobal[line]) << ";";
+                    } else {
+                        percFile << "--;";
+                    }
+
+#endif
+                    percFile << float(maxClusters) << ";"
                              << float(numClusters[line]) / float(maxClusters) << ";"
                              << maxVolumes[line] << ";" << totalVolumes[line] << ";"
                              << maxVolumes[line] / totalVolumes[line] << ";" << std::endl;
@@ -1256,18 +1286,21 @@ int main(int argc, char** argv) {
                                "hMin; hMax; hSamples; totalTime; ";
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
-                if (computeMode == 0) timingsFile << "loadTime; watershedTime;";
+                if (computeMode == 0) timingsFile << "loadTime; watershedTime; ";
 #else
-                if (computeMode == 0) timingsFile << "loadTime; communicationTime; watershedTime;";
+                if (computeMode == 0)
+                    timingsFile
+                        << "loadTime; communicationTime; watershedTime; greenMemSize; redMemSize;";
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
                 if (computeMode == 0)
                     timingsFile << "loadTimeGlobal; communicationTimeGlobal; watershedTimeGlobal; "
-                                   "loadTimeLocalAvg; communicationTimeAvg; watershedTimeAvg;";
+                                   "loadTimeLocalAvg; communicationTimeAvg; watershedTimeAvg; "
+                                   "greenMemSize; redMemSize;";
 #endif  // COMMUNCATION
 #endif  // SINGLENODE
-                timingsFile << std::endl;
+                timingsFile << "runType;" << std::endl;
                 timingsFile << timeStamp << ";" << baseFolder << ";" << rmsFilename << ";"
                             << timeStep << ";" << totalSize.x << ";" << totalSize.y << ";"
                             << totalSize.z << ";" << blockSize.x << ";" << blockSize.y << ";"
@@ -1277,10 +1310,12 @@ int main(int argc, char** argv) {
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
                 if (computeMode == 0) timingsFile << loadTime << ";" << watershedTime << ";";
+                timingsFile << "S;";
 #else
                 if (computeMode == 0)
                     timingsFile << loadTime << ";" << communicationTime << ";" << watershedTime
-                                << ";";
+                                << ";" << greenMemSize << ";" << redMemSize << ";";
+                timingsFile << "SC;";
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
@@ -1308,11 +1343,12 @@ int main(int argc, char** argv) {
                     loadTimeLocalAvg /= numNodes.prod();
                     communicationTimeLocalAvg /= numNodes.prod();
                     watershedTimeLocalAvg /= numNodes.prod();
-
                     timingsFile << loadTime << ";" << communicationTime << ";" << watershedTime
                                 << ";" << loadTimeLocalAvg << ";" << communicationTimeLocalAvg
-                                << ";" << watershedTimeLocalAvg << ";";
+                                << ";" << watershedTimeLocalAvg << ";" << greenMemSize << ";"
+                                << redMemSize << ";";
                 }
+                timingsFile << "P;";
 
 #endif  // COMMUNCATION
 #endif  // SINGLENODE

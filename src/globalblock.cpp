@@ -49,6 +49,7 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
 
     GOGSubBlocks.reserve(numBlocks);
     MemoryGreen = new ID[totalBlockSize];
+    MemoryGreenSize = totalBlockSize;
 
     ID* memOngoing = MemoryGreen;
 
@@ -64,6 +65,7 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
     // Results for all nodes.
     std::vector<std::vector<ind>> neighbors(numNodes.prod());
     PerProcessData.resize(NumNodes.prod());
+    MemoryRedSize = 0;
 
     // Assemble.
     std::vector<vec3i> neighBlocks;
@@ -100,6 +102,7 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                     whiteOffset, *this, []() { return GrayProcessor(); });
                 PerProcessData[node.toIndexOfTotal(numNodes)].MemoryLOG = memoryRed;
                 PerProcessData[node.toIndexOfTotal(numNodes)].MemoryLOGSize = sizeRed;
+                MemoryRedSize += sizeRed;
 
                 for (vec3i& dir : directions) {
                     // Building green adjacent blocks.

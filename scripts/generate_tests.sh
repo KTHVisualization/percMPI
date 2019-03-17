@@ -37,7 +37,7 @@ function makeTest
     num_procs=${17}
 # One global node + given number, make sure to round up
     num_nodes=$(((($num_procs + 1) + ($num_procs_node-1)) / $num_procs_node))
-    job_name=$implementation"_"$test_name"_n"$num_procs
+    job_name=$test_name"_n"$num_procs
     output_file="./"$job_name".sh"
     
     echo -e "#!/bin/bash -l\n# The -l above is required to get the full environment with modules\n" > $output_file
@@ -56,9 +56,9 @@ function makeTest
     for test in `seq 1 1 2`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
-	    echo -e "aprun -n $num_procs ./PercMPI --dataPath $datapath --rmsFile $rmsFile"\
-		    "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
-		    "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
+        echo -e "aprun -n $(($num_procs+1)) ./PercMPI --dataPath $datapath --rmsFile $rmsFile"\
+            "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
+	    "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--computeMode 0 --outputMode 1"\ >> $output_file
@@ -73,8 +73,8 @@ function makeTest
 if [[ $test_type == 1 ]]
 then
     test_name="strong_duct180"
-    datapath="../../../Data/P3"
-    rmsFile="uv_005"
+    datapath="../../Data/P3"
+    rmsFile="uv_000"
     dataSizeX=193 
     dataSizeY=194
     dataSizeZ=1000

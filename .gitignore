@@ -33,3 +33,7 @@
 
 build/
 build*/
+scripts/strong_*
+scripts/baseline*
+timings*.csv
+percolation*.csv

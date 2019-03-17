@@ -95,6 +95,7 @@ then
 # Make the weak-scaling tests for the 180-duct
 elif [[ $test_type == 2 ]]
 then
-    test_name="weak"
+    test_name="baseline_duct180"
+
 fi
 

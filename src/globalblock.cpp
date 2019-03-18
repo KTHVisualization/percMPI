@@ -351,7 +351,7 @@ void GlobalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
         ind compSize = *it;
         ind onto = *(++it);
         for (ind c = 0; c < compSize - 1; ++c) {
-            int from = *(++it);
+            ind from = *(++it);
             const std::vector<GOG>& oldRepsFrom = GOGs.getRepresentatives(from);
             const std::vector<VertexID> newRepsFrom = GOGs.mergeRepresentatives(from, onto);
             assert(oldRepsFrom.size() == newRepsFrom.size() &&
@@ -385,6 +385,7 @@ void GlobalBlock::receiveData() {
     ind plogsAddedSoFar = 0;
     Merges.clear();
 
+    // MPI_Request requests[7 * NumNodes.prod()];
     for (ind p = 0; p < NumNodes.prod(); p++) {
 
         ind processDataIndex = p;

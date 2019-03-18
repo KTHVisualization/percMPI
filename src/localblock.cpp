@@ -294,7 +294,7 @@ double LocalBlock::getClusterVolume(ClusterID cluster) {
 void LocalBlock::receiveData() {
     int numNewLOGs;
     ind startOfLocalPlog;
-    std::vector<int> merges;
+    std::vector<ind> merges;
 #ifdef COMMUNICATION
     MPI_Status status;
     int err;

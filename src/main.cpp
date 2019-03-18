@@ -1031,7 +1031,7 @@ int main(int argc, char** argv) {
     }
 
     if (currProcess == 0) {
-        std::cout << "******** Settings ********" << std::endl;
+        std::cout << "####### Settings #######" << std::endl;
         std::cout << "dataPath: \t\t" << baseFolder << std::endl;
         std::cout << "rmsFile: \t\t" << rmsFilename << std::endl;
         std::cout << "dataSize: \t\t" << dataSize << std::endl;
@@ -1043,7 +1043,7 @@ int main(int argc, char** argv) {
         std::cout << "hSamples: \t\t" << hSamples << std::endl;
         std::cout << "computeMode: \t" << computeMode << std::endl;
         std::cout << "outputMode: \t" << outputMode << std::endl;
-        std::cout << "**************************" << std::endl;
+        std::cout << "########################" << std::endl;
     }
 
     // Process 0 is master rank -> -1
@@ -1065,8 +1065,8 @@ int main(int argc, char** argv) {
 
     float hStep = (hMax - hMin) / (hSamples - 1);
 
-    // Keep track of threshold h, number of components, volume largest component, volume
-    // total
+    // Keep track of threshold h, number of components, volume largest component,
+    // volume total
     std::vector<float> h;
     std::vector<ind> numClusters;
 #ifdef COMMUNICATION

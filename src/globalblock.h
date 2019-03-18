@@ -67,13 +67,13 @@ public:
     struct InfoPerProcess {
         InfoPerProcess() : MemoryLOG(nullptr), MemoryLOGSize(0), StartOfLocalPlog(-1) {}
 
-        InfoPerProcess(const std::vector<int>& greenAdjacent, ID* memoryLOG, ind memoryLOGSize,
+        InfoPerProcess(const std::vector<ind>& greenAdjacent, ID* memoryLOG, ind memoryLOGSize,
                        std::vector<ClusterMerge> merges = std::vector<ClusterMerge>())
             : GreenAdjacent(greenAdjacent)
             , MemoryLOG(memoryLOG)
             , MemoryLOGSize(memoryLOGSize)
             , Merges(merges)
-            , StartOfLocalPlog(0) {}
+            , StartOfLocalPlog(ind(0)) {}
 
         std::vector<ind> GreenAdjacent;
         ID* MemoryLOG;

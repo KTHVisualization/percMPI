@@ -1,12 +1,11 @@
 #pragma once
 
+#include "vec.h"
 #include <mpi.h>
 #include <vector>
 #include <string.h>
 #include <cassert>
 #include <cmath>
-
-using ind = signed int;
 
 namespace perc {
 

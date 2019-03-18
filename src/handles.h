@@ -10,7 +10,7 @@ struct ClusterID;
 struct VertexID;
 
 struct ID {
-    static const ind CLUSTER_FLAG = 1 << (sizeof(ind) * 8 - 2);
+    static const ind CLUSTER_FLAG = ind(1) << (sizeof(ind) * 8 - 2);
 
     ID(ind id = -1) : RawID(id) {}
 
@@ -30,7 +30,7 @@ struct ID {
 };
 
 struct ClusterID : public ID {
-    static const ind GLOBAL_FLAG = 1 << (sizeof(ind) * 8 - 3);
+    static const ind GLOBAL_FLAG = ind(1) << (sizeof(ind) * 8 - 3);
 
     ClusterID(ind id = -1, bool isLocal = true) : ID(id) {
         RawID = RawID | CLUSTER_FLAG;

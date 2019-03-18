@@ -5,7 +5,7 @@
 #include <array>
 #include <ostream>
 
-using ind = signed int;
+using ind = signed long long;
 
 union vec3i {
     ind data[3];

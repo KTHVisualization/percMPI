@@ -9,6 +9,8 @@
 
 namespace perc {
 
+#define MPI_IND MPI_LONG_LONG
+
 class MPICommunication {
 public:
     const static ind RANK_SHIFT = 7;
@@ -43,9 +45,6 @@ public:
                                     MPI_Status* status);
 
     static void handleError(int errorCode);
-
-    static int computeRank(const vec3i& blockOffset, const vec3i& blockSize,
-                           const vec3i& totalSize);
 };
 
 template <typename T>
@@ -78,27 +77,16 @@ inline void MPICommunication::handleError(int errorCode) {
     int currProcess;
     MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
     if (errorCode != MPI_SUCCESS) {
-        char error_string[BUFSIZ];
-        int length_of_error_string, error_class;
-        MPI_Error_class(errorCode, &error_class);
-        MPI_Error_string(error_class, error_string, &length_of_error_string);
-        fprintf(stderr, "%3d: %s\n", currProcess, error_string);
-        MPI_Error_string(errorCode, error_string, &length_of_error_string);
-        fprintf(stderr, "%3d: %s\n", currProcess, error_string);
+        char errorString[MPI_MAX_ERROR_STRING];
+        int errorStringLength, errorClass;
+        MPI_Error_class(errorCode, &errorClass);
+        MPI_Error_string(errorClass, errorString, &errorStringLength);
+        std::cerr << "Error in rank: " << currProcess
+                  << "(class: " << std::string(errorString, errorString + errorStringLength);
+        MPI_Error_string(errorCode, errorString, &errorStringLength);
+        std::cerr << ", description: " << std::string(errorString, errorString + errorStringLength)
+                  << ")" << std::endl;
     }
-}
-
-inline int MPICommunication::computeRank(const vec3i& blockOffset, const vec3i& blockSize,
-                                         const vec3i& totalSize) {
-    vec3i numNodes;
-    vec3i idxNode;
-    for (int dim = 0; dim < 3; ++dim) {
-        numNodes[dim] =
-            static_cast<int>(ceil(static_cast<double>(totalSize[dim]) / blockSize[dim]));
-        idxNode[dim] =
-            static_cast<int>(ceil(static_cast<double>(blockOffset[dim]) / blockSize[dim]));
-    }
-    return idxNode.toIndexOfTotal(numNodes) + 1;
 }
 
 }  // namespace perc

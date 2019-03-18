@@ -45,7 +45,7 @@ public:
     void extendCluster(ClusterID id, double volume) { Clusters.extendCluster(id, volume); }
 
     void clearVolumesAndMerges();
-    const std::vector<double>& volumes();
+    std::vector<double>& volumes();
     ind numClusters() { return Clusters.numClusters(); }
     double totalVolume() { return Clusters.totalVolume(); };
     double maxVolume() { return Clusters.maxVolume(); };
@@ -111,7 +111,7 @@ inline void ClusterListRecording<CL>::clearVolumesAndMerges() {
 }
 
 template <typename CL>
-const std::vector<double>& ClusterListRecording<CL>::volumes() {
+std::vector<double>& ClusterListRecording<CL>::volumes() {
     return Clusters.volumes();
 }
 

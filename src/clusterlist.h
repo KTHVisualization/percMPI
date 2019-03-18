@@ -40,7 +40,7 @@ public:
     Cluster getCluster(ClusterID id);
 
     void clearVolumes();
-    const std::vector<double>& volumes() { return Volumes; };
+    std::vector<double>& volumes() { return Volumes; };
     ind numClusters() { return Indices.size() - Holes.size(); }
     double totalVolume() { return TotalVolume; }
     double maxVolume() { return MaxVolume; }

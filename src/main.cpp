@@ -60,8 +60,10 @@ void testingMPIVectors() {
         // Send a int vector
         if (numProcesses > 2) {
             MPI_Request* requests = new MPI_Request[2];
-            MPICommunication::IsendVector(intVector, 1, 0, MPI_COMM_WORLD, requests);
-            MPICommunication::IsendVector(doubleVector, 2, 1, MPI_COMM_WORLD, &requests[1]);
+            MPICommunication::handleError(
+                MPICommunication::IsendVector(intVector, 1, 0, MPI_COMM_WORLD, requests));
+            MPICommunication::handleError(
+                MPICommunication::IsendVector(doubleVector, 2, 1, MPI_COMM_WORLD, &requests[1]));
 
             // Wait for all messages to be finished
             MPI_Waitall(1, requests, MPI_STATUSES_IGNORE);
@@ -70,11 +72,13 @@ void testingMPIVectors() {
     } else if (currProcess == 1) {
         std::vector<int> received;
         MPI_Status status;
-        MPICommunication::RecvVectorUknownSize(received, 0, 0, MPI_COMM_WORLD, &status);
+        MPICommunication::handleError(
+            MPICommunication::RecvVectorUknownSize(received, 0, 0, MPI_COMM_WORLD, &status));
     } else if (currProcess == 2) {
         std::vector<double> received;
         MPI_Status status;
-        MPICommunication::RecvVectorUknownSize(received, 0, 1, MPI_COMM_WORLD, &status);
+        MPICommunication::handleError(
+            MPICommunication::RecvVectorUknownSize(received, 0, 1, MPI_COMM_WORLD, &status));
     }
 
     MPI_Finalize();
@@ -310,8 +314,9 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             MPI_Request* requests = new MPI_Request[numNodes.prod()];
             for (ind p = 0; p < numNodes.prod(); p++) {
                 ind processIndex = p + 1;
-                MPI_Isend(&correct, 1, MPI_CXX_BOOL, processIndex, MPICommunication::ERRORFLAG,
-                          MPI_COMM_WORLD, &requests[p]);
+                MPICommunication::handleError(MPI_Isend(&correct, 1, MPI_CXX_BOOL, processIndex,
+                                                        MPICommunication::ERRORFLAG, MPI_COMM_WORLD,
+                                                        &requests[p]));
             }
             MPI_Waitall(numNodes.prod(), requests, MPI_STATUSES_IGNORE);
             if (!correct) {
@@ -353,9 +358,9 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
                     std::cout << "0: Receiving red indices from process  " << processIndex
                               << std::endl;
                     redIndices.clear();
-                    MPICommunication::RecvVectorUknownSize(redIndices, processIndex,
-                                                           MPICommunication::REDINDICES,
-                                                           MPI_COMM_WORLD, &statuses[p]);
+                    MPICommunication::handleError(MPICommunication::RecvVectorUknownSize(
+                        redIndices, processIndex, MPICommunication::REDINDICES, MPI_COMM_WORLD,
+                        &statuses[p]));
 
                     for (vec3i& redIndex : redIndices) {
                         auto truthIt =
@@ -410,8 +415,9 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             groundtruth->doWatershed(currentH);
 
             bool correct;
-            MPI_Recv(&correct, 1, MPI_CXX_BOOL, 0, MPICommunication::ERRORFLAG, MPI_COMM_WORLD,
-                     MPI_STATUS_IGNORE);
+            MPICommunication::handleError(MPI_Recv(&correct, 1, MPI_CXX_BOOL, 0,
+                                                   MPICommunication::ERRORFLAG, MPI_COMM_WORLD,
+                                                   MPI_STATUS_IGNORE));
             if (!correct) {
                 std::vector<vec3i> redIndices;
 
@@ -442,8 +448,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
                 }
 
                 MPI_Request request;
-                int err = MPICommunication::IsendVector(redIndices, 0, MPICommunication::ERRORFLAG,
-                                                        MPI_COMM_WORLD, &request);
+                MPICommunication::handleError(MPICommunication::IsendVector(
+                    redIndices, 0, MPICommunication::ERRORFLAG, MPI_COMM_WORLD, &request));
                 MPI_Wait(&request, MPI_STATUS_IGNORE);
             }
 
@@ -953,6 +959,12 @@ int main(int argc, char** argv) {
         std::cout << "Blocksize per process (--blockSize) has not been set, using default "
                   << blockSize << "." << std::endl;
     }
+    if (totalSize.x < blockSize.x || totalSize.y < blockSize.y || totalSize.z < blockSize.z) {
+        std::cerr << "Blocksize " << blockSize << " cannot be larger than TotalSize " << totalSize
+                  << " in any dimension." << std::endl;
+        return 1;
+    }
+
     // Sampling settings
     if (!hMinSet) {
         hMin = 0.0;
@@ -964,7 +976,9 @@ int main(int argc, char** argv) {
         std::cout << "Maximum h value (--hMax) has not been set, using default " << hMax << "."
                   << std::endl;
     }
-    assert(hMax > hMin && "HMax needs to be larger than hMin.");
+    if (hMax < hMin) {
+        std::cerr << "HMax needs to be larger than hMin." << std::endl;
+    }
     if (hSamples == -1) {
         hSamples = 1001;
         std::cout << "Number of samples in h (--hSamples) has not been set, using default "
@@ -1244,11 +1258,11 @@ int main(int argc, char** argv) {
 #ifdef COMMUNICATION
                 percFile << "Number of global connected components;";
 #endif
-                percFile
-                    << "Maximum number of connected components; "
-                       "Number of connected components / Maximum number of connected components;  "
-                       "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
-                    << std::endl;
+                percFile << "Maximum number of connected components; "
+                            "Number of connected components / Maximum number of connected "
+                            "components;  "
+                            "Largest Volume ; Total Volume; Largest Volume / Total Volume;"
+                         << std::endl;
                 for (int line = 0; line < h.size(); line++) {
                     percFile << h[line] << ";" << float(numClusters[line]) << ";";
 #ifdef COMMUNICATION
@@ -1289,8 +1303,8 @@ int main(int argc, char** argv) {
                 if (computeMode == 0) timingsFile << "loadTime; watershedTime; ";
 #else
                 if (computeMode == 0)
-                    timingsFile
-                        << "loadTime; communicationTime; watershedTime; greenMemSize; redMemSize;";
+                    timingsFile << "loadTime; communicationTime; watershedTime; greenMemSize; "
+                                   "redMemSize;";
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
@@ -1328,16 +1342,19 @@ int main(int argc, char** argv) {
                         ind processIndex = p + 1;
 
                         float loadTimeLocal;
-                        MPI_Recv(&loadTimeLocal, 1, MPI_FLOAT, processIndex,
-                                 MPICommunication::LOADTIME, MPI_COMM_WORLD, &status);
+                        MPICommunication::handleError(
+                            MPI_Recv(&loadTimeLocal, 1, MPI_FLOAT, processIndex,
+                                     MPICommunication::LOADTIME, MPI_COMM_WORLD, &status));
                         loadTimeLocalAvg += loadTimeLocal;
                         float communicationTimeLocal;
-                        MPI_Recv(&communicationTimeLocal, 1, MPI_FLOAT, processIndex,
-                                 MPICommunication::COMMUNCATIONTIME, MPI_COMM_WORLD, &status);
+                        MPICommunication::handleError(
+                            MPI_Recv(&communicationTimeLocal, 1, MPI_FLOAT, processIndex,
+                                     MPICommunication::COMMUNCATIONTIME, MPI_COMM_WORLD, &status));
                         communicationTimeLocalAvg += communicationTimeLocal;
                         float watershedTimeLocal;
-                        MPI_Recv(&watershedTimeLocal, 1, MPI_FLOAT, processIndex,
-                                 MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD, &status);
+                        MPICommunication::handleError(
+                            MPI_Recv(&watershedTimeLocal, 1, MPI_FLOAT, processIndex,
+                                     MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD, &status));
                         watershedTimeLocalAvg += +watershedTimeLocal;
                     }
                     loadTimeLocalAvg /= numNodes.prod();
@@ -1362,10 +1379,12 @@ int main(int argc, char** argv) {
 #ifndef SINGLENODE
     else if (computeMode == 0) {
         // Send timings to master
-        MPI_Send(&loadTime, 1, MPI_FLOAT, 0, MPICommunication::LOADTIME, MPI_COMM_WORLD);
-        MPI_Send(&communicationTime, 1, MPI_FLOAT, 0, MPICommunication::COMMUNCATIONTIME,
-                 MPI_COMM_WORLD);
-        MPI_Send(&watershedTime, 1, MPI_FLOAT, 0, MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD);
+        MPICommunication::handleError(
+            MPI_Send(&loadTime, 1, MPI_FLOAT, 0, MPICommunication::LOADTIME, MPI_COMM_WORLD));
+        MPICommunication::handleError(MPI_Send(&communicationTime, 1, MPI_FLOAT, 0,
+                                               MPICommunication::COMMUNCATIONTIME, MPI_COMM_WORLD));
+        MPICommunication::handleError(MPI_Send(&watershedTime, 1, MPI_FLOAT, 0,
+                                               MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD));
     }
 #endif
 

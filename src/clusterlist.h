@@ -2,7 +2,6 @@
 #include <vector>
 #include <stack>
 #include <cassert>
-
 #include <iostream>
 #include "vec.h"
 #include "handles.h"
@@ -44,6 +43,11 @@ public:
     ind numClusters() { return Indices.size() - Holes.size(); }
     double totalVolume() { return TotalVolume; }
     double maxVolume() { return MaxVolume; }
+
+    ind memEstimate() const {
+        return Volumes.capacity() * sizeof(double) + Indices.capacity() * sizeof(VertexID) +
+               Holes.capacity() * sizeof(size_t);
+    }
 
 protected:
     void checkCluster(ClusterID cluster) const;

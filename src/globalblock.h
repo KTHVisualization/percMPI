@@ -53,8 +53,10 @@ public:
     virtual double maxVolumeCombined() override {
         return std::max(GOGs.maxVolume(), MaxVolumeLocal);
     };
-    ind greenMemSize() { return MemoryGreenSize; };
-    ind redMemSize() { return MemoryRedSize; };
+    ind greenSize() const { return MemoryGreenSize; };
+    ind redSize() const { return MemoryRedSize; };
+
+    virtual ind memEstimate() const override;
 
     virtual void checkConsistency() const override;
     virtual std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(

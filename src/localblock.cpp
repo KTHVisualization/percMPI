@@ -296,11 +296,13 @@ void LocalBlock::receiveData() {
     ind startOfLocalPlog;
     std::vector<ind> merges;
 #ifdef COMMUNICATION
+    // Reuse statuss in blocking receive
     MPI_Status status;
 
     // Tags are int
     int rankTag = Rank << MPICommunication::RANK_SHIFT;
 
+    // Receive data common for all processes
 #ifdef COLLECTIVES
     MPI_Bcast(&numNewLOGs, 1, MPI_IND, 0, MPI_COMM_WORLD);
     ind mergesSize;
@@ -375,48 +377,21 @@ void LocalBlock::sendData() {
 #ifdef COMMUNICATION
     ind rankTag = Rank << MPICommunication::RANK_SHIFT;
 
-    ind numMessages = 7;
-
-    CommData.NumClusters = numClusters();
-    CommData.MaxVolume = maxVolume();
-    CommData.TotalVolume = totalVolume();
+    ind numMessages = 8;
+    ind messageId = 0;
 
 #ifdef COLLECTIVES
     numMessages -= 4;
+#endif
 
-    MPICommunication::handleError(
-        MPI_Reduce(&CommData.NumClusters, nullptr, 1, MPI_IND, MPI_SUM, 0, MPI_COMM_WORLD));
-    MPICommunication::handleError(
-        MPI_Reduce(&CommData.MaxVolume, nullptr, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD));
-    MPICommunication::handleError(
-        MPI_Reduce(&CommData.TotalVolume, nullptr, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD));
-    MPICommunication::handleError(MPI_Reduce(LOGs->volumes().data(), nullptr,
-                                             LOGs->volumes().size(), MPI_DOUBLE, MPI_SUM, 0,
-                                             MPI_COMM_WORLD));
-
-#endif  // COLLECTIVES
     MPI_Request* requests = new MPI_Request[numMessages];
-    int messageId = 0;
 
-    // Number of local Clusters, maxVolume and totalVolume
-#ifndef COLLECTIVES
-    MPICommunication::handleError(MPI_Isend(&CommData.NumClusters, 1, MPI_IND, 0,
-                                            MPICommunication::NUMCLUSTERS | rankTag, MPI_COMM_WORLD,
+    CommData.VectorSizes[0] = static_cast<ind>(CommData.PLOGs.size());
+    CommData.VectorSizes[1] = static_cast<ind>(LOGs->Merges.size());
+
+    MPICommunication::handleError(MPI_Isend(CommData.VectorSizes, 2, MPI_IND, 0,
+                                            MPICommunication::VECTORSIZES | rankTag, MPI_COMM_WORLD,
                                             &requests[messageId++]));
-
-    MPICommunication::handleError(MPI_Isend(&CommData.MaxVolume, 1, MPI_DOUBLE, 0,
-                                            MPICommunication::MAXVOLUME | rankTag, MPI_COMM_WORLD,
-                                            &requests[messageId++]));
-
-    MPICommunication::handleError(MPI_Isend(&CommData.TotalVolume, 1, MPI_DOUBLE, 0,
-                                            MPICommunication::TOTALVOLUME | rankTag, MPI_COMM_WORLD,
-                                            &requests[messageId++]));
-
-    // Volumes for LOGs (Additional volume)
-    MPICommunication::handleError(
-        MPICommunication::IsendVector(LOGs->volumes(), 0, MPICommunication::VOLUMES | rankTag,
-                                      MPI_COMM_WORLD, &requests[messageId++]));
-#endif  //! COLLECTIVES
 
     // New global clusters in red
     MPICommunication::handleError(
@@ -433,12 +408,49 @@ void LocalBlock::sendData() {
                                             MPICommunication::REDPOINTERS | rankTag, MPI_COMM_WORLD,
                                             &requests[messageId++]));
 
+    CommData.NumClusters = numClusters();
+    CommData.MaxVolume = maxVolume();
+    CommData.TotalVolume = totalVolume();
+
+// Number of local Clusters, maxVolume and totalVolume, updated volumes
+#ifdef COLLECTIVES
+    MPICommunication::handleError(
+        MPI_Reduce(&CommData.NumClusters, nullptr, 1, MPI_IND, MPI_SUM, 0, MPI_COMM_WORLD));
+    MPICommunication::handleError(
+        MPI_Reduce(&CommData.MaxVolume, nullptr, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD));
+    MPICommunication::handleError(
+        MPI_Reduce(&CommData.TotalVolume, nullptr, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD));
+    MPICommunication::handleError(MPI_Reduce(LOGs->volumes().data(), nullptr,
+                                             LOGs->volumes().size(), MPI_DOUBLE, MPI_SUM, 0,
+                                             MPI_COMM_WORLD));
+
+#else
+    MPICommunication::handleError(MPI_Isend(&CommData.NumClusters, 1, MPI_IND, 0,
+                                            MPICommunication::NUMCLUSTERS | rankTag, MPI_COMM_WORLD,
+                                            &requests[messageId++]));
+
+    MPICommunication::handleError(MPI_Isend(&CommData.MaxVolume, 1, MPI_DOUBLE, 0,
+                                            MPICommunication::MAXVOLUME | rankTag, MPI_COMM_WORLD,
+                                            &requests[messageId++]));
+
+    MPICommunication::handleError(MPI_Isend(&CommData.TotalVolume, 1, MPI_DOUBLE, 0,
+                                            MPICommunication::TOTALVOLUME | rankTag, MPI_COMM_WORLD,
+                                            &requests[messageId++]));
+
+    // Volumes for LOGs (Additional volume)
+    MPICommunication::handleError(
+        MPICommunication::IsendVector(LOGs->volumes(), 0, MPICommunication::VOLUMES | rankTag,
+                                      MPI_COMM_WORLD, &requests[messageId++]));
+#endif  // COLLECTIVES
+
 #ifndef SINGLENODE
     MPI_Waitall(numMessages, requests, MPI_STATUS_IGNORE);
+#else
+// delete[] requests;
 #endif  // SINGLENODE
 
 #endif  // COMMUNCATION
-}
+}  // namespace perc
 
 void LocalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
     for (auto it = connComps.begin(); it != connComps.end(); ++it) {
@@ -462,6 +474,16 @@ void LocalBlock::repointerMultipleMerges(const std::vector<ind>& connComps) {
             }
         }
     }
+}
+
+ind LocalBlock::memEstimate() const {
+    ind memSize = 0;
+    memSize += LOLSubBlock->memEstimate() + LOLs->memEstimate() + LOGs->memEstimate();
+
+    for (auto& log : LOGSubBlocks) memSize += log.memEstimate();
+    for (auto& gog : GOGSubBlocks) memSize += gog.memEstimate();
+
+    return memSize;
 }
 
 void LocalBlock::checkConsistency() const {

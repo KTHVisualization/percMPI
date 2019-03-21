@@ -14,6 +14,7 @@ public:
     bool loadData();
     void sort();
     vec3i toGlobalIndex(ind locIdx);
+    ind memEstimate() const;
 
 public:
     double *Scalars, *Volumes;

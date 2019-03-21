@@ -43,4 +43,12 @@ vec3i DataBlock::toGlobalIndex(ind locIdx) {
     return BlockOffset + relIdx;
 }
 
+ind DataBlock::memEstimate() const {
+    // Indices for Sorting
+    ind memSize = BlockSize.prod() * sizeof(ind);
+    // Volumes and Scalars
+    memSize += BlockSize.prod() * sizeof(double) * 2;
+    return memSize;
+}
+
 }  // namespace perc

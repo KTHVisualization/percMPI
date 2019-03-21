@@ -16,6 +16,7 @@ public:
     const static ind RANK_SHIFT = 7;
 
     enum Tags {
+        VECTORSIZES,
         NUMCLUSTERS,
         NUMNEWCLUSTERS,
         MERGES,
@@ -30,7 +31,8 @@ public:
         ERRORFLAG,
         LOADTIME,
         COMMUNCATIONTIME,
-        WATERSHEDTIME
+        WATERSHEDTIME,
+        MEMESTIMATE
     };
 
     template <typename T>

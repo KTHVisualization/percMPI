@@ -43,6 +43,8 @@ public:
         *ptr = id;
     }
 
+    ind memEstimate() const { return BlockSize.prod() * sizeof(ID); }
+
 public:
     const vec3i BlockSize, BlockOffset, TotalSize;
     ID* PointerBlock;

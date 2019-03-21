@@ -56,6 +56,7 @@ public:
     virtual double maxVolumeCombined() override {
         return std::max(LOLs->maxVolume(), LOGs->maxVolume());
     }
+    virtual ind memEstimate() const override;
 
     void checkConsistency() const override;
     std::vector<std::pair<vec3i, double>> getVoluminaForAddedVertices(double maxVal) override;
@@ -71,6 +72,7 @@ private:
         double TotalVolume;
         // List of PLOGS
         std::vector<ClusterData> PLOGs;
+        ind VectorSizes[2];
     } CommData;
 
     // This blocks rank (if on a single node)

@@ -50,6 +50,10 @@ public:
     double totalVolume() { return Clusters.totalVolume(); };
     double maxVolume() { return Clusters.maxVolume(); };
 
+    ind memEstimate() const {
+        return Clusters.memEstimate() + Merges.capacity() * sizeof(ClusterMerge);
+    };
+
 protected:
     CL Clusters;
 

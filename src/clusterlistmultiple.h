@@ -48,6 +48,13 @@ public:
     double totalVolume() { return TotalVolume; }
     double maxVolume() { return MaxVolume; }
 
+    ind memEstimate() const {
+        ind memSize = 0;
+        memSize += Holes.capacity() * sizeof(size_t) + Volumes.capacity() * sizeof(double);
+        for (auto reps : IndicesPerCluster) memSize += reps.capacity() * sizeof(GOG);
+        return memSize;
+    }
+
 protected:
     void checkCluster(ClusterID cluster) const;
 

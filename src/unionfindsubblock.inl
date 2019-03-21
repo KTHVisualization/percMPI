@@ -143,6 +143,16 @@ ClusterID* UnionFindSubBlock<ClusterProcessor>::findClusterID(const vec3i& idx,
 }
 
 template <typename ClusterProcessor>
+ind UnionFindSubBlock<ClusterProcessor>::memEstimate() const {
+    ind memSize = 0;
+    if (Data) {
+        memSize += Data->memEstimate();
+    }
+    memSize += PointerBlock.memEstimate();
+    return memSize;
+}
+
+template <typename ClusterProcessor>
 void UnionFindSubBlock<ClusterProcessor>::checkConsistency() const {
 #ifndef NDEBUG
     NeighborProcessor.checkConsistency();

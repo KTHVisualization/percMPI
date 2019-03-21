@@ -35,6 +35,8 @@ public:
     const vec3i& blockOffset() { return PointerBlock.BlockOffset; }
     const vec3i& totalSize() { return PointerBlock.TotalSize; }
 
+    ind memEstimate() const;
+
     void checkConsistency() const;
     using VolumeStat = std::pair<vec3i, double>;
     void getVoluminaForAddedVertices(double maxVal, std::vector<VolumeStat>& stats);

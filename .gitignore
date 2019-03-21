@@ -31,6 +31,8 @@
 *.out
 *.app
 
+.vscode/ipch/*
+
 build/
 build*/
 scripts/strong_*

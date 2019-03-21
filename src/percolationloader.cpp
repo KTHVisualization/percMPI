@@ -35,7 +35,7 @@ const std::unordered_map<std::string, PercolationLoader::ScalarFunc>
 double* PercolationLoader::loadBlock(const std::string& path, bool is2D) const {
 
     vec3i blockSize = BlockSize;
-    vec3i totalSize = {193, 194, 1000};
+    vec3i totalSize = TotalSizeFile;
     vec3i blockOffset = BlockOffset;
 
     if (is2D) {

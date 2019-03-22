@@ -52,26 +52,26 @@ function makeTest
     num_nodes=$(((($num_procs + 1) + ($num_procs_node-1)) / $num_procs_node))
     fi
     job_name=$test_name"_n"$num_procs"_h"$hSamples
+    num_procs_used=$(($num_procs+1))
     output_file="./"$test_name"/"$job_name".sh"
     mkdir -p $test_name
     echo -e "#!/bin/bash -l\n# The -l above is required to get the full environment with modules\n" > $output_file
     echo -e "# Set the name of the script\n#SBATCH -J $job_name\n" >> $output_file
     echo -e "# Set the allocation to be charged for this job\n#SBATCH -A $account\n" >> $output_file
-
-    echo -e "# Set the allocated time for the job\n#SBATCH -t 00:10:00\n" >> $output_file
+    echo -e "# Set the allocated time for the job\n#SBATCH -t 00:30:00\n" >> $output_file
     echo -e "# Set the node type to Haswell nodes only\n#SBATCH -C Haswell\n" >> $output_file
     echo -e "# Set the number of nodes\n#SBATCH --nodes=$num_nodes\n" >> $output_file
-    echo -e "# Set the number of MPI processes\n#SBATCH -n $num_procs\n" >> $output_file
+    echo -e "# Set the number of MPI processes\n#SBATCH -n $num_procs_used\n" >> $output_file
     echo -e "# Set the number of MPI processes per node\n#SBATCH --ntasks-per-node=$num_procs_node\n" >> $output_file
     echo -e "# Set the e-mail preferences for the user\n#SBATCH --mail-type=ALL\n#SBATCH --mail-user=$user_email\n" >> $output_file
     
     echo -e "echo -e \"Running job \\\\\"$job_name\\\\\"\\\\n---------------------\"" >> $output_file
     
-    # Run one initial test (i.e., cold) and then 1 tests
-    for test in `seq 1 1 2`
+    # Run 10 tests
+    for test in `seq 1 1 10`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
-        echo -e "aprun -n $(($num_procs+1)) .$buildDir/PercMPI --dataPath $datapath --rmsFile $rmsFile"\
+        echo -e "aprun -n $num_procs_used ./$build_dir/PercMPI --dataPath $datapath --rmsFile $rmsFile"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
@@ -99,12 +99,12 @@ then
     totalSizeZ=1000
     hMin=0.0
     hMax=2.0 
-    hSamples=1001
+    hSamples=1000
     blockSizeX=193
     blockSizeY=194 
     blockSizeZ=1000
     num_procs=1
-    for tests in `seq 1 1 2`
+    for tests in `seq 1 1 9`
     do
         num_procs=$(($num_procs*2))
         if [[ $blockSizeX -ge $blockSizeY && $blockSizeX -ge $blockSizeZ ]]

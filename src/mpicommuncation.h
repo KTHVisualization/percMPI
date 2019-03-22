@@ -47,6 +47,8 @@ public:
                                     MPI_Status* status);
 
     static void handleError(int errorCode);
+
+    static int computeProcess(const vec3i& idx, const vec3i& blockSize, const vec3i& numNodes);
 };
 
 template <typename T>
@@ -89,6 +91,16 @@ inline void MPICommunication::handleError(int errorCode) {
         std::cerr << ", description: " << std::string(errorString, errorString + errorStringLength)
                   << ")" << std::endl;
     }
+}
+
+// This works only for the original blockSize settings: Do not use this from the localNode,
+inline int MPICommunication::computeProcess(const vec3i& idx, const vec3i& blockSize,
+                                            const vec3i& numNodes) {
+    vec3i idxNode;
+    for (int dim = 0; dim < 3; dim++) {
+        idxNode[dim] = static_cast<int>(floor(static_cast<double>(idx[dim]) / blockSize[dim]));
+    }
+    return idxNode.toIndexOfTotal(numNodes);
 }
 
 }  // namespace perc

@@ -7,7 +7,7 @@
 namespace perc {
 
 GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const vec3i& numNodes)
-    : NumNodes(numNodes), UnionFindBlock(totalSize), GOGs(GLOBAL_LIST) {
+    : BlockSize(blockSize), NumNodes(numNodes), UnionFindBlock(totalSize), GOGs(GLOBAL_LIST) {
 
 #ifndef NDEBUG
     for (int n = 0; n < 3; ++n) {
@@ -97,6 +97,7 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
 
                 memoryRed = nullptr;
                 // Buildng red adjacent blocks.
+                PerProcessData[node.toIndexOfTotal(numNodes)].LOGstartIndex = LOGSubBlocks.size();
                 interfaceblockbuilder::buildRedBlocks<GrayProcessor>(
                     max - min, min, totalSize, LOGSubBlocks, memoryRed, sizeRed, whiteSize,
                     whiteOffset, *this, []() { return GrayProcessor(); });
@@ -162,6 +163,7 @@ GlobalBlock::GlobalBlock(const vec3i& totalSize)
     : UnionFindBlock(totalSize)
     , GOGs(GLOBAL_LIST)
     , NumNodes(vec3i(1, 1, 1))
+    , BlockSize(totalSize)
     , NumNewClusters(0)
     , NumClustersLocal(0)
     , MaxVolumeLocal(0)
@@ -203,6 +205,7 @@ GlobalBlock* GlobalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& 
 
     dataPerProcess.MemoryLOGSize = sliceSize.prod() * 3;
     dataPerProcess.MemoryLOG = new ID[dataPerProcess.MemoryLOGSize];
+    dataPerProcess.LOGstartIndex = 0;
 
     block->PerProcessData.push_back(dataPerProcess);
 
@@ -247,6 +250,7 @@ GlobalBlock* GlobalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const ve
 
     dataPerProcess.MemoryLOGSize = sliceSize.prod() * 2;
     dataPerProcess.MemoryLOG = new ID[dataPerProcess.MemoryLOGSize];
+    dataPerProcess.LOGstartIndex = 0;
     block->PerProcessData.push_back(dataPerProcess);
 
     block->LOGSubBlocks.reserve(2);
@@ -310,13 +314,30 @@ void GlobalBlock::doWatershed(const double minVal) {
 }
 
 ClusterID* GlobalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
-    // TODO: Do this more cleverly, and for all types of subblocks:
-    // One might want to do this more cleverly, especialy in the sheet tree.
-    for (auto& gogBlock : GOGSubBlocks)
-        if (gogBlock.contains(idx)) return gogBlock.findClusterID(idx, lastClusterID);
-    for (auto& logBlock : LOGSubBlocks) {
-        if (logBlock.contains(idx)) return logBlock.findClusterID(idx, lastClusterID);
+    // Figure out in which process the vertex lies
+    int process = MPICommunication::computeProcess(idx, BlockSize, NumNodes);
+    if (process < PerProcessData.size()) {
+        InfoPerProcess& processData = PerProcessData[process];
+
+        for (auto& gogIndex : processData.GreenAdjacent) {
+            auto& gogBlock = GOGSubBlocks[gogIndex];
+            if (GOGSubBlocks[gogIndex].contains(idx))
+                return gogBlock.findClusterID(idx, lastClusterID);
+        }
+        for (ind logIndex = processData.LOGstartIndex;
+             logIndex < processData.LOGstartIndex + 6 && logIndex < LOGSubBlocks.size();
+             logIndex++) {
+            auto& logBlock = LOGSubBlocks[logIndex];
+            if (logBlock.contains(idx)) return logBlock.findClusterID(idx, lastClusterID);
+        }
+    } else {
+        // Legacy: Go through all blocks
+        for (auto& gogBlock : GOGSubBlocks)
+            if (gogBlock.contains(idx)) return gogBlock.findClusterID(idx, lastClusterID);
+        for (auto& logBlock : LOGSubBlocks)
+            if (logBlock.contains(idx)) return logBlock.findClusterID(idx, lastClusterID);
     }
+
     assert(false && "Can not find block containing this idx.");
     return nullptr;
 }
@@ -324,18 +345,45 @@ ClusterID* GlobalBlock::findClusterID(const vec3i& idx, vec3i& lastClusterID) {
 ID* GlobalBlock::setID(const vec3i& idx, const ID& id) {
     // One might want to do this more cleverly, especialy in the sheet tree.
     ID* ptr = nullptr;
-    for (auto& gogBlock : GOGSubBlocks)
-        if (gogBlock.contains(idx)) {
-            ptr = gogBlock.PointerBlock.getPointer(idx);
-            break;
-        }
 
-    if (!ptr) {
-        for (auto& logBlock : LOGSubBlocks)
-            if (logBlock.contains(idx)) {
-                ptr = logBlock.PointerBlock.getPointer(idx);
+    int process = MPICommunication::computeProcess(idx, BlockSize, NumNodes);
+    if (process < PerProcessData.size()) {
+        InfoPerProcess& processData = PerProcessData[process];
+
+        for (auto& gogIndex : processData.GreenAdjacent) {
+            auto& gogBlock = GOGSubBlocks[gogIndex];
+            if (GOGSubBlocks[gogIndex].contains(idx)) {
+                ptr = gogBlock.PointerBlock.getPointer(idx);
                 break;
             }
+        }
+        if (!ptr) {
+            for (ind logIndex = processData.LOGstartIndex;
+                 logIndex < processData.LOGstartIndex + 6 && logIndex < LOGSubBlocks.size();
+                 logIndex++) {
+                auto& logBlock = LOGSubBlocks[logIndex];
+                if (logBlock.contains(idx)) {
+                    ptr = logBlock.PointerBlock.getPointer(idx);
+                    break;
+                }
+            }
+        }
+
+    } else {
+        // Legacy: Go through all blocks
+        for (auto& gogBlock : GOGSubBlocks)
+            if (gogBlock.contains(idx)) {
+                ptr = gogBlock.PointerBlock.getPointer(idx);
+                break;
+            }
+
+        if (!ptr) {
+            for (auto& logBlock : LOGSubBlocks)
+                if (logBlock.contains(idx)) {
+                    ptr = logBlock.PointerBlock.getPointer(idx);
+                    break;
+                }
+        }
     }
 
     assert(ptr && "Can not find block containing this idx.");

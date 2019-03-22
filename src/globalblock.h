@@ -78,6 +78,7 @@ public:
             , StartOfLocalPlog(ind(0)) {}
 
         std::vector<ind> GreenAdjacent;
+        ind LOGstartIndex;
         ID* MemoryLOG;
         ind MemoryLOGSize;
         std::vector<ClusterMerge> Merges;
@@ -92,6 +93,9 @@ private:
 
     // Global representations of global clusters.
     ClusterListRecordingMultiple GOGs;
+
+    // Needed for efficient lookup
+    vec3i BlockSize;
 
     // ****** Structures for sending and receiving ******
     vec3i NumNodes;

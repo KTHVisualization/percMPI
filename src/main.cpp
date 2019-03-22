@@ -149,7 +149,9 @@ void watershedSequential(vec3i blockSize, vec3i blockOffset, vec3i totalSize, fl
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
         localBlock.doWatershed(currentH);
         h.push_back(currentH);
+#ifndef NDEBUG
         std::cout << currentH << "/ " << hStep << "\t - " << localBlock.numClusters() << std::endl;
+#endif
         numClusters.push_back(localBlock.numClusters());
         maxVolumes.push_back(localBlock.maxVolume());
         totalVolumes.push_back(localBlock.totalVolume());
@@ -228,9 +230,10 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
             itLocalBlock->receiveData();
             communicationTime += timer.ElapsedTimeAndReset();
         }
-
+#ifndef NDEBUG
         std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClustersCombined()
                   << std::endl;
+#endif
         h.push_back(currentH);
 #ifndef NDEBUG
         groundtruth->doWatershed(currentH);
@@ -330,8 +333,10 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             watershedTime += timer.ElapsedTimeAndReset();
             globalBlock.sendData();
             communicationTime += timer.ElapsedTimeAndReset();
+#ifndef NDEBUG
             std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClustersCombined()
                       << std::endl;
+#endif
             h.push_back(currentH);
 #ifndef NDEBUG
             groundtruth->doWatershed(currentH);

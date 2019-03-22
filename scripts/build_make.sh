@@ -9,7 +9,13 @@ then
     cd build
     cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DCOMMUNICATION' ..
     make -j 8
-elif [[ $build_type == "sequential" || $build_type == "multiple" ]]
+elif [[ $build_type == "parallel-collectives" || $build_type == "multiple-collectives" ]]
+then
+    mkdir -p build_c
+    cd build_c
+    cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DCOMMUNICATION -DCOLLECTIVES' ..
+    make -j 8
+elif [[ $build_type == "sequential" || $build_type == "single" ]]
 then
     mkdir -p build_s
     cd build_s

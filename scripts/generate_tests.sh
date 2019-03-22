@@ -5,6 +5,12 @@ account=$2
 host=`uname -a`
 user_email=`whoami`@kth.se
 
+if [[ $# < 2 ]]
+then 
+    echo "Not enough arguments. (Need Test Type and Account)"
+fi
+
+
 if [[ $host == *beskow* ]]
 then
     num_procs_node=32
@@ -35,14 +41,23 @@ function makeTest
     hMax=${15} 
     hSamples=${16} 
     num_procs=${17}
+    build_dir=${18}
 # One global node + given number, make sure to round up
+    if [[ $build_dir == "build_s" ]] 
+    then 
+        num_nodes=1
+        # Incremented later by 1
+        num_procs=0
+    else
     num_nodes=$(((($num_procs + 1) + ($num_procs_node-1)) / $num_procs_node))
-    job_name=$test_name"_n"$num_procs
-    output_file="./"$job_name".sh"
-    
+    fi
+    job_name=$test_name"_n"$num_procs"_h"$hSamples
+    output_file="./"$test_name"/"$job_name".sh"
+    mkdir -p $test_name
     echo -e "#!/bin/bash -l\n# The -l above is required to get the full environment with modules\n" > $output_file
     echo -e "# Set the name of the script\n#SBATCH -J $job_name\n" >> $output_file
     echo -e "# Set the allocation to be charged for this job\n#SBATCH -A $account\n" >> $output_file
+
     echo -e "# Set the allocated time for the job\n#SBATCH -t 00:10:00\n" >> $output_file
     echo -e "# Set the node type to Haswell nodes only\n#SBATCH -C Haswell\n" >> $output_file
     echo -e "# Set the number of nodes\n#SBATCH --nodes=$num_nodes\n" >> $output_file
@@ -56,9 +71,9 @@ function makeTest
     for test in `seq 1 1 2`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
-        echo -e "aprun -n $(($num_procs+1)) ./PercMPI --dataPath $datapath --rmsFile $rmsFile"\
+        echo -e "aprun -n $(($num_procs+1)) .$buildDir/PercMPI --dataPath $datapath --rmsFile $rmsFile"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
-	    "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
+	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--computeMode 0 --outputMode 1"\ >> $output_file
@@ -73,7 +88,7 @@ function makeTest
 if [[ $test_type == 1 ]]
 then
     test_name="strong_duct180"
-    datapath="../../Data/P3"
+    datapath="../Data/P3"
     rmsFile="uv_000"
     dataSizeX=193 
     dataSizeY=194
@@ -85,17 +100,51 @@ then
     hMin=0.0
     hMax=2.0 
     hSamples=1001
-    for num_procs in 40 #512 256 128 32 16 8
+    blockSizeX=193
+    blockSizeY=194 
+    blockSizeZ=1000
+    num_procs=1
+    for tests in `seq 1 1 2`
     do
-        blockSizeX=97
-        blockSizeY=97 
-        blockSizeZ=100
-        makeTest $test_name $datapath $rmsFile $dataSizeX $dataSizeY $dataSizeZ $timeStep $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs
+        num_procs=$(($num_procs*2))
+        if [[ $blockSizeX -ge $blockSizeY && $blockSizeX -ge $blockSizeZ ]]
+        then
+            blockSizeX=$((($blockSizeX+1)/2))
+        elif [[ $blockSizeY -ge $blockSizeX && $blockSizeY -ge $blockSizeZ ]]
+        then
+            blockSizeY=$((($blockSizeY+1)/2))
+        else
+            blockSizeZ=$((($blockSizeZ+1)/2))
+        fi
+        echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
+        makeTest $test_name $datapath $rmsFile $dataSizeX $dataSizeY $dataSizeZ $timeStep $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
     done
 # Make the weak-scaling tests for the 180-duct
 elif [[ $test_type == 2 ]]
 then
     test_name="baseline_duct180"
+    datapath="../Data/P3"
+    rmsFile="uv_000"
+    dataSizeX=193 
+    dataSizeY=194
+    dataSizeZ=1000
+    timeStep=1
+    totalSizeX=193
+    totalSizeY=194
+    totalSizeZ=1000
+    hMin=0.0
+    hMax=2.0 
+    hSamples=1
+    blockSizeX=193
+    blockSizeY=194 
+    blockSizeZ=1000
+    num_procs=1
+    for tests in `seq 1 1 5`
+    do
+        hSamples=$(($hSamples*10))
+        echo "Generating baseline test with "$hSamples" samples."
+        makeTest $test_name $datapath $rmsFile $dataSizeX $dataSizeY $dataSizeZ $timeStep $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
+    done
 
 fi
 

@@ -299,8 +299,10 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         redSize = globalBlock.redSize();
 
         loadTime = timer.ElapsedTimeAndReset();
+#ifndef NDEBUG
         std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
+#endif
 
         communicationTime = 0.0;
         watershedTime = 0.0;
@@ -416,8 +418,10 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
     else {
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
         loadTime = timer.ElapsedTimeAndReset();
+#ifndef NDEBUG
         std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
+#endif
         communicationTime = 0.0;
         watershedTime = 0.0;
 
@@ -1146,7 +1150,7 @@ int main(int argc, char** argv) {
     vec3i blockOffset = blockSize * idxNode;
     blockSize = vec3i::min(totalSize, blockSize * (idxNode + 1)) - blockOffset;
 
-#ifndef SINGLENODE
+#if !defined(SINGLENODE) && !defined(NDEBUG)
     // Print process info
     if (currProcess != 0 && computeMode == REAL)
         std::cout << "Rank " << currProcess << ", index " << idxNode << ", offset " << blockOffset
@@ -1325,8 +1329,10 @@ int main(int argc, char** argv) {
         time_t t = time(0);
         struct tm* now = localtime(&t);
 
-        ss << (now->tm_year + 1900) << "-" << (now->tm_mon + 1) << "-" << now->tm_mday << "_"
-           << now->tm_hour << "-" << now->tm_min << "-" << now->tm_sec << "_" << clock();
+        ss << (now->tm_year + 1900) << "-" << ((now->tm_mon + 1) < 10 ? "0" : "")
+           << (now->tm_mon + 1) << "-" << (now->tm_mday < 10 ? "0" : "") << now->tm_mday << "_"
+           << now->tm_hour << "-" << (now->tm_min < 10 ? "0" : "") << now->tm_min << "-"
+           << (now->tm_sec < 10 ? "0" : "") << now->tm_sec << "_" << clock();
 
         std::string timeStamp = ss.str();
 

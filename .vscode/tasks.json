@@ -21,6 +21,13 @@
             "isBuildCommand": true
         },
         {
+            "taskName": "Single node, No Communcation, Isotroph",
+            "args": [
+                "mkdir -p buildsi && cd buildsi && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/Iso4096/iso128x128x128.raw --avgValue 103.703369 --rmsValue 94.630 --dataSize 128 128 128 --timeStep 1 --totalSize 128 128 128 --blockSize 25 25 100 --hMin 0.0 --hMax 2.0 --hSamples 1000 --computeMode 0 --inputMode 3"
+            ],
+            "isBuildCommand": true
+        },
+        {
             "taskName": "Single Node, Communication",
             "args": [
                 "mkdir -p buildsc && cd buildsc && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE -DCOMMUNICATION' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_005 --dataSize 193 194 1000 --timeStep 1 --totalSize 100 100 200 --blockSize 25 25 100 --hMin 0.0 --hMax 2.0 --hSamples 101 --computeMode 0"

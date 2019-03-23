@@ -10,6 +10,9 @@ ind PercolationLoader::TimeStep = 1;
 std::string PercolationLoader::Directory = "";
 std::string PercolationLoader::RmsFilename = "uv_000";
 vec3i PercolationLoader::TotalSizeFile = vec3i(193, 194, 1000);
+float PercolationLoader::AvgValue = 0.0f;
+float PercolationLoader::RmsValue = 1.0f;
+InputMode PercolationLoader::Mode = InputMode::INVALID;
 
 const std::unordered_map<std::string, PercolationLoader::ScalarFunc>
     PercolationLoader::ScalarVariants(
@@ -127,7 +130,7 @@ double* PercolationLoader::loadBlock(const std::string& path, bool is2D) const {
 
 double* PercolationLoader::normalizedFromComponents(const std::array<double*, 3> velocity,
                                                     const std::array<double*, 3> average,
-                                                    const double* rms) {
+                                                    const double* rms) const {
     if (!RmsFunction) {
         std::cerr << "No rms function defined.";
         return nullptr;
@@ -155,13 +158,61 @@ double* PercolationLoader::normalizedFromComponents(const std::array<double*, 3>
     return scalar;
 }
 
-double* PercolationLoader::loadScalarData() {
+double* PercolationLoader::loadIsotrop() const {
+    ind numElements = BlockSize.prod();
+    double* scalar;
+
+    if (!fileExists(Directory)) {
+        std::cerr << "File \"" << Directory << "\" does not exist.\n";
+        return nullptr;
+    }
+    std::ifstream file(Directory, std::ios::binary);
+
+    // Get length of file.
+    ind fileLength;
+    file.seekg(0, std::ios::end);
+    fileLength = file.tellg();
+    file.seekg(0, std::ios::beg);
+    if (fileLength != numElements * sizeof(float)) {
+        std::cerr << "File \"" << Directory << "\" does not have right size, expected "
+                  << numElements << " floats.";
+        return nullptr;
+    }
+
+    // Correct length. Just load all into file.
+    ind blockNum = BlockSize.prod();
+
+    char* buffer = new char[blockNum * sizeof(float)];
+    char* bufferIt = buffer;
+    for (ind z = 0; z < BlockSize.z; ++z) {
+        for (ind y = 0; y < BlockSize.y; ++y) {
+            vec3i locIdx(0, y, z);
+            vec3i globIdx = locIdx + BlockOffset;
+
+            file.seekg(globIdx.toIndexOfTotal(TotalSizeFile) * sizeof(float), std::ios::beg);
+            file.read(bufferIt, BlockSize.x * sizeof(float));
+            bufferIt += BlockSize.x * sizeof(float);
+        }
+    }
+
+    // Reading done. Convert to normalized double.
+    scalar = new double[blockNum];
+    float* bufferData = reinterpret_cast<float*>(buffer);
+    for (ind i = 0; i < blockNum; ++i) {
+        scalar[i] = fabs(bufferData[i] - AvgValue) / RmsValue;
+    }
+    delete[] buffer;
+
+    return scalar;
+}
+double* PercolationLoader::loadDuct() {
+    ind numElements = BlockSize.prod();
+    double* scalar;
+
     const std::string& pathVelocity = Directory + "/VELOCITY/";
     const std::string& pathAverage = Directory + "/STAT/";
     const std::string& pathRms = Directory + "/ZEXPORT_STAT_wall_correction/" + RmsFilename;
     const std::string& pathVertex = Directory + "/STAT/";
-
-    ind numElements = BlockSize.prod();
 
     //    PerformanceTimer Timer;
     ind numZeros = 4 - (ind)std::log10(TimeStep);
@@ -200,7 +251,7 @@ double* PercolationLoader::loadScalarData() {
 
     //   Timer.Reset();
 
-    double* scalar = normalizedFromComponents(dataBuffer, avgBuffer, rmsBuffer);
+    scalar = normalizedFromComponents(dataBuffer, avgBuffer, rmsBuffer);
 
     //    std::cout << "\t\tGrid creation and normalization took " << Timer.ElapsedTime() <<
     //    "seconds.";
@@ -210,10 +261,19 @@ double* PercolationLoader::loadScalarData() {
         delete[] dataBuffer[i];
         delete[] avgBuffer[i];
     }
-
-    // Assume uniform volume for now
-
     return scalar;
+}
+
+double* PercolationLoader::loadScalarData() {
+    switch (Mode) {
+        case InputMode::COMBINED_VELOCITY_AVG_2RMS_FILE:
+        case InputMode::COMBINED_VELOCITY_AVG_RMS_FILE:
+            return loadDuct();
+        case InputMode::COMBINED_VELOCITY_AVG_RMS_VALUE:
+            return loadIsotrop();
+        default:
+            return nullptr;
+    }
 }
 
 void PercolationLoader::getRmsTypeFromFilename(const std::string& rmsName) {

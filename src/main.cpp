@@ -7,6 +7,7 @@
 #include <sstream>
 #include <cassert>
 #include <cmath>
+#include <ctgmath>
 #include "vec.h"
 #include "datablock.h"
 #include "mpicommuncation.h"
@@ -17,28 +18,6 @@
 #include "percolationloader.h"
 
 using namespace perc;
-
-enum InputMode {
-    // Velocity as  timestep.x, timestep.y, timestep.z,
-    // Wall correction filename determines scalar
-    // Averages for u/w/v
-    // Rms file for product of two components uv/uw/..
-    COMBINED_VELOCITY_AVG_RMS_FILE = 0,
-    // Same as before except that we have two Rms files (e.g. components separately)
-    COMBINED_VELOCITY_AVG_2RMS_FILE = 1,
-    // Run on velocity product directly
-    VELOCITY_FILE = 2,
-    // Rms in each component and avgs as single value (Isotropic dataset)
-    COMBINED_VELOCITY_AVG_RMS_VALUE = 3,
-
-    // Directly load a scalar file (.vti)
-    SCALAR = 10,
-    // Uniformly random data between 0 and 1
-    RANDOM_UNIFORM = 20,
-    SHUFFLED_COMBINED_VELOCITY_AVG_RMS_FILE = 100,
-    SHUFFLED_VELOCITY_FILE = 112,
-    SHUFFLED_SCALAR = 110,
-};
 
 enum ComputeMode {
     REAL = 0,
@@ -876,7 +855,7 @@ void watershedWhiteRedGreen(vec3i blockSize, vec3i blockOffset, vec3i totalSize,
 // - s:           mode
 int main(int argc, char** argv) {
 
-    ind inputMode = -1;
+    InputMode inputMode = InputMode::INVALID;
     ind computeMode = -1;
     ind outputMode = -1;
 
@@ -892,13 +871,7 @@ int main(int argc, char** argv) {
 
     // inputMode == COMBINED_VELOCITY_AVG_RMS_VALUE
     float avgValue = std::numeric_limits<float>::lowest();
-    bool avgValueSet = false;
-    float rmsU = std::numeric_limits<float>::lowest();
-    bool rmsUSet = false;
-    float rmsV = std::numeric_limits<float>::lowest();
-    bool rmsVSet = false;
-    float rmsW = std::numeric_limits<float>::lowest();
-    bool rmsWSet = false;
+    float rmsValue = -1;
 
     vec3i totalSize(-1);
     vec3i blockSize(-1);
@@ -947,6 +920,12 @@ int main(int argc, char** argv) {
             computeMode = atoi(argv[++argId]);
         } else if (strcmp(argv[argId], "--outputMode") == 0 && (argc - argId) > 1) {
             outputMode = atoi(argv[++argId]);
+        } else if (strcmp(argv[argId], "--inputMode") == 0 && (argc - argId) > 1) {
+            inputMode = static_cast<InputMode>(atoi(argv[++argId]));
+        } else if (strcmp(argv[argId], "--avgValue") == 0 && (argc - argId) > 1) {
+            avgValue = atof(argv[++argId]);
+        } else if (strcmp(argv[argId], "--rmsValue") == 0 && (argc - argId) > 1) {
+            rmsValue = atof(argv[++argId]);
         }
         // Default: Catch errors
         else {
@@ -987,14 +966,16 @@ int main(int argc, char** argv) {
 
     // Check for unset arguments and set tot default values;
 
-    if (inputMode == -1) {
-        inputMode = COMBINED_VELOCITY_AVG_RMS_FILE;
-        std::cout << "Input Mode (--inputMode) has not been set, using default " << inputMode << "."
-                  << std::endl;
+    if (inputMode == InputMode::INVALID) {
+        inputMode = InputMode::COMBINED_VELOCITY_AVG_RMS_FILE;
+        std::cout << "Input Mode (--inputMode) has not been set, using default "
+                  << static_cast<int>(inputMode) << "." << std::endl;
+
+        PercolationLoader::setSettings(inputMode, dataSize, baseFolder, rmsFilename, timeStep);
     }
 
     // TODO: Other input modes
-    if (inputMode == COMBINED_VELOCITY_AVG_RMS_FILE) {
+    if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE) {
         if (!baseFolder) {
             std::cerr << "Path to data (--dataPath) has not been set." << std::endl;
             return 1;
@@ -1003,6 +984,24 @@ int main(int argc, char** argv) {
             std::cerr << "RMS file name (--rmsFilename) has not been set." << std::endl;
             return 1;
         }
+        PercolationLoader::setSettings(inputMode, dataSize, baseFolder, rmsFilename, timeStep);
+    }
+
+    if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_VALUE) {
+        if (!baseFolder) {
+            std::cerr << "Path to data (--dataPath) has not been set." << std::endl;
+            return 1;
+        }
+        if (rmsValue == -1) {
+            std::cerr << "RMS value (--rmsValue) has not been set." << std::endl;
+            return 1;
+        }
+        if (avgValue == std::numeric_limits<float>::lowest()) {
+            std::cerr << "Average value (--avgValue) has not been set." << std::endl;
+            return 1;
+        }
+        PercolationLoader::setSettings(inputMode, dataSize, baseFolder, timeStep, avgValue,
+                                       rmsValue);
     }
 
     if (dataSize == vec3i(-1)) {
@@ -1074,7 +1073,6 @@ int main(int argc, char** argv) {
 #endif
     }
 
-    PercolationLoader::setSettings(dataSize, baseFolder, rmsFilename, timeStep);
     vec3i numNodes;
 
     for (int n = 0; n < 3; ++n) {
@@ -1114,18 +1112,18 @@ int main(int argc, char** argv) {
 
     if (currProcess == 0) {
         std::cout << "####### Settings #######" << std::endl;
-        if (inputMode != RANDOM_UNIFORM) {
+        if (inputMode != InputMode::RANDOM_UNIFORM) {
             std::cout << "dataPath: \t\t" << baseFolder << std::endl;
             std::cout << "dataSize: \t\t" << dataSize << std::endl;
         }
-        if (inputMode == COMBINED_VELOCITY_AVG_RMS_FILE ||
-            inputMode == COMBINED_VELOCITY_AVG_2RMS_FILE) {
+        if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE ||
+            inputMode == InputMode::COMBINED_VELOCITY_AVG_2RMS_FILE) {
             std::cout << "rmsFile: \t\t" << rmsFilename << std::endl;
         }
-        if (inputMode == COMBINED_VELOCITY_AVG_2RMS_FILE) {
+        if (inputMode == InputMode::COMBINED_VELOCITY_AVG_2RMS_FILE) {
             std::cout << "rmsFile2: \t\t" << rmsFilename2 << std::endl;
         }
-        if (inputMode != RANDOM_UNIFORM && inputMode != SCALAR) {
+        if (inputMode != InputMode::RANDOM_UNIFORM && inputMode != InputMode::SCALAR) {
             std::cout << "timeStep: \t\t" << timeStep << std::endl;
         }
         std::cout << "totalSize: \t\t" << totalSize << std::endl;
@@ -1381,7 +1379,7 @@ int main(int argc, char** argv) {
             if (timingsFile.is_open()) {
                 // dataSize should be fixed for dataPath, so it does not need to be included
                 timingsFile << "timeStamp; inputMode;";
-                if (inputMode == COMBINED_VELOCITY_AVG_RMS_FILE) {
+                if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE) {
                     timingsFile << "dataPath; rmsFilename; timeStep; ";
                 }
                 timingsFile << "totalSizeX; totalSizeY; totalSizeZ; "
@@ -1415,8 +1413,8 @@ int main(int argc, char** argv) {
 #endif  // COMMUNCATION
 #endif  // SINGLENODE
                 timingsFile << "runType;" << std::endl;
-                timingsFile << timeStamp << ";" << inputMode << ";";
-                if (inputMode == COMBINED_VELOCITY_AVG_RMS_FILE) {
+                timingsFile << timeStamp << ";" << static_cast<int>(inputMode) << ";";
+                if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE) {
                     timingsFile << baseFolder << ";" << rmsFilename << ";" << timeStep << ";";
                 }
 

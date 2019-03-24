@@ -58,12 +58,17 @@ OBJ =	soapC.o \
 	stdsoap2.o \
         turblib.o
 
-all: iso4096
+all: iso4096 isoTest
 
 iso4096 : $(OBJ) iso4096.o
 	 $(CC) -o $@ $(OBJ) iso4096.o $(LDLIBS) -lm
 
 iso4096.o: compiler_flags
+
+isoTest : $(OBJ) isoTest.o
+	 $(CC) -o $@ $(OBJ) isoTest.o $(LDLIBS) -lm
+
+isoTest.o: compiler_flags
 
 stdsoap2.o: stdsoap2.c
 	$(CC) $(CFLAGS) -c $<
@@ -106,7 +111,7 @@ prodtestwsdl:
 	soapcpp2 -CLcx -2 -I.:$(SOAP_INCLUDE_DIR) TurbulenceService.h
 
 clean:
-	$(RM) *.o *.exe turbf turbc mhdc mhdf channelc channelf mixingc mixingf iso4096 compiler_flags
+	$(RM) *.o *.exe iso4096 isoTest compiler_flags
 
 spotless: clean
 	$(RM) soapClient.c TurbulenceServiceSoap.nsmap soapH.h TurbulenceServiceSoap12.nsmap soapStub.h soapC.c TurbulenceService.h

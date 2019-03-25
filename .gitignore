@@ -37,5 +37,13 @@ build/
 build*/
 scripts/strong_*
 scripts/baseline*
-timings*.csv
-percolation*.csv
+strong_*
+weak_*
+baseline_*
+*timings*.csv
+*percolation*.csv
+
+#Fetchiso executable
+fetchIso/isoTest
+fetchIso/iso4096
+scripts/jobid.tmp

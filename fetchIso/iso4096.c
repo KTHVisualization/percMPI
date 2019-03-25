@@ -37,10 +37,10 @@ int compare_threshold(const void *a_void, const void *b_void) {
 int main(int argc, char *argv[]) {
 
     // Settings //
-    const char *filename = "../../Data/Percolation/Iso4096/iso64x64x64.raw";
-    int x_size = 64;
-    int y_size = 64;
-    int z_size = 64;
+    const char *filename = "../../Data/Iso4096/iso512x512x512.raw";
+    int x_size = 512;
+    int y_size = 512;
+    int z_size = 512;
     // Settings //
 
     char *authtoken = "please provide your own";
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     float average_total = 0;
     float average_block = 0;
 
-    int max_elements = 1024 * 512;
+    int max_elements = 1024 * 1024;
     int y_step = max_elements / x_size;
     if (y_step > y_size) y_step = y_size;
     int z_step = y_step < y_size ? 1 : max_elements / (x_size * y_size);

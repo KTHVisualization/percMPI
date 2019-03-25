@@ -159,7 +159,7 @@ double* PercolationLoader::normalizedFromComponents(const std::array<double*, 3>
 }
 
 double* PercolationLoader::loadIsotrop() const {
-    ind numElements = BlockSize.prod();
+    ind numElements = TotalSizeFile.prod();
     double* scalar;
 
     if (!fileExists(Directory)) {

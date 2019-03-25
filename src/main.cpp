@@ -168,6 +168,8 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
         localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
 #endif
     }
+    loadTime = timer.ElapsedTimeAndReset();
+    std::cout << "Loaded and sorted local block data in " << loadTime << " seconds." << std::endl;
     // Master block
     GlobalBlock globalBlock(blockSize, totalSize, numNodes);
     greenSize = globalBlock.greenSize();
@@ -183,7 +185,7 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
 #endif
 
     loadTime = timer.ElapsedTimeAndReset();
-    std::cout << "Loaded and sorted data in " << loadTime << " seconds." << std::endl;
+    std::cout << "Loaded and sorted global block data in " << loadTime << " seconds." << std::endl;
 
     communicationTime = 0.0;
     watershedTime = 0.0;
@@ -303,6 +305,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
 #endif
+        // Synchronize once after everybody has loaded
+        MPI_Barrier(MPI_COMM_WORLD);
 
         communicationTime = 0.0;
         watershedTime = 0.0;
@@ -422,6 +426,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
 #endif
+        // Synchronize once after loading
+        MPI_Barrier(MPI_COMM_WORLD);
         communicationTime = 0.0;
         watershedTime = 0.0;
 
@@ -863,6 +869,8 @@ int main(int argc, char** argv) {
     ind computeMode = -1;
     ind outputMode = -1;
 
+    char* outputPrefix = nullptr;
+
     // If inputMode == COMBINED_VELOCITY_AVG_RMS(2)_FILE, VELOCITY_FILE, SCALAR
     char* baseFolder = nullptr;
     vec3i dataSize(-1);
@@ -924,6 +932,8 @@ int main(int argc, char** argv) {
             computeMode = atoi(argv[++argId]);
         } else if (strcmp(argv[argId], "--outputMode") == 0 && (argc - argId) > 1) {
             outputMode = atoi(argv[++argId]);
+        } else if (strcmp(argv[argId], "--outputPrefix") == 0 && (argc - argId) > 1) {
+            outputPrefix = argv[++argId];
         } else if (strcmp(argv[argId], "--inputMode") == 0 && (argc - argId) > 1) {
             inputMode = static_cast<InputMode>(atoi(argv[++argId]));
         } else if (strcmp(argv[argId], "--avgValue") == 0 && (argc - argId) > 1) {
@@ -1340,7 +1350,8 @@ int main(int argc, char** argv) {
             const int maxClusters = *(std::max_element(numClusters.cbegin(), numClusters.cend()));
 
             std::ofstream percFile;
-            std::string fileName = "percolation_" + timeStamp + ".csv";
+            std::string fileName = (outputPrefix ? std::string(outputPrefix) + "_" : "") +
+                                   "percolation_" + timeStamp + ".csv";
 
             percFile.open(fileName, std::ios::out);
 
@@ -1378,8 +1389,8 @@ int main(int argc, char** argv) {
         if (outputMode == TIMINGS || outputMode == CURVES_AND_TIMINGS) {
 
             std::ofstream timingsFile;
-            std::string fileName = "timings_" + timeStamp + ".csv";
-
+            std::string fileName = (outputPrefix ? std::string(outputPrefix) + "_" : "") +
+                                   "timings_" + timeStamp + ".csv";
             timingsFile.open(fileName, std::ios::out);
 
             if (timingsFile.is_open()) {
@@ -1390,7 +1401,7 @@ int main(int argc, char** argv) {
                 }
                 timingsFile << "totalSizeX; totalSizeY; totalSizeZ; "
                                "blockSizeX; blockSizeY; blockSizeZ; "
-                               "numNodesX; numNodesY; numNodesZ; "
+                               "numNodesX; numNodesY; numNodesZ; numNodesTotal;"
                                "hMin; hMax; hSamples; totalTime; ";
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
@@ -1404,10 +1415,12 @@ int main(int argc, char** argv) {
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
                 if (computeMode == REAL) {
-                    timingsFile << "loadTimeGlobal; communicationTimeGlobal; watershedTimeGlobal; "
-                                   "loadTimeLocalAvg; communicationTimeAvg; watershedTimeAvg; ";
+                    timingsFile
+                        << "loadTimeGlobal; communicationTimeGlobal; watershedTimeGlobal; "
+                           "loadTimeLocalAvg; communicationTimeLocalAvg; watershedTimeLocalAvg; ";
 #ifdef COLLECTIVES
-                    timingsFile << "loadTimeLocalStd; communicationTimeStd; watershedTimeStd; ";
+                    timingsFile
+                        << "loadTimeLocalStd; communicationTimeLocalStd; watershedTimeLocalStd; ";
 #endif
                     timingsFile << "globalMemEstimage; localMemEstimateAvg; ";
 #ifdef COLLECTIVES
@@ -1426,8 +1439,9 @@ int main(int argc, char** argv) {
 
                 timingsFile << totalSize.x << ";" << totalSize.y << ";" << totalSize.z << ";"
                             << blockSize.x << ";" << blockSize.y << ";" << blockSize.z << ";"
-                            << numNodes.x << ";" << numNodes.y << ";" << numNodes.z << ";" << hMin
-                            << ";" << hMax << ";" << hSamples << ";" << totalTime << ";";
+                            << numNodes.x << ";" << numNodes.y << ";" << numNodes.z << ";"
+                            << numNodes.prod() << ";" << hMin << ";" << hMax << ";" << hSamples
+                            << ";" << totalTime << ";";
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
                 if (computeMode == REAL)
@@ -1449,12 +1463,12 @@ int main(int argc, char** argv) {
 
 #ifdef COLLECTIVES
                     float times[3] = {0, 0, 0};
-                    float timesSum[3];
+                    float timesSum[3] = {0, 0, 0};
                     MPICommunication::handleError(
                         MPI_Allreduce(&times, &timesSum, 3, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
                     // Everyone local node computes squared deviation
 
-                    float timesDev[3];
+                    float timesDev[3] = {0, 0, 0};
                     MPICommunication::handleError(
                         MPI_Reduce(&times, &timesDev, 3, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
 
@@ -1484,8 +1498,8 @@ int main(int argc, char** argv) {
                                 << "PC;";
 
 #else
-                    float loadTimeLocalAvg, communicationTimeLocalAvg, watershedTimeLocalAvg,
-                        memEstimateLocalAvg = 0.0f;
+                    float loadTimeLocalAvg = 0.0, communicationTimeLocalAvg = 0.0,
+                          watershedTimeLocalAvg = 0.0, memEstimateLocalAvg = 0.0f;
                     MPI_Status status;
                     for (ind p = 0; p < numNodes.prod(); p++) {
                         ind processIndex = p + 1;
@@ -1542,7 +1556,7 @@ int main(int argc, char** argv) {
     else if (computeMode == REAL) {
 #ifdef COLLECTIVES
         float times[3] = {loadTime, communicationTime, watershedTime};
-        float timesSum[3];
+        float timesSum[3] = {0, 0, 0};
         MPICommunication::handleError(
             MPI_Allreduce(&times, &timesSum, 3, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
         for (int t = 0; t < 3; t++) {
@@ -1554,7 +1568,7 @@ int main(int argc, char** argv) {
         MPICommunication::handleError(
             MPI_Reduce(&times, nullptr, 3, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
 
-        ind memSum;
+        ind memSum = 0;
         MPICommunication::handleError(
             MPI_Allreduce(&memEstimate, &memSum, 1, MPI_IND, MPI_SUM, MPI_COMM_WORLD));
         // Everyone local node computes squared deviation

@@ -80,7 +80,7 @@ function makeTestDuct
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
-            "--inputMode 0 computeMode 0 --outputMode 2 --outputPrefix $test_name"\ >> $output_file
+            "--inputMode 0 --computeMode 0 --outputMode 2 --outputPrefix $test_name"\ >> $output_file
         echo -e "echo \"Done.\"" >> $output_file
     # Run 10 tests taking only timings
     for test in `seq 1 1 10`
@@ -91,7 +91,7 @@ function makeTestDuct
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
-            "--inputMode 0 computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
+            "--inputMode 0 --computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
         echo -e "echo \"Done.\"" >> $output_file
     done
     
@@ -154,7 +154,7 @@ function makeTestIso512
     echo -e "echo -e \"Running job \\\\\"$job_name\\\\\"\\\\n---------------------\"" >> $output_file
     
     echo -e "echo -n \"    Performing initial test... \"" >> $output_file
-        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $argValue --rmsValue $rmsValue"\
+        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $avgValue --rmsValue $rmsValue"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
@@ -165,12 +165,12 @@ function makeTestIso512
     for test in `seq 1 1 10`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
-        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $argValue --rmsValue $rmsValue"\
+        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $avgValue --rmsValue $rmsValue"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
-            "--inputMode 3 computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
+            "--inputMode 3 --computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
         echo -e "echo \"Done.\"" >> $output_file
     done
     
@@ -279,7 +279,7 @@ then
 # Make the weak-scaling tests for the 180-duct
 elif [[ $test_type == 4 ]]
 then
-    test_name="weak_duct180"
+    test_name="weakh_duct180"
     hMin=0.0
     hMax=2.0 
     blockSizeX=193

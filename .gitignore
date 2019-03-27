@@ -40,6 +40,7 @@ scripts/baseline*
 strong_*
 weak_*
 baseline_*
+merge_*
 *timings*.csv
 *percolation*.csv
 

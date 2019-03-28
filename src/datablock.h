@@ -20,6 +20,8 @@ public:
     double *Scalars, *Volumes;
     ind* Indices;
     const vec3i BlockSize, BlockOffset, TotalSize;
+    static ind NumThresholds;
+    static double ThresholdMin, ThresholdMax;
 };
 
 }  // namespace perc

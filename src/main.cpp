@@ -1018,6 +1018,10 @@ int main(int argc, char** argv) {
                                        rmsValue);
     }
 
+    if (inputMode == InputMode::RANDOM_UNIFORM) {
+        PercolationLoader::setSettings(inputMode, totalSize);
+    }
+
     if (dataSize == vec3i(-1)) {
         dataSize = vec3i(193, 194, 1000);
         std::cout << "Dimensions of the data in files (--dataSize) has not been set, using default "
@@ -1065,6 +1069,9 @@ int main(int argc, char** argv) {
         std::cout << "Number of samples in h (--hSamples) has not been set, using default "
                   << hSamples << "." << std::endl;
     }
+    DataBlock::NumThresholds = hSamples;
+    DataBlock::ThresholdMin = hMin;
+    DataBlock::ThresholdMax = hMax;
 
     // Output Mode
     if (outputMode == -1) {

@@ -14,6 +14,9 @@ float PercolationLoader::AvgValue = 0.0f;
 float PercolationLoader::RmsValue = 1.0f;
 InputMode PercolationLoader::Mode = InputMode::INVALID;
 
+std::mt19937 PercolationLoader::RandomGenerator;
+std::uniform_real_distribution<> PercolationLoader::RandomDistribution;
+
 const std::unordered_map<std::string, PercolationLoader::ScalarFunc>
     PercolationLoader::ScalarVariants(
         {{"uv", [](const std::array<double, 3>& data,
@@ -205,6 +208,7 @@ double* PercolationLoader::loadIsotrop() const {
 
     return scalar;
 }
+
 double* PercolationLoader::loadDuct() {
     ind numElements = BlockSize.prod();
     double* scalar;
@@ -264,6 +268,16 @@ double* PercolationLoader::loadDuct() {
     return scalar;
 }
 
+double* PercolationLoader::loadRandom() const {
+    ind blockNum = BlockSize.prod();
+    double* scalar = new double[blockNum];
+
+    for (ind i = 0; i < blockNum; ++i) {
+        scalar[i] = RandomDistribution(RandomGenerator);
+    }
+    return scalar;
+}
+
 double* PercolationLoader::loadScalarData() {
     switch (Mode) {
         case InputMode::COMBINED_VELOCITY_AVG_2RMS_FILE:
@@ -271,6 +285,8 @@ double* PercolationLoader::loadScalarData() {
             return loadDuct();
         case InputMode::COMBINED_VELOCITY_AVG_RMS_VALUE:
             return loadIsotrop();
+        case InputMode::RANDOM_UNIFORM:
+            return loadRandom();
         default:
             return nullptr;
     }

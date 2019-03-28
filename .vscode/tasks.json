@@ -21,6 +21,13 @@
             "isBuildCommand": true
         },
         {
+            "taskName": "Single node, No Communcation Random",
+            "args": [
+                "mkdir -p builds && cd builds && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI --totalSize 64 64 64 --blockSize 32 32 32 --hMin 0.0 --hMax 1.0 --hSamples 1001 --computeMode 0 --inputMode 20"
+            ],
+            "isBuildCommand": true
+        },
+        {
             "taskName": "Single node, No Communcation, Isotroph",
             "args": [
                 "mkdir -p buildsi && cd buildsi && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/Iso4096/iso128x128x128.raw --avgValue 103.703369 --rmsValue 94.630 --dataSize 128 128 128 --timeStep 1 --totalSize 128 128 128 --blockSize 25 25 100 --hMin 0.0 --hMax 2.0 --hSamples 1000 --computeMode 0 --inputMode 3"
@@ -45,6 +52,13 @@
             "taskName": "Single node, No Communcation Release",
             "args": [
                 "mkdir -p builds-r && cd builds-r && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_005 --dataSize 193 194 1000 --timeStep 1 --totalSize 193 194 1000 --blockSize 193 194 1000 --hMin 0.0 --hMax 2.0 --hSamples 1001 --computeMode 0 --outputMode 2"
+            ],
+            "isBuildCommand": true
+        },
+        {
+            "taskName": "Single node, No Communcation Random Release",
+            "args": [
+                "mkdir -p builds-r && cd builds-r && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI  --totalSize 64 64 64 --blockSize 32 32 32 --hMin 0.0 --hMax 1.0 --hSamples 1001 --computeMode 0 --inputMode 20"
             ],
             "isBuildCommand": true
         },

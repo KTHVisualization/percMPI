@@ -1,7 +1,9 @@
 #pragma once
 #include "vec.h"
+#include <mpi.h>
 #include <string>
 #include <unordered_map>
+#include <random>
 
 namespace perc {
 
@@ -42,6 +44,7 @@ public:
 
     double* loadIsotrop() const;
     double* loadDuct();
+    double* loadRandom() const;
 
     void getRmsTypeFromFilename(const std::string& rmsName);
 
@@ -75,6 +78,25 @@ public:
         RmsValue = rmsValue;
     }
 
+    static void setSettings(InputMode mode, vec3i totalSize) {
+        assert(mode == InputMode::RANDOM_UNIFORM && "Not enough parameters for input method.");
+        Mode = mode;
+        TotalSizeFile = totalSize;
+
+        int mpiInitialized;
+        MPI_Initialized(&mpiInitialized);
+
+        if (mpiInitialized) {
+            int currProcess;
+            MPI_Comm_rank(MPI_COMM_WORLD, &currProcess);
+            RandomGenerator = std::mt19937(currProcess);
+        } else {
+            std::random_device rd;
+            RandomGenerator = std::mt19937(rd());
+        }
+        RandomDistribution = std::uniform_real_distribution<>(0.0, 1.0);
+    }
+
     static void setTimeStep(ind timeStep) { TimeStep = timeStep; }
 
 private:
@@ -91,6 +113,10 @@ private:
     static ind TimeStep;
     static float AvgValue;
     static float RmsValue;
+
+    // Random generation.
+    static std::mt19937 RandomGenerator;
+    static std::uniform_real_distribution<> RandomDistribution;
 };
 
 }  // namespace perc

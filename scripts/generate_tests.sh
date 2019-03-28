@@ -270,14 +270,14 @@ function makeTestMergeIso512
     echo -e "#!/bin/bash -l\n# The -l above is required to get the full environment with modules\n" > $output_file
     echo -e "# Set the name of the script\n#SBATCH -J $job_name\n" >> $output_file
     echo -e "# Set the allocation to be charged for this job\n#SBATCH -A $account\n" >> $output_file
-    echo -e "# Set the allocated time for the job\n#SBATCH -t 00:20:00\n" >> $output_file
+    echo -e "# Set the allocated time for the job\n#SBATCH -t 01:00:00\n" >> $output_file
     echo -e "# Set the node type to Haswell nodes only\n#SBATCH -C Haswell\n" >> $output_file
     echo -e "# Set the number of nodes\n#SBATCH --nodes=1\n" >> $output_file
     echo -e "# Set the number of MPI processes\n#SBATCH -n 1\n" >> $output_file
     echo -e "# Set the number of MPI processes per node\n#SBATCH --ntasks-per-node=1\n" >> $output_file
     echo -e "# Set the e-mail preferences for the user\n#SBATCH --mail-type=ALL\n#SBATCH --mail-user=$user_email\n" >> $output_file
     echo -e "# Set the number of OpenMP processes\n#SBATCH -c $num_procs\n"  >> $output_file
-    echo -e "# Set outfile\n#SBATCH -o $job_name.out$\n"  >> $output_file
+    echo -e "# Set outfile\n#SBATCH -o $job_name.out\n"  >> $output_file
     echo -e "echo -e \"Running job \\\\\"$job_name\\\\\"\\\\n---------------------\"" >> $output_file
     
     echo -e "export OMP_NUM_THREADS=$num_procs"  >> $output_file
@@ -485,12 +485,12 @@ then
     totalSizeY=$blockSizeY
     totalSizeZ=$blockSizeZ
     num_procs=1
-    hsamples=1000
+    hSamples=1000
     # Test for the single block
     echo "Generating weak scaling test for "$num_procs" processes with total ("$totalSizeX $totalSizeY $totalSizeZ")."
     makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
     num_procs=1
-    for tests in `seq 1 1 9`
+    for tests in `seq 1 1 6`
     do
         num_procs=$(($num_procs*2))
         if [[ $(($totalSizeX*2)) -le 512 && $totalSizeX -le $totalSizeY && $totalSizeX -le $totalSizeZ ]]

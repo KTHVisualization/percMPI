@@ -21,4 +21,11 @@ then
     cd build_s
     cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DSINGLENODE' ..
     make -j 8
+elif [[ $build_type == "sequentialcomm" ]]
+then
+    mkdir -p build_sc
+    cd build_sc
+    cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DCOMMUNICATION -DSINGLENODE' ..
+    make -j 8
+
 fi

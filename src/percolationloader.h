@@ -14,8 +14,6 @@ enum class InputMode {
     // Averages for u/w/v
     // Rms file for product of two components uv/uw/..
     COMBINED_VELOCITY_AVG_RMS_FILE = 0,
-    // Same as before except that we have two Rms files (e.g. components separately)
-    COMBINED_VELOCITY_AVG_2RMS_FILE = 1,
     // Run on velocity product directly
     VELOCITY_FILE = 2,
     // Rms in each component and avgs as single value (Isotropic dataset)
@@ -43,6 +41,7 @@ public:
                                      const std::array<double*, 3> average, const double* rms) const;
 
     double* loadIsotrop() const;
+    double* loadDuctWithoutNormalization();
     double* loadDuct();
     double* loadRandom() const;
 

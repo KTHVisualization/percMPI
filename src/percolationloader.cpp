@@ -209,6 +209,57 @@ double* PercolationLoader::loadIsotrop() const {
     return scalar;
 }
 
+double* PercolationLoader::loadDuctWithoutNormalization() {
+    ind numElements = BlockSize.prod();
+    double* scalar;
+
+    const std::string& pathVelocity = Directory + "/VELOCITY/";
+
+    ind numZeros = 4 - (ind)std::log10(TimeStep);
+    std::string zeros = std::string(numZeros, '0');
+    zeros = zeros;
+
+    std::array<double*, 3> dataBuffer = {
+        loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vx"),
+        loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vy"),
+        loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vx")};
+
+    if (!dataBuffer[0] || !dataBuffer[1] || !dataBuffer[2]) {
+        for (int i = 0; i < 3; ++i) {
+            delete[] dataBuffer[i];
+        }
+        std::cerr << "Could not load all needed files.\n";
+        return nullptr;
+    }
+
+    scalar = new double[numElements];
+
+    if (!RmsFunction) {
+        std::cerr << "No rms function defined.";
+        return nullptr;
+    }
+
+#pragma omp parallel for
+    for (ind xyz = 0; xyz < numElements; ++xyz) {
+        // Raw data pointer to write to.
+        std::array<double, 3> components, normComponents;
+        for (int n = 0; n < 3; ++n) {
+            // Compute the percolation analysis scalar value.
+            components[n] = dataBuffer[n][xyz];
+            normComponents[n] = dataBuffer[n][xyz];
+            normComponents[n] = std::isfinite(normComponents[n]) ? normComponents[n] : 0;
+        }
+        scalar[xyz] = RmsFunction(normComponents, components);
+    }
+
+    // Get rid of some memory
+    for (int i = 0; i < 3; ++i) {
+        delete[] dataBuffer[i];
+    }
+
+    return scalar;
+}
+
 double* PercolationLoader::loadDuct() {
     ind numElements = BlockSize.prod();
     double* scalar;
@@ -280,9 +331,10 @@ double* PercolationLoader::loadRandom() const {
 
 double* PercolationLoader::loadScalarData() {
     switch (Mode) {
-        case InputMode::COMBINED_VELOCITY_AVG_2RMS_FILE:
         case InputMode::COMBINED_VELOCITY_AVG_RMS_FILE:
             return loadDuct();
+        case InputMode::VELOCITY_FILE:
+            return loadDuctWithoutNormalization();
         case InputMode::COMBINED_VELOCITY_AVG_RMS_VALUE:
             return loadIsotrop();
         case InputMode::RANDOM_UNIFORM:

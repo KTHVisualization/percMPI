@@ -16,6 +16,9 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
     }
 #endif
 
+    PerformanceTimer timer;
+    timer.Reset();
+
     ind totalBlockSize = 0;
     ind numBlocks = 0;
 
@@ -47,11 +50,13 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
         numBlocks += numSlivers.prod();
     }
 
+    std::cout << "Loading " << numBlocks << " blocks, with memory: " << totalBlockSize*4.0/(1024*1024) << "Mb." << std::endl;
     GOGSubBlocks.reserve(numBlocks);
     MemoryGreen = new ID[totalBlockSize];
     MemoryGreenSize = totalBlockSize;
 
     ID* memOngoing = MemoryGreen;
+    ind fancyblockid = 0;
 
     // Reusable variables.
     vec3i whiteOffset, whiteSize;
@@ -111,8 +116,10 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                         dir, whiteSize, whiteOffset, totalSize, memOngoing, *this,
                         [this]() { return GreenProcessor(GOGs); }));
 
+                    timer.Reset();
                     GOGSubBlocks.back().loadData();
-
+		    std::cout << " Loaded #" << fancyblockid++ << " of size " << GOGSubBlocks.back().blockSize().prod() * 4.0 / (1024.0*1024.0) << " in " << timer.ElapsedTimeAndReset() 
+<< std::endl; 
                     // Add to neighborhood lists.
                     // Current node.
                     neighbors[node.toIndexOfTotal(numNodes)].push_back(GOGSubBlocks.size() - 1);

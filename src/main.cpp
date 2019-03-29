@@ -157,7 +157,7 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
 #endif  // NDEBUG
     std::vector<LocalBlock> localBlocks;
 
-    vec3i idxNode;
+    /*vec3i idxNode;
     for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
         // std::cout << "Node " << nodeIdx << std::endl;
         idxNode = vec3i::fromIndexOfTotal(nodeIdx, numNodes);
@@ -167,7 +167,7 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
 #ifndef NDEBUG
         localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
 #endif
-    }
+    }*/
     loadTime = timer.ElapsedTimeAndReset();
     std::cout << "Loaded and sorted local block data in " << loadTime << " seconds." << std::endl;
     // Master block
@@ -301,15 +301,15 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         redSize = globalBlock.redSize();
 
         loadTime = timer.ElapsedTimeAndReset();
-#ifndef NDEBUG
         std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
-#endif
         // Synchronize once after everybody has loaded
         MPI_Barrier(MPI_COMM_WORLD);
 
         communicationTime = 0.0;
         watershedTime = 0.0;
+
+	ind step = 0;
 
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
             globalBlock.receiveData();
@@ -318,6 +318,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             watershedTime += timer.ElapsedTimeAndReset();
             globalBlock.sendData();
             communicationTime += timer.ElapsedTimeAndReset();
+            if (step%100==0) std::cout << step << ": Watershedded for " << watershedTime << ", communicated for " << communicationTime << "." << std::endl;
+            step++; 
 #ifndef NDEBUG
             std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClustersCombined()
                       << std::endl;
@@ -422,10 +424,9 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
     else {
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
         loadTime = timer.ElapsedTimeAndReset();
-#ifndef NDEBUG
         std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
                   << " seconds." << std::endl;
-#endif
+
         // Synchronize once after loading
         MPI_Barrier(MPI_COMM_WORLD);
         communicationTime = 0.0;

@@ -488,7 +488,7 @@ then
     hSamples=1000
     # Test for the single block
     echo "Generating weak scaling test for "$num_procs" processes with total ("$totalSizeX $totalSizeY $totalSizeZ")."
-    makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
+    makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
     num_procs=1
     for tests in `seq 1 1 6`
     do
@@ -503,7 +503,7 @@ then
             totalSizeZ=$(($totalSizeZ*2))
         fi
         echo "Generating weak scaling test for "$num_procs" processes with total ("$totalSizeX $totalSizeY $totalSizeZ")."
-        makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
+        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
     done
 # Make the strong-scaling tests for the iso512
 elif [[ $test_type == 7 ]]

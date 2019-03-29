@@ -43,10 +43,19 @@ template <typename ClusterProcessor>
 void UnionFindSubBlock<ClusterProcessor>::loadData() {
     assert(!Data && "Data was already set.");
     Data = new DataBlock(PointerBlock.BlockSize, PointerBlock.BlockOffset, PointerBlock.TotalSize);
-    // TODO: Hardcoded time slice and data directory for now
     Data->loadData();
     CurrentWatershedIndex = 0;
-    Data->sort();
+}
+
+template <typename ClusterProcessor>
+void UnionFindSubBlock<ClusterProcessor>::sortData(bool useBuckets) {
+    Data->sortData(useBuckets);
+}
+
+template <typename ClusterProcessor>
+void UnionFindSubBlock<ClusterProcessor>::reset() {
+    PointerBlock.reset();
+    CurrentWatershedIndex = 0;
 }
 
 template <typename ClusterProcessor>

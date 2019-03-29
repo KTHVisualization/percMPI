@@ -29,9 +29,7 @@ public:
         GREENPOINTERS = 1 << (RANK_SHIFT - 1),  // Up to 27 green blocks -> ids take up 5 bits
         REDINDICES,
         ERRORFLAG,
-        LOADTIME,
-        COMMUNCATIONTIME,
-        WATERSHEDTIME,
+        TIMES,
         MEMESTIMATE
     };
 

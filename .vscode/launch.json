@@ -9,8 +9,8 @@
             "type": "gdb",
             "request": "launch",
             "target": "./PercMPI",
-            "arguments": "--dataPath ../../Data/Percolation/P3 --rmsFile uv_005 --dataSize 193 194 1000 --timeStep 1 --totalSize 193 194 1000 --blockSize 50 50 100 --hMin 0.0 --hMax 2.0 --hSamples 101 --computeMode 0 --outputMode 0",
-            "cwd": "${workspaceRoot}/builds"
+            "arguments": "--dataPath ../../Data/Percolation/P3 --rmsFile uv_000 --dataSize 193 194 1000 --timeStep 1 --totalSize 193 194 100 --blockSize 193 194 20 --hMin 0.0 --hMax 2.0 --hSamples 100 --computeMode 0 --outputMode 2",
+            "cwd": "${workspaceRoot}/buildsc"
         }
     ]
 }

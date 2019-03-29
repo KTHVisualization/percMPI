@@ -116,15 +116,22 @@ void watershedSequential(vec3i blockSize, vec3i blockOffset, vec3i totalSize, fl
                          float hMax, float hStep, std::vector<float>& h,
                          std::vector<ind>& numClusters, std::vector<float>& maxVolumes,
                          std::vector<float>& totalVolumes, ind& memEstimate, float& loadTime,
-                         float& watershedTime) {
+                         float& sortTime, float& watershedTime, bool useBuckets) {
     // Just localNode White: Groundtruth for all other cases
     PerformanceTimer timer;
-    timer.Reset();
+
     LocalBlock localBlock(blockSize, blockOffset, totalSize);
 
+    timer.Reset();
+    localBlock.loadData();
     loadTime = timer.ElapsedTimeAndReset();
-    std::cout << "Loaded and sorted data in " << loadTime << " seconds." << std::endl;
+    localBlock.sortData(useBuckets);
+    sortTime = timer.ElapsedTimeAndReset();
 
+    std::cout << "Loaded (" << loadTime << ") and sorted (" << sortTime << ") data in "
+              << loadTime + sortTime << " seconds." << std::endl;
+
+    timer.Reset();
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
         localBlock.doWatershed(currentH);
         h.push_back(currentH);
@@ -145,7 +152,8 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
                                  std::vector<ind>& numClustersGlobal,
                                  std::vector<float>& maxVolumes, std::vector<float>& totalVolumes,
                                  ind& memEstimate, ind& greenSize, ind& redSize, float& loadTime,
-                                 float& communicationTime, float& watershedTime) {
+                                 float& sortTime, float& communicationTime, float& watershedTime,
+                                 bool useBuckets) {
     PerformanceTimer timer;
     timer.Reset();
 
@@ -157,7 +165,7 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
 #endif  // NDEBUG
     std::vector<LocalBlock> localBlocks;
 
-    /*vec3i idxNode;
+    vec3i idxNode;
     for (ind nodeIdx = 0; nodeIdx < numNodes.prod(); ++nodeIdx) {
         // std::cout << "Node " << nodeIdx << std::endl;
         idxNode = vec3i::fromIndexOfTotal(nodeIdx, numNodes);
@@ -167,11 +175,23 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
 #ifndef NDEBUG
         localBlocks.back().outputFrontBlocks(debugSlice, 0, 0);
 #endif
-    }*/
-    loadTime = timer.ElapsedTimeAndReset();
-    std::cout << "Loaded and sorted local block data in " << loadTime << " seconds." << std::endl;
+    }
     // Master block
     GlobalBlock globalBlock(blockSize, totalSize, numNodes);
+
+    timer.Reset();
+    // Load data
+    for (auto& localBlock : localBlocks) localBlock.loadData();
+    globalBlock.loadData();
+    loadTime = timer.ElapsedTimeAndReset();
+
+    for (auto& localBlock : localBlocks) localBlock.sortData(useBuckets);
+    globalBlock.sortData(useBuckets);
+    sortTime = timer.ElapsedTimeAndReset();
+
+    std::cout << "Loaded (" << loadTime << ") and sorted (" << sortTime << ") data in "
+              << loadTime + sortTime << " seconds." << std::endl;
+
     greenSize = globalBlock.greenSize();
     redSize = globalBlock.redSize();
 
@@ -184,11 +204,10 @@ void watershedParallelSingleRank(vec3i numNodes, vec3i blockSize, vec3i blockOff
     }
 #endif
 
-    loadTime = timer.ElapsedTimeAndReset();
-    std::cout << "Loaded and sorted global block data in " << loadTime << " seconds." << std::endl;
-
     communicationTime = 0.0;
     watershedTime = 0.0;
+
+    timer.Reset();
 
     for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
         for (auto itLocalBlock = localBlocks.begin(); itLocalBlock != localBlocks.end();
@@ -283,8 +302,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
                              std::vector<float>& h, std::vector<ind>& numClusters,
                              std::vector<ind>& numClustersGlobal, std::vector<float>& maxVolumes,
                              std::vector<float>& totalVolumes, ind& memEstimate, ind& greenSize,
-                             ind& redSize, float& loadTime, float& communicationTime,
-                             float& watershedTime) {
+                             ind& redSize, float& loadTime, float& sortTime,
+                             float& communicationTime, float& watershedTime, bool useBuckets) {
     PerformanceTimer timer;
     timer.Reset();
 
@@ -297,19 +316,22 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
     if (currProcess == 0) {
 
         GlobalBlock globalBlock(blockSize, totalSize, numNodes);
+        globalBlock.loadData();
+        loadTime = timer.ElapsedTimeAndReset();
+        globalBlock.sortData(useBuckets);
+
+        // Synchronize once after everybody has loaded
+        MPI_Barrier(MPI_COMM_WORLD);
+        sortTime = timer.ElapsedTimeAndReset();
+
+        std::cout << "Rank " << currProcess << ": Loaded (" << loadTime << ") and sorted ("
+                  << sortTime << ") data in " << loadTime + sortTime << " seconds." << std::endl;
+
         greenSize = globalBlock.greenSize();
         redSize = globalBlock.redSize();
 
-        loadTime = timer.ElapsedTimeAndReset();
-        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
-                  << " seconds." << std::endl;
-        // Synchronize once after everybody has loaded
-        MPI_Barrier(MPI_COMM_WORLD);
-
         communicationTime = 0.0;
         watershedTime = 0.0;
-
-	ind step = 0;
 
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
             globalBlock.receiveData();
@@ -318,8 +340,6 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
             watershedTime += timer.ElapsedTimeAndReset();
             globalBlock.sendData();
             communicationTime += timer.ElapsedTimeAndReset();
-            if (step%100==0) std::cout << step << ": Watershedded for " << watershedTime << ", communicated for " << communicationTime << "." << std::endl;
-            step++; 
 #ifndef NDEBUG
             std::cout << currentH << "/ " << hStep << "\t - " << globalBlock.numClustersCombined()
                       << std::endl;
@@ -423,9 +443,13 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
     // All other processes: currProcess != 0
     else {
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
+        localBlock.loadData();
         loadTime = timer.ElapsedTimeAndReset();
-        std::cout << "Rank " << currProcess << ": Loaded and sorted data in " << loadTime
-                  << " seconds." << std::endl;
+        localBlock.sortData(useBuckets);
+        sortTime = timer.ElapsedTimeAndReset();
+
+        std::cout << "Rank " << currProcess << ": Loaded (" << loadTime << ") and sorted ("
+                  << sortTime << ") data in " << loadTime + sortTime << " seconds." << std::endl;
 
         // Synchronize once after loading
         MPI_Barrier(MPI_COMM_WORLD);
@@ -894,6 +918,7 @@ int main(int argc, char** argv) {
     float hMax = std::numeric_limits<float>::max();
     bool hMaxSet = false;
     int hSamples = -1;
+    bool useBuckets = true;
 
     // First argument (argv[0]) is the executable name, therefore start at 1.
     for (ind argId = 1; argId < argc; ++argId) {
@@ -941,6 +966,8 @@ int main(int argc, char** argv) {
             avgValue = atof(argv[++argId]);
         } else if (strcmp(argv[argId], "--rmsValue") == 0 && (argc - argId) > 1) {
             rmsValue = atof(argv[++argId]);
+        } else if (strcmp(argv[argId], "--fullSort") == 0) {
+            useBuckets = false;
         }
         // Default: Catch errors
         else {
@@ -957,7 +984,7 @@ int main(int argc, char** argv) {
                       << std::endl
                       << "--inputMode inputmode --computeMode computeMode (0-4) --outputMode "
                          "outputMode (0-2)"
-                      << std::endl;
+                      << "--fullSort if full sort is desired" << std::endl;
             return 1;
         }
     }
@@ -979,7 +1006,17 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // Check for unset arguments and set tot default values;
+    // Check for unset arguments and set to default values;
+    if (dataSize == vec3i(-1)) {
+        dataSize = vec3i(193, 194, 1000);
+        std::cout << "Dimensions of the data in files (--dataSize) has not been set, using default "
+                  << dataSize << "." << std::endl;
+    }
+    if (timeStep == -1) {
+        timeStep = 1;
+        std::cout << "Timestep (--timeStep) has not been set, using default " << timeStep << "."
+                  << std::endl;
+    }
 
     if (inputMode == InputMode::INVALID) {
         inputMode = InputMode::COMBINED_VELOCITY_AVG_RMS_FILE;
@@ -989,12 +1026,16 @@ int main(int argc, char** argv) {
         PercolationLoader::setSettings(inputMode, dataSize, baseFolder, rmsFilename, timeStep);
     }
 
-    // TODO: Other input modes
-    if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE) {
+    if (inputMode != InputMode::RANDOM_UNIFORM) {
         if (!baseFolder) {
             std::cerr << "Path to data (--dataPath) has not been set." << std::endl;
             return 1;
         }
+    }
+
+    // TODO: Other input modes
+    if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE ||
+        inputMode == InputMode::VELOCITY_FILE) {
         if (!rmsFilename) {
             std::cerr << "RMS file name (--rmsFilename) has not been set." << std::endl;
             return 1;
@@ -1003,10 +1044,6 @@ int main(int argc, char** argv) {
     }
 
     if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_VALUE) {
-        if (!baseFolder) {
-            std::cerr << "Path to data (--dataPath) has not been set." << std::endl;
-            return 1;
-        }
         if (rmsValue == -1) {
             std::cerr << "RMS value (--rmsValue) has not been set." << std::endl;
             return 1;
@@ -1023,16 +1060,6 @@ int main(int argc, char** argv) {
         PercolationLoader::setSettings(inputMode, totalSize);
     }
 
-    if (dataSize == vec3i(-1)) {
-        dataSize = vec3i(193, 194, 1000);
-        std::cout << "Dimensions of the data in files (--dataSize) has not been set, using default "
-                  << dataSize << "." << std::endl;
-    }
-    if (timeStep == -1) {
-        timeStep = 1;
-        std::cout << "Timestep (--timeStep) has not been set, using default " << timeStep << "."
-                  << std::endl;
-    }
     // Distribution settings
     if (totalSize == vec3i(-1)) {
         totalSize = vec3i(193, 194, 1000);
@@ -1139,11 +1166,8 @@ int main(int argc, char** argv) {
             std::cout << "dataSize: \t\t" << dataSize << std::endl;
         }
         if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE ||
-            inputMode == InputMode::COMBINED_VELOCITY_AVG_2RMS_FILE) {
+            inputMode == InputMode::VELOCITY_FILE) {
             std::cout << "rmsFile: \t\t" << rmsFilename << std::endl;
-        }
-        if (inputMode == InputMode::COMBINED_VELOCITY_AVG_2RMS_FILE) {
-            std::cout << "rmsFile2: \t\t" << rmsFilename2 << std::endl;
         }
         if (inputMode != InputMode::RANDOM_UNIFORM && inputMode != InputMode::SCALAR) {
             std::cout << "timeStep: \t\t" << timeStep << std::endl;
@@ -1155,6 +1179,7 @@ int main(int argc, char** argv) {
         std::cout << "hSamples: \t\t" << hSamples << std::endl;
         std::cout << "computeMode: \t" << computeMode << std::endl;
         std::cout << "outputMode: \t" << outputMode << std::endl;
+        std::cout << "Sorting: \t\t" << (useBuckets ? "Bucketing" : "Full Sort") << std::endl;
         std::cout << "########################" << std::endl;
     }
 
@@ -1200,7 +1225,7 @@ int main(int argc, char** argv) {
     PerformanceTimer timer;
     timer.Reset();
     // Not all are used by all cases
-    float totalTime, loadTime, communicationTime, watershedTime;
+    float totalTime, loadTime, sortTime, communicationTime, watershedTime;
     ind greenSize, redSize, memEstimate;
 
 #ifdef SINGLENODE
@@ -1216,13 +1241,14 @@ int main(int argc, char** argv) {
 #ifndef COMMUNICATION
             std::cout << "Watershedding sequentially." << std::endl;
             watershedSequential(totalSize, vec3i(0), totalSize, hMin, hMax, hStep, h, numClusters,
-                                maxVolumes, totalVolumes, memEstimate, loadTime, watershedTime);
+                                maxVolumes, totalVolumes, memEstimate, loadTime, sortTime,
+                                watershedTime, useBuckets);
 #else
             std::cout << "Watershedding sequentially, but distributed." << std::endl;
             watershedParallelSingleRank(numNodes, blockSize, blockOffset, totalSize, hMin, hMax,
                                         hStep, h, numClusters, numClustersGlobal, maxVolumes,
                                         totalVolumes, memEstimate, greenSize, redSize, loadTime,
-                                        communicationTime, watershedTime);
+                                        sortTime, communicationTime, watershedTime, useBuckets);
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
@@ -1231,7 +1257,7 @@ int main(int argc, char** argv) {
             whatershedMultipleRanks(currProcess, numNodes, blockSize, blockOffset, totalSize, hMin,
                                     hMax, hStep, h, numClusters, numClustersGlobal, maxVolumes,
                                     totalVolumes, memEstimate, greenSize, redSize, loadTime,
-                                    communicationTime, watershedTime);
+                                    sortTime, communicationTime, watershedTime, useBuckets);
 #else   // !COMMUNCATION
             std::cerr << "Cannot watershed on multiple nodes without communcation "
                          "enabled."
@@ -1390,7 +1416,7 @@ int main(int argc, char** argv) {
                 }
             }
 
-            float writeTime = timer.ElapsedTime();
+            float writeTime = timer.ElapsedTimeAndReset();
             std::cout << "Writing percolation curves took " << writeTime << " seconds."
                       << std::endl;
         }
@@ -1404,44 +1430,48 @@ int main(int argc, char** argv) {
             if (timingsFile.is_open()) {
                 // dataSize should be fixed for dataPath, so it does not need to be included
                 timingsFile << "timeStamp; inputMode;";
-                if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE) {
-                    timingsFile << "dataPath; rmsFilename; timeStep; ";
+                if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE ||
+                    inputMode == InputMode::VELOCITY_FILE) {
+                    timingsFile << "dataPath;rmsFilename;timeStep;";
                 }
-                timingsFile << "totalSizeX; totalSizeY; totalSizeZ; "
-                               "blockSizeX; blockSizeY; blockSizeZ; "
-                               "numNodesX; numNodesY; numNodesZ; numNodesTotal;"
-                               "hMin; hMax; hSamples; totalTime; ";
+                timingsFile << "totalSizeX;totalSizeY;totalSizeZ;"
+                               "blockSizeX;blockSizeY;blockSizeZ;"
+                               "numNodesX;numNodesY;numNodesZ;numNodesTotal;"
+                               "hMin;hMax;hSamples;totalTime;";
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
                 if (computeMode == REAL)
-                    timingsFile << "loadTime; watershedTime; totalMemEstimate;";
+                    timingsFile << "loadTime;sortTime;watershedTime;totalMemEstimate;";
 #else
                 if (computeMode == REAL)
-                    timingsFile << "loadTime; communicationTime; watershedTime; totalMemEstimate; "
-                                   "greenSize; redSize;";
+                    timingsFile
+                        << "loadTime;sortTime;communicationTime;watershedTime;totalMemEstimate;"
+                           "greenSize;redSize;";
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
                 if (computeMode == REAL) {
-                    timingsFile
-                        << "loadTimeGlobal; communicationTimeGlobal; watershedTimeGlobal; "
-                           "loadTimeLocalAvg; communicationTimeLocalAvg; watershedTimeLocalAvg; ";
+                    timingsFile << "loadTimeGlobal;sortTimeGlobal;communicationTimeGlobal;"
+                                   "watershedTimeGlobal;"
+                                   "loadTimeLocalAvg;sortTimeGlobalAvg;communicationTimeLocalAvg;"
+                                   "watershedTimeLocalAvg;";
 #ifdef COLLECTIVES
-                    timingsFile
-                        << "loadTimeLocalStd; communicationTimeLocalStd; watershedTimeLocalStd; ";
+                    timingsFile << "loadTimeLocalStd;sortTimeGlobalStd;communicationTimeLocalStd;"
+                                   "watershedTimeLocalStd; ";
 #endif
-                    timingsFile << "globalMemEstimage; localMemEstimateAvg; ";
+                    timingsFile << "globalMemEstimage;localMemEstimateAvg;";
 #ifdef COLLECTIVES
-                    timingsFile << "localMemEstimateStd; ";
+                    timingsFile << "localMemEstimateStd;";
 #endif
-                    timingsFile << "greenSize; redSize;";
+                    timingsFile << "greenSize;redSize;";
                 }
 
 #endif  // COMMUNCATION
 #endif  // SINGLENODE
                 timingsFile << "runType;" << std::endl;
                 timingsFile << timeStamp << ";" << static_cast<int>(inputMode) << ";";
-                if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE) {
+                if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE ||
+                    inputMode == InputMode::VELOCITY_FILE) {
                     timingsFile << baseFolder << ";" << rmsFilename << ";" << timeStep << ";";
                 }
 
@@ -1453,40 +1483,41 @@ int main(int argc, char** argv) {
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
                 if (computeMode == REAL)
-                    timingsFile << loadTime << ";" << watershedTime << ";"
+                    timingsFile << loadTime << ";" << sortTime << ";" << watershedTime << ";"
                                 << memEstimate / memDivisor << ";";
                 timingsFile << "S;";
 #else
                 if (computeMode == REAL)
-                    timingsFile << loadTime << ";" << communicationTime << ";" << watershedTime
-                                << ";" << memEstimate / memDivisor << ";" << greenSize << ";"
-                                << redSize << ";";
+                    timingsFile << loadTime << ";" << sortTime << ";" << communicationTime << ";"
+                                << watershedTime << ";" << memEstimate / memDivisor << ";"
+                                << greenSize << ";" << redSize << ";";
                 timingsFile << "SC;";
 #endif  // COMMUNCATION
 #else   // !SINGLENODE
 #ifdef COMMUNICATION
                 if (computeMode == REAL) {
-                    timingsFile << loadTime << ";" << communicationTime << ";" << watershedTime
-                                << ";";
+                    timingsFile << loadTime << ";" << sortTime << ";" << communicationTime << ";"
+                                << watershedTime << ";";
 
 #ifdef COLLECTIVES
-                    float times[3] = {0, 0, 0};
-                    float timesSum[3] = {0, 0, 0};
+                    float times[4] = {0, 0, 0, 0};
+                    float timesSum[4] = {0, 0, 0, 0};
                     MPICommunication::handleError(
-                        MPI_Allreduce(&times, &timesSum, 3, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+                        MPI_Allreduce(&times, &timesSum, 4, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
                     // Everyone local node computes squared deviation
 
-                    float timesDev[3] = {0, 0, 0};
+                    float timesDev[4] = {0, 0, 0, 0};
                     MPICommunication::handleError(
-                        MPI_Reduce(&times, &timesDev, 3, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
+                        MPI_Reduce(&times, &timesDev, 4, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
 
-                    for (int t = 0; t < 3; t++) {
+                    for (int t = 0; t < 4; t++) {
                         times[t] = timesSum[t] / numNodes.prod();
                         timesSum[t] = sqrt(timesDev[t] / numNodes.prod());
                     }
 
-                    timingsFile << times[0] << ";" << times[1] << ";" << times[2] << ";"
-                                << timesSum[0] << ";" << timesSum[1] << ";" << timesSum[2] << ";";
+                    timingsFile << times[0] << ";" << times[1] << ";" << times[2] << ";" << times[3]
+                                << ";" << timesSum[0] << ";" << timesSum[1] << ";" << timesSum[2]
+                                << ";" << timesSum[3] << ";";
 
                     ind memLocal = 0.0;
                     ind memSum;
@@ -1506,27 +1537,24 @@ int main(int argc, char** argv) {
                                 << "PC;";
 
 #else
-                    float loadTimeLocalAvg = 0.0, communicationTimeLocalAvg = 0.0,
-                          watershedTimeLocalAvg = 0.0, memEstimateLocalAvg = 0.0f;
+                    float loadTimeLocalAvg = 0.0;
+                    float sortTimeLocalAvg = 0.0;
+                    float communicationTimeLocalAvg = 0.0;
+                    float watershedTimeLocalAvg = 0.0;
+                    float memEstimateLocalAvg = 0.0;
                     MPI_Status status;
                     for (ind p = 0; p < numNodes.prod(); p++) {
                         ind processIndex = p + 1;
 
-                        float loadTimeLocal;
-                        MPICommunication::handleError(
-                            MPI_Recv(&loadTimeLocal, 1, MPI_FLOAT, processIndex,
-                                     MPICommunication::LOADTIME, MPI_COMM_WORLD, &status));
-                        loadTimeLocalAvg += loadTimeLocal;
-                        float communicationTimeLocal;
-                        MPICommunication::handleError(
-                            MPI_Recv(&communicationTimeLocal, 1, MPI_FLOAT, processIndex,
-                                     MPICommunication::COMMUNCATIONTIME, MPI_COMM_WORLD, &status));
-                        communicationTimeLocalAvg += communicationTimeLocal;
-                        float watershedTimeLocal;
-                        MPICommunication::handleError(
-                            MPI_Recv(&watershedTimeLocal, 1, MPI_FLOAT, processIndex,
-                                     MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD, &status));
-                        watershedTimeLocalAvg += watershedTimeLocal;
+                        float times[4] = {0, 0, 0, 0};
+                        MPICommunication::handleError(MPI_Recv(&times, 4, MPI_FLOAT, processIndex,
+                                                               MPICommunication::TIMES,
+                                                               MPI_COMM_WORLD, &status));
+                        loadTimeLocalAvg += times[0];
+                        sortTimeLocalAvg += times[1];
+                        communicationTimeLocalAvg += times[2];
+                        watershedTimeLocalAvg += times[3];
+
                         ind memEstimateLocal;
                         MPICommunication::handleError(
                             MPI_Recv(&memEstimateLocal, 1, MPI_IND, processIndex,
@@ -1535,12 +1563,14 @@ int main(int argc, char** argv) {
                     }
 
                     loadTimeLocalAvg /= numNodes.prod();
+                    sortTimeLocalAvg /= numNodes.prod();
                     communicationTimeLocalAvg /= numNodes.prod();
                     watershedTimeLocalAvg /= numNodes.prod();
+
                     memEstimateLocalAvg /= numNodes.prod();
 
-                    timingsFile << loadTimeLocalAvg << ";" << communicationTimeLocalAvg << ";"
-                                << watershedTimeLocalAvg << ";";
+                    timingsFile << loadTimeLocalAvg << ";" << sortTimeLocalAvg << ";"
+                                << communicationTimeLocalAvg << ";" << watershedTimeLocalAvg << ";";
 
                     timingsFile << memEstimate / memDivisor << ";"
                                 << memEstimateLocalAvg / memDivisor << ";" << greenSize << ";"
@@ -1563,18 +1593,18 @@ int main(int argc, char** argv) {
 #ifndef SINGLENODE
     else if (computeMode == REAL) {
 #ifdef COLLECTIVES
-        float times[3] = {loadTime, communicationTime, watershedTime};
-        float timesSum[3] = {0, 0, 0};
+        float times[4] = {loadTime, sortTime, communicationTime, watershedTime};
+        float timesSum[4] = {0, 0, 0};
         MPICommunication::handleError(
-            MPI_Allreduce(&times, &timesSum, 3, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
-        for (int t = 0; t < 3; t++) {
+            MPI_Allreduce(&times, &timesSum, 4, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+        for (int t = 0; t < 4; t++) {
             float time = times[t];
             float timeAvg = timesSum[t] / numNodes.prod();
             times[t] = (time - timeAvg) * (time - timeAvg);
         }
 
         MPICommunication::handleError(
-            MPI_Reduce(&times, nullptr, 3, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
+            MPI_Reduce(&times, nullptr, 4, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
 
         ind memSum = 0;
         MPICommunication::handleError(
@@ -1587,16 +1617,15 @@ int main(int argc, char** argv) {
         MPICommunication::handleError(
             MPI_Reduce(&memDev, nullptr, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
 
-#endif
+#else
         // Send timings to master
+        float times[4] = {loadTime, sortTime, communicationTime, watershedTime};
+
         MPICommunication::handleError(
-            MPI_Send(&loadTime, 1, MPI_FLOAT, 0, MPICommunication::LOADTIME, MPI_COMM_WORLD));
-        MPICommunication::handleError(MPI_Send(&communicationTime, 1, MPI_FLOAT, 0,
-                                               MPICommunication::COMMUNCATIONTIME, MPI_COMM_WORLD));
-        MPICommunication::handleError(MPI_Send(&watershedTime, 1, MPI_FLOAT, 0,
-                                               MPICommunication::WATERSHEDTIME, MPI_COMM_WORLD));
+            MPI_Send(&times, 4, MPI_FLOAT, 0, MPICommunication::TIMES, MPI_COMM_WORLD));
         MPICommunication::handleError(
             MPI_Send(&memEstimate, 1, MPI_IND, 0, MPICommunication::MEMESTIMATE, MPI_COMM_WORLD));
+#endif
     }
 #endif
 

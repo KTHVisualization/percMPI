@@ -25,6 +25,8 @@ public:
     ~UnionFindSubBlock() { delete Data; }
 
     void loadData();
+    void sortData(bool useBuckets);
+    void reset();
     void doWatershed(const double minVal);
 
     ClusterID* findClusterID(const vec3i& idx, vec3i& lastClusterID);

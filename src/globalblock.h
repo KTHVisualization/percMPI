@@ -43,6 +43,10 @@ public:
 
     virtual double getClusterVolume(ClusterID cluster) override;
 
+    virtual void reset() override;
+    virtual void loadData() override;
+    virtual void sortData(bool useBuckets) override;
+
     virtual void receiveData() override;
     virtual void sendData() override;
     virtual ind numClusters() override { return GOGs.numClusters(); };

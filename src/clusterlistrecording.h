@@ -44,6 +44,11 @@ public:
     void mergeClusterFromList(const std::vector<ind>& connectedComps);
     void extendCluster(ClusterID id, double volume) { Clusters.extendCluster(id, volume); }
 
+    void reset() {
+        Clusters.reset();
+        Merges = std::vector<ClusterMerge>();
+        Merges.reserve(20);
+    }
     void clearVolumesAndMerges();
     std::vector<double>& volumes();
     ind numClusters() { return Clusters.numClusters(); }

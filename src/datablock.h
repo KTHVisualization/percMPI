@@ -12,7 +12,8 @@ public:
     ~DataBlock();
 
     bool loadData();
-    void sort();
+    void reset();
+    void sortData(bool useBuckets);
     vec3i toGlobalIndex(ind locIdx);
     ind memEstimate() const;
 

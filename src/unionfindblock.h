@@ -15,6 +15,11 @@ public:
         assert(id.isCluster() || idx != id && "Vertex attempting to point to itself.\n");
         return setID(vec3i::fromIndexOfTotal(idx.RawID, TotalSize), id);
     }
+
+    virtual void loadData() = 0;
+    virtual void sortData(bool useBuckets) = 0;
+    virtual void reset() = 0;
+
     virtual double getClusterVolume(ClusterID cluster) = 0;
     virtual void receiveData() = 0;
     virtual void sendData() = 0;

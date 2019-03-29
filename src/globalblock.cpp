@@ -50,7 +50,9 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
         numBlocks += numSlivers.prod();
     }
 
-    std::cout << "Loading " << numBlocks << " blocks, with memory: " << totalBlockSize*4.0/(1024*1024) << "Mb." << std::endl;
+    std::cout << "Loading " << numBlocks
+              << " blocks, with memory: " << totalBlockSize * 4.0 / (1024 * 1024) << "Mb."
+              << std::endl;
     GOGSubBlocks.reserve(numBlocks);
     MemoryGreen = new ID[totalBlockSize];
     MemoryGreenSize = totalBlockSize;
@@ -116,10 +118,6 @@ GlobalBlock::GlobalBlock(const vec3i& blockSize, const vec3i& totalSize, const v
                         dir, whiteSize, whiteOffset, totalSize, memOngoing, *this,
                         [this]() { return GreenProcessor(GOGs); }));
 
-                    timer.Reset();
-                    GOGSubBlocks.back().loadData();
-		    std::cout << " Loaded #" << fancyblockid++ << " of size " << GOGSubBlocks.back().blockSize().prod() * 4.0 / (1024.0*1024.0) << " in " << timer.ElapsedTimeAndReset() 
-<< std::endl; 
                     // Add to neighborhood lists.
                     // Current node.
                     neighbors[node.toIndexOfTotal(numNodes)].push_back(GOGSubBlocks.size() - 1);
@@ -182,7 +180,8 @@ GlobalBlock* GlobalBlock::makeGreenTest(const vec3i& blockSize, const vec3i& blo
     block->GOGSubBlocks.reserve(1);
     block->GOGSubBlocks.emplace_back(blockSize, blockOffset, totalSize, *block,
                                      GreenProcessor(block->GOGs));
-    block->GOGSubBlocks.begin()->loadData();
+    block->loadData();
+    block->sortData(false);
 
     return block;
 }
@@ -228,6 +227,9 @@ GlobalBlock* GlobalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& 
     block->LOGSubBlocks.emplace_back(
         sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z), totalSize, *block,
         GrayProcessor(), dataPerProcess.MemoryLOG + 2 * sliceSize.prod());
+
+    block->loadData();
+    block->sortData(false);
 
     return block;
 }  // namespace perc
@@ -287,10 +289,24 @@ GlobalBlock* GlobalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const ve
                                      vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z),
                                      totalSize, *block, GreenProcessor(block->GOGs));
 
-    for (auto& green : block->GOGSubBlocks) green.loadData();
+    block->loadData();
+    block->sortData(false);
 
     return block;
 }
+
+void GlobalBlock::reset() {
+    for (auto& green : GOGSubBlocks) green.reset();
+    for (auto& red : LOGSubBlocks) red.reset();
+    GOGs.reset();
+};
+
+void GlobalBlock::loadData() {
+    for (auto& green : GOGSubBlocks) green.loadData();
+};
+void GlobalBlock::sortData(bool useBuckets) {
+    for (auto& green : GOGSubBlocks) green.sortData(useBuckets);
+};
 
 void GlobalBlock::doWatershed(const double minVal) {
 

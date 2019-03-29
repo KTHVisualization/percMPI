@@ -30,7 +30,7 @@
         {
             "taskName": "Single node, No Communcation, Isotroph",
             "args": [
-                "mkdir -p buildsi && cd buildsi && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/Iso4096/iso128x128x128.raw --avgValue 103.703369 --rmsValue 94.630 --dataSize 128 128 128 --timeStep 1 --totalSize 128 128 128 --blockSize 25 25 100 --hMin 0.0 --hMax 2.0 --hSamples 1000 --computeMode 0 --inputMode 3"
+                "mkdir -p buildsi && cd buildsi && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DSINGLENODE' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/Iso4096/iso512x512x512.raw --avgValue 103.703369 --rmsValue 94.630 --dataSize 128 128 128 --timeStep 1 --totalSize 128 128 128 --blockSize 25 25 100 --hMin 0.0 --hMax 2.0 --hSamples 1000 --computeMode 0 --inputMode 3"
             ],
             "isBuildCommand": true
         },
@@ -44,7 +44,7 @@
         {
             "taskName": "Multiple Nodes",
             "args": [
-                "mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DCOMMUNICATION -DCOLLECTIVES' .. && make -j 8 && mpirun -np 9 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_005 --dataSize 193 194 1000 --timeStep 1 --totalSize 100 100 200 --blockSize 50 50 100 --hMin 0.0 --hMax 2.0 --hSamples 101 --computeMode 0 --outputMode 2"
+                "mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-D_GLIBCXX_DEBUG -DCOMMUNICATION -DCOLLECTIVES' .. && make -j 8 && mpirun -np 6 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_000 --dataSize 193 194 1000 --timeStep 1 --totalSize 193 194 100 --blockSize 193 194 20 --hMin 0.0 --hMax 2.0 --hSamples 100 --computeMode 0 --outputMode 2"
             ],
             "isBuildCommand": true
         },
@@ -65,14 +65,14 @@
         {
             "taskName": "Single Node, Communication Release",
             "args": [
-                "mkdir -p buildsc-r && cd buildsc-r && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DSINGLENODE -DCOMMUNICATION' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_005 --dataSize 193 194 1000 --timeStep 1 --totalSize 193 194 1000 --blockSize 100 100 200 --hMin 0.0 --hMax 2.0 --hSamples 1001 --computeMode 0 --outputMode 2"
+                "mkdir -p buildsc-r && cd buildsc-r && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DSINGLENODE -DCOMMUNICATION' .. && make -j 8 && mpirun -np 1 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_000 --dataSize 193 194 1000 --timeStep 1 --totalSize 193 194 100 --blockSize 193 194 20 --hMin 0.0 --hMax 2.0 --hSamples 100 --computeMode 0 --outputMode 2"
             ],
             "isBuildCommand": true
         },
         {
             "taskName": "Multiple Nodes Release",
             "args": [
-                "mkdir -p build-r && cd build-r && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DCOMMUNICATION' .. && make -j 8 && mpirun -np 9 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_005 --dataSize 193 194 1000 --timeStep 1 --totalSize 20 20 100 --blockSize 10 10 50 --hMin 0.0 --hMax 2.0 --hSamples 1001 --computeMode 0 --outputMode 2"
+                "mkdir -p build-r && cd build-r && cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS='-O3 -DCOMMUNICATION' .. && make -j 8 && mpirun -np 6 ./PercMPI --dataPath ../../Data/Percolation/P3 --rmsFile uv_000 --dataSize 193 194 1000 --timeStep 1 --totalSize 193 194 100 --blockSize 193 194 20 --hMin 0.0 --hMax 2.0 --hSamples 1000 --computeMode 0 --outputMode 2"
             ],
             "isBuildCommand": true
         },

@@ -38,6 +38,8 @@ public:
     void extendCluster(ClusterID id, double volume, void* parentBlock = nullptr);
     Cluster getCluster(ClusterID id);
 
+    void reset();
+
     void clearVolumes();
     std::vector<double>& volumes() { return Volumes; };
     ind numClusters() { return Indices.size() - Holes.size(); }
@@ -62,6 +64,16 @@ private:
 };
 
 // ========= Inline Definitions ========= //
+
+inline void ClusterList::reset() {
+    Indices = std::vector<VertexID>();
+    Indices.reserve(100);
+    Volumes = std::vector<double>();
+    Volumes.reserve(100);
+    Holes = std::vector<size_t>();
+    TotalVolume = 0;
+    MaxVolume = 0;
+}
 
 inline double ClusterList::getClusterVolume(ClusterID cluster) const {
     checkCluster(cluster);

@@ -16,6 +16,8 @@ public:
 
     ~IDBlock();
 
+    void reset();
+
     bool contains(const vec3i& idx) {
         vec3i max = BlockOffset + BlockSize;
         return idx.liesWithin(BlockOffset, max);

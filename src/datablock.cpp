@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include "percolationloader.h"
+#include <iostream>
 
 namespace perc {
 
@@ -29,18 +30,18 @@ bool DataBlock::loadData() {
     return true;
 }
 
-void DataBlock::sort() {
+void DataBlock::sortData(bool useBuckets) {
     assert(!Indices && "Was already sorted?");
 
     // Create Indices, fill with [0, numElements) and sort by Scalar value.
     ind numElements = BlockSize.prod();
     Indices = new ind[numElements];
 
-    if (numElements < NumThresholds * 10) {
-    std::iota(Indices, Indices + numElements, 0);
-    // Sorts from largest to smallest value.
-    std::sort(Indices, Indices + numElements,
-              [this](ind a, ind b) { return Scalars[a] > Scalars[b]; });
+    if (!useBuckets || numElements < NumThresholds * 10) {
+        std::iota(Indices, Indices + numElements, 0);
+        // Sorts from largest to smallest value.
+        std::sort(Indices, Indices + numElements,
+                  [this](ind a, ind b) { return Scalars[a] > Scalars[b]; });
     } else {
         std::vector<std::pair<double, std::vector<ind>>> buckets(NumThresholds);
 
@@ -67,11 +68,13 @@ void DataBlock::sort() {
                 continue;
             }
             ind probableIdx = std::ceil((ThresholdMax - val) / hStep);
-            // Value to low.
+            probableIdx = std::min(probableIdx, NumThresholds - 1);
+
+            // Value too low.
             if (val < buckets[probableIdx].first) {
                 probableIdx++;
             }
-            // Value to large.
+            // Value too large.
             else if (probableIdx != 0 && val >= buckets[probableIdx - 1].first) {
                 probableIdx--;
             }

@@ -23,9 +23,6 @@ LocalBlock::LocalBlock(const vec3i& blockSize, const vec3i& blockOffset, const v
         new UnionFindSubBlock<WhiteProcessor>(whiteBlockSize, whiteBlockOffset, totalSize, *this,
                                               WhiteProcessor(*LOLs, *LOGs, *RefPLOGs), nullptr);
 
-    LOLSubBlock->loadData();
-    for (auto& red : LOGSubBlocks) red.loadData();
-
     std::vector<vec3i> directions;
     vec3i potentialMax = blockOffset + blockSize;
 
@@ -148,7 +145,7 @@ LocalBlock* LocalBlock::makeGroundtruth(const vec3i& blockSize, const vec3i& blo
         blockSize, blockOffset, totalSize, *block,
         WhiteProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs));
     block->LOLSubBlock->loadData();
-
+    block->sortData(false);
     // Id Block for Red is empty
     block->MemoryLOG = nullptr;
     block->MemoryLOGSize = 0;
@@ -172,6 +169,7 @@ LocalBlock* LocalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& bl
         max - min, min, totalSize, *block,
         WhiteProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs));
     block->LOLSubBlock->loadData();
+    block->LOLSubBlock->sortData(false);
 
     block->MemoryLOGSize = sliceSize.prod() * 3;
     block->MemoryLOG = new ID[block->MemoryLOGSize];
@@ -191,7 +189,9 @@ LocalBlock* LocalBlock::makeWhiteRedTest(const vec3i& blockSize, const vec3i& bl
         sliceSize, vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z), totalSize, *block,
         RedProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs),
         block->MemoryLOG + 2 * sliceSize.prod());
-    for (auto& red : block->LOGSubBlocks) red.loadData();
+
+    block->loadData();
+    block->sortData(false);
 
     return block;
 }
@@ -212,7 +212,6 @@ LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3
     block->LOLSubBlock = new UnionFindSubBlock<WhiteProcessor>(
         max - min, min, totalSize, *block,
         WhiteProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs));
-    block->LOLSubBlock->loadData();
 
     block->MemoryLOGSize = sliceSize.prod() * 2;
     block->MemoryLOG = new ID[block->MemoryLOGSize];
@@ -229,8 +228,6 @@ LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3
                                      totalSize, *block,
                                      RedProcessor(*block->LOLs, *block->LOGs, *block->RefPLOGs),
                                      block->MemoryLOG + sliceSize.prod());
-    for (auto& red : block->LOGSubBlocks) red.loadData();
-
     // Green data.
     block->GOGSubBlocks.reserve(2);
 
@@ -245,7 +242,29 @@ LocalBlock* LocalBlock::makeWhiteRedGreenTest(const vec3i& blockSize, const vec3
                                      vec3i(blockOffset.x, blockOffset.y, max.z + sliceSize.z),
                                      totalSize, *block, GrayProcessor());
 
+    block->loadData();
+    block->sortData(false);
+
     return block;
+}
+
+void LocalBlock::reset() {
+    for (auto& green : GOGSubBlocks) green.reset();
+    for (auto& red : LOGSubBlocks) red.reset();
+    LOGs->reset();
+    LOLs->reset();
+}
+
+void LocalBlock::loadData() {
+    LOLSubBlock->loadData();
+    for (auto& red : LOGSubBlocks) red.loadData();
+    for (auto& green : GOGSubBlocks) green.loadData();
+}
+
+void LocalBlock::sortData(bool useBuckets) {
+    LOLSubBlock->sortData(useBuckets);
+    for (auto& red : LOGSubBlocks) red.sortData(useBuckets);
+    for (auto& green : GOGSubBlocks) green.sortData(useBuckets);
 }
 
 void LocalBlock::doWatershed(const double minVal) {

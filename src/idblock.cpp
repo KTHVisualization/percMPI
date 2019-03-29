@@ -29,4 +29,6 @@ IDBlock::~IDBlock() {
     if (ownsMemory) delete[] PointerBlock;
 }
 
+void IDBlock::reset() { std::fill_n(PointerBlock, BlockSize.prod(), ind(-1)); }
+
 }  // namespace perc

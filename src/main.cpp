@@ -1503,7 +1503,7 @@ int main(int argc, char** argv) {
                 timingsFile << "totalSizeX;totalSizeY;totalSizeZ;"
                                "blockSizeX;blockSizeY;blockSizeZ;"
                                "numNodesX;numNodesY;numNodesZ;numNodesTotal;"
-                               "hMin;hMax;hSamples;totalTime;";
+                               "hMin;hMax;hSamples;usesBucketing;numRuns;totalTime;";
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
                 if (computeMode == REAL)
@@ -1545,7 +1545,7 @@ int main(int argc, char** argv) {
                             << blockSize.x << ";" << blockSize.y << ";" << blockSize.z << ";"
                             << numNodes.x << ";" << numNodes.y << ";" << numNodes.z << ";"
                             << numNodes.prod() << ";" << hMin << ";" << hMax << ";" << hSamples
-                            << ";" << totalTime << ";";
+                            << ";" << useBuckets << ";" << numRuns << ";" << totalTime << ";";
 #ifdef SINGLENODE
 #ifndef COMMUNICATION
                 if (computeMode == REAL)

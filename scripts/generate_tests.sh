@@ -82,12 +82,13 @@ function makeTestDuct
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 0 --computeMode 0 --outputMode 2 --outputPrefix $test_name"\ >> $output_file
-        if [[ $fullSort==1 ]]
+        if [[ $fullSort == 1 ]]
         then
+            echo "Test with sorting"
             echo -e "--fullSort" >> $output_file  
         fi
         echo -e "echo \"Done.\"" >> $output_file
-    # Run 9 tests taking only timings
+    # Run 9 more tests taking only timings
     for test in `seq 1 1 9`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
@@ -97,11 +98,11 @@ function makeTestDuct
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 0 --computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
-        if [[ $fullSort==1 ]]
+        if [[ $fullSort == 1 ]]
         then
-            echo -e "--fullSort" >> $output_file 
+            echo -n -e "--fullSort" >> $output_file 
         fi
-        echo -e "echo \"Done.\"" >> $output_file
+        echo -e "\necho \"Done.\"" >> $output_file
     done
     
     echo -e "echo -e \"---------------------\\\\n\"" >> $output_file
@@ -169,13 +170,14 @@ function makeTestIso512
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 3 --computeMode 0 --outputMode 2 --outputPrefix $test_name"\ >> $output_file
-        if [[ $fullSort==1 ]]
+        if [[ $fullSort == 1 ]]
         then
+            echo "Test with sorting"
             echo -e "--fullSort" >> $output_file  
         fi
         echo -e "echo \"Done.\"" >> $output_file
-    # Run 10 tests taking only timings
-    for test in `seq 1 1 10`
+    # Run 9 more tests taking only timings
+    for test in `seq 1 1 9`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
         echo -e -n "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $avgValue --rmsValue $rmsValue"\
@@ -184,7 +186,7 @@ function makeTestIso512
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 3 --computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
-        if [[ $fullSort==1 ]]
+        if [[ $fullSort == 1 ]]
         then
             echo -e "--fullSort" >> $output_file  
         fi

@@ -42,6 +42,7 @@ function makeTestDuct
     hSamples=${10} 
     num_procs=${11}
     build_dir=${12}
+    fullSort=${13}
     # One global node + given number, make sure to round up
     if [[ $build_dir == "build_s" ]] 
     then 
@@ -51,7 +52,7 @@ function makeTestDuct
     else
     num_nodes=$(((($num_procs + 1) + ($num_procs_node-1)) / $num_procs_node))
     fi
-    job_name=$test_name"_n"$num_procs"_h"$hSamples
+    job_name=$test_name"_n"$num_procs"_h"$hSamples"_s"$fullSort
     num_procs_used=$(($num_procs+1))
     # evenly distribute the nodes
     if [[ $num_nodes == 1 ]]
@@ -65,7 +66,7 @@ function makeTestDuct
     echo -e "#!/bin/bash -l\n# The -l above is required to get the full environment with modules\n" > $output_file
     echo -e "# Set the name of the script\n#SBATCH -J $job_name\n" >> $output_file
     echo -e "# Set the allocation to be charged for this job\n#SBATCH -A $account\n" >> $output_file
-    echo -e "# Set the allocated time for the job\n#SBATCH -t 01:00:00\n" >> $output_file
+    echo -e "# Set the allocated time for the job\n#SBATCH -t 02:00:00\n" >> $output_file
     echo -e "# Set the node type to Haswell nodes only\n#SBATCH -C Haswell\n" >> $output_file
     echo -e "# Set the number of nodes\n#SBATCH --nodes=$num_nodes\n" >> $output_file
     echo -e "# Set the number of MPI processes\n#SBATCH -n $num_procs_used\n" >> $output_file
@@ -75,23 +76,31 @@ function makeTestDuct
     echo -e "echo -e \"Running job \\\\\"$job_name\\\\\"\\\\n---------------------\"" >> $output_file
     
     echo -e "echo -n \"    Performing initial test... \"" >> $output_file
-        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --rmsFile $rmsFile"\
+        echo -n -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --rmsFile $rmsFile"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 0 --computeMode 0 --outputMode 2 --outputPrefix $test_name"\ >> $output_file
+        if [[ $fullSort==1 ]]
+        then
+            echo -e "--fullSort" >> $output_file  
+        fi
         echo -e "echo \"Done.\"" >> $output_file
-    # Run 10 tests taking only timings
-    for test in `seq 1 1 10`
+    # Run 9 tests taking only timings
+    for test in `seq 1 1 9`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
-        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --rmsFile $rmsFile"\
+        echo -e -n "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --rmsFile $rmsFile"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 0 --computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
+        if [[ $fullSort==1 ]]
+        then
+            echo -e "--fullSort" >> $output_file 
+        fi
         echo -e "echo \"Done.\"" >> $output_file
     done
     
@@ -154,23 +163,31 @@ function makeTestIso512
     echo -e "echo -e \"Running job \\\\\"$job_name\\\\\"\\\\n---------------------\"" >> $output_file
     
     echo -e "echo -n \"    Performing initial test... \"" >> $output_file
-        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $avgValue --rmsValue $rmsValue"\
+        echo -e -n "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $avgValue --rmsValue $rmsValue"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 3 --computeMode 0 --outputMode 2 --outputPrefix $test_name"\ >> $output_file
+        if [[ $fullSort==1 ]]
+        then
+            echo -e "--fullSort" >> $output_file  
+        fi
         echo -e "echo \"Done.\"" >> $output_file
     # Run 10 tests taking only timings
     for test in `seq 1 1 10`
     do
         echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
-        echo -e "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $avgValue --rmsValue $rmsValue"\
+        echo -e -n "aprun -n $num_procs_used -N $num_procs_node_used ./$build_dir/PercMPI --dataPath $datapath --avgValue $avgValue --rmsValue $rmsValue"\
             "--dataSize $dataSizeX $dataSizeY $dataSizeZ"\
 	        "--timeStep $timeStep --totalSize $totalSizeX $totalSizeY $totalSizeZ"\
             "--blockSize $blockSizeX $blockSizeY $blockSizeZ"\
             "--hMin $hMin --hMax $hMax --hSamples $hSamples"\
             "--inputMode 3 --computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
+        if [[ $fullSort==1 ]]
+        then
+            echo -e "--fullSort" >> $output_file  
+        fi
         echo -e "echo \"Done.\"" >> $output_file
     done
     
@@ -301,7 +318,7 @@ function makeTestMergeIso512
 # Make the strong-scaling tests for the 180-duct
 if [[ $test_type == 1 ]]
 then
-    test_name="strong_duct180"
+    test_name="strong_duct180_new"
     echo $test_name
     totalSizeX=193
     totalSizeY=194
@@ -313,6 +330,11 @@ then
     blockSizeY=194 
     blockSizeZ=1000
     num_procs=1
+    fullSort=0
+    echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
+    makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s" $fullSort
+    num_procs=1
+    # More processes
     for tests in `seq 1 1 9`
     do
         num_procs=$(($num_procs*2))
@@ -326,15 +348,12 @@ then
             blockSizeZ=$((($blockSizeZ+1)/2))
         fi
         echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-        for hSamples in 100 1000
-        do
-        makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
-        done
+        makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
     done
 # Make the weak-scaling tests for the 180-duct
 elif [[ $test_type == 2 ]]
 then
-    test_name="baseline_duct180"
+    test_name="baseline_duct180_new"
     echo $test_name
     totalSizeX=193
     totalSizeY=194
@@ -349,31 +368,34 @@ then
     for tests in `seq 1 1 5`
     do
         hSamples=$(($hSamples*10))
-        echo "Generating baseline test with "$hSamples" samples."
-        makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
+        for fullSort in 0 1
+        do
+            echo "Generating baseline test with "$hSamples" samples and fullSort: "$fullSort"."
+            makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s" $fullSort
+        done
     done
 # Make the weak-scaling tests for the 180-duct
 elif [[ $test_type == 3 ]]
 then
-    test_name="weak_duct180"
+    test_name="weak_duct180_new"
     echo $test_name
     hMin=0.0
     hMax=2.0 
-    blockSizeX=48
-    blockSizeY=48 
-    blockSizeZ=31
+    blockSizeX=96
+    blockSizeY=96 
+    blockSizeZ=62
     totalSizeX=$blockSizeX
     totalSizeY=$blockSizeY
     totalSizeZ=$blockSizeZ
     num_procs=1
+    hSamples=1000
+    fullSort=0
     # Test for the single block
-    for hSamples in 100 1000
-    do
     echo "Generating weak scaling test for "$num_procs" processes with total ("$totalSizeX $totalSizeY $totalSizeZ")."
-    makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
-    done
+    makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s" $fullSort
+    # num procs was set to 0 in makeTestDuct, set to 1 again    
     num_procs=1
-    for tests in `seq 1 1 9`
+    for tests in `seq 1 1 6`
     do
         num_procs=$(($num_procs*2))
         if [[ $(($totalSizeX*2)) -le $dataSizeX && $totalSizeX -le $totalSizeY && $totalSizeX -le $totalSizeZ ]]
@@ -386,36 +408,36 @@ then
             totalSizeZ=$(($totalSizeZ*2))
         fi
         echo "Generating weak scaling test for "$num_procs" processes with total ("$totalSizeX $totalSizeY $totalSizeZ")."
-        for hSamples in 100 1000
-        do
-        makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
-        done
+        makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
     done
 # Make the weak-scaling tests for the 180-duct
 elif [[ $test_type == 4 ]]
 then
-    test_name="weakh_duct180"
+    test_name="weak_h_duct180_new"
     echo $test_name
     hMin=0.0
     hMax=2.0 
-    blockSizeX=193
+    blockSizeX=97
     blockSizeY=97 
     blockSizeZ=125
     totalSizeX=193
     totalSizeY=194
     totalSizeZ=1000
-    num_procs=16
+    num_procs=32
     hSamples=1
     for tests in `seq 1 1 5`
     do
         hSamples=$((10*$hSamples))
-        echo "Generating weak scaling test with "$hSamples" samples."
-        makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
+        for fullSort in 0 1
+        do
+            echo "Generating weak scaling test with "$hSamples" samples and fullSort: "$fullSort"."
+            makeTestDuct $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
+        done    
     done
 # Make the strong-scaling tests for the iso512
 elif [[ $test_type == 5 ]]
 then
-    test_name="strong_iso512"
+    test_name="strong_iso512_new"
     echo $test_name
     hMin=0.0
     hMax=4.0 
@@ -427,8 +449,9 @@ then
     totalSizeY=512
     totalSizeZ=512
     num_procs=1
+    fullSort=0
     echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-    makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
+    makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s" 
     num_procs=1
     # Create tests for powers of two
     for tests in `seq 1 1 9`

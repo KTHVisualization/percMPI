@@ -224,6 +224,12 @@ double* PercolationLoader::loadDuctWithoutNormalization() {
         loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vy"),
         loadBlock(pathVelocity + zeros + std::to_string(TimeStep) + ".vx")};
 
+    const std::string& pathRms = Directory + "/ZEXPORT_STAT_wall_correction/" + RmsFilename;
+    size_t nameBeginPos = pathRms.find_last_of('/');
+    std::string filenameRms = pathRms.substr(nameBeginPos + 1, pathRms.length() - 2 - nameBeginPos);
+
+    getRmsTypeFromFilename(filenameRms);
+
     if (!dataBuffer[0] || !dataBuffer[1] || !dataBuffer[2]) {
         for (int i = 0; i < 3; ++i) {
             delete[] dataBuffer[i];

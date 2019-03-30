@@ -303,9 +303,12 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
                              std::vector<ind>& numClustersGlobal, std::vector<float>& maxVolumes,
                              std::vector<float>& totalVolumes, ind& memEstimate, ind& greenSize,
                              ind& redSize, float& loadTime, float& sortTime,
-                             float& communicationTime, float& watershedTime, bool useBuckets) {
+                             float& communicationTime, float& watershedTime, bool useBuckets,
+                             ind numRuns) {
     PerformanceTimer timer;
     timer.Reset();
+
+    PerformanceTimer timerRun;
 
 #ifndef NDEBUG
     // Keeps groundtruth block to compare against
@@ -333,6 +336,7 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         communicationTime = 0.0;
         watershedTime = 0.0;
 
+        timerRun.Reset();
         for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
             globalBlock.receiveData();
             communicationTime += timer.ElapsedTimeAndReset();
@@ -438,6 +442,39 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
 
         memEstimate = globalBlock.memEstimate();
 
+        ind numRunsLeft = numRuns - 1;
+        // Just for timing without reloading data again
+        while (numRunsLeft >= 1) {
+            std::cout << "Last run took " << timerRun.ElapsedTimeAndReset()
+                      << " seconds. Starting another run, (" << numRunsLeft << ") left."
+                      << std::endl;
+            numRunsLeft--;
+            globalBlock.reset();
+            timer.Reset();
+            MPI_Barrier(MPI_COMM_WORLD);
+            globalBlock.sortData(useBuckets);
+            sortTime += timer.ElapsedTimeAndReset();
+            for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
+                globalBlock.receiveData();
+                communicationTime += timer.ElapsedTimeAndReset();
+                globalBlock.doWatershed(currentH);
+                watershedTime += timer.ElapsedTimeAndReset();
+                globalBlock.sendData();
+                communicationTime += timer.ElapsedTimeAndReset();
+            }
+            memEstimate += globalBlock.memEstimate();
+        }
+
+        if (numRuns > 1) {
+            sortTime /= numRuns;
+            watershedTime /= numRuns;
+            communicationTime /= numRuns;
+            memEstimate /= numRuns;
+
+            std::cout << "Last run took " << timerRun.ElapsedTimeAndReset() << " seconds."
+                      << std::endl;
+        }
+
     }
 
     // All other processes: currProcess != 0
@@ -509,6 +546,32 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         }
 
         memEstimate = localBlock.memEstimate();
+
+        ind numRunsLeft = numRuns - 1;
+        // Just for timing without reloading data again
+        while (numRunsLeft >= 1) {
+            numRunsLeft--;
+            localBlock.reset();
+            timer.Reset();
+            MPI_Barrier(MPI_COMM_WORLD);
+            localBlock.sortData(useBuckets);
+            sortTime += timer.ElapsedTimeAndReset();
+            for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
+                localBlock.doWatershed(currentH);
+                watershedTime += timer.ElapsedTimeAndReset();
+                localBlock.sendData();
+                localBlock.receiveData();
+                communicationTime += timer.ElapsedTimeAndReset();
+            }
+            memEstimate += localBlock.memEstimate();
+        }
+
+        if (numRuns > 1) {
+            sortTime /= numRuns;
+            watershedTime /= numRuns;
+            communicationTime /= numRuns;
+            memEstimate /= numRuns;
+        }
     }
 
 #ifndef NDEBUG
@@ -919,6 +982,7 @@ int main(int argc, char** argv) {
     bool hMaxSet = false;
     int hSamples = -1;
     bool useBuckets = true;
+    ind numRuns = 1;
 
     // First argument (argv[0]) is the executable name, therefore start at 1.
     for (ind argId = 1; argId < argc; ++argId) {
@@ -968,6 +1032,8 @@ int main(int argc, char** argv) {
             rmsValue = atof(argv[++argId]);
         } else if (strcmp(argv[argId], "--fullSort") == 0) {
             useBuckets = false;
+        } else if (strcmp(argv[argId], "--numRuns") == 0 && (argc - argId) > 1) {
+            numRuns = atof(argv[++argId]);
         }
         // Default: Catch errors
         else {
@@ -1254,10 +1320,10 @@ int main(int argc, char** argv) {
 #ifdef COMMUNICATION
             if (currProcess == 0)
                 std::cout << "Watershedding parallel and distributed." << std::endl;
-            whatershedMultipleRanks(currProcess, numNodes, blockSize, blockOffset, totalSize, hMin,
-                                    hMax, hStep, h, numClusters, numClustersGlobal, maxVolumes,
-                                    totalVolumes, memEstimate, greenSize, redSize, loadTime,
-                                    sortTime, communicationTime, watershedTime, useBuckets);
+            whatershedMultipleRanks(
+                currProcess, numNodes, blockSize, blockOffset, totalSize, hMin, hMax, hStep, h,
+                numClusters, numClustersGlobal, maxVolumes, totalVolumes, memEstimate, greenSize,
+                redSize, loadTime, sortTime, communicationTime, watershedTime, useBuckets, numRuns);
 #else   // !COMMUNCATION
             std::cerr << "Cannot watershed on multiple nodes without communcation "
                          "enabled."
@@ -1366,7 +1432,7 @@ int main(int argc, char** argv) {
     if (currProcess == 0) {
         totalTime = timer.ElapsedTimeAndReset();
         std::cout << "Watershedding took " << totalTime << " seconds." << std::endl;
-
+        if (numRuns > 1) totalTime /= numRuns;
         // For MB
         const float memDivisor = 1024.0 * 1024.0;
         std::stringstream ss;

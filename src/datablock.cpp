@@ -94,6 +94,11 @@ void DataBlock::sortData(bool useBuckets) {
     }
 }
 
+void DataBlock::reset() {
+    delete[] Indices;
+    Indices = nullptr;
+}
+
 vec3i DataBlock::toGlobalIndex(ind locIdx) {
     assert(locIdx >= 0 && locIdx < BlockSize.prod() && "Index outside the block size.");
     vec3i relIdx = vec3i::fromIndexOfTotal(locIdx, BlockSize);

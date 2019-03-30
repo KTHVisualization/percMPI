@@ -321,10 +321,12 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         GlobalBlock globalBlock(blockSize, totalSize, numNodes);
         globalBlock.loadData();
         loadTime = timer.ElapsedTimeAndReset();
-        globalBlock.sortData(useBuckets);
 
         // Synchronize once after everybody has loaded
         MPI_Barrier(MPI_COMM_WORLD);
+
+        timer.Reset();
+        globalBlock.sortData(useBuckets);
         sortTime = timer.ElapsedTimeAndReset();
 
         std::cout << "Rank " << currProcess << ": Loaded (" << loadTime << ") and sorted ("
@@ -450,8 +452,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
                       << std::endl;
             numRunsLeft--;
             globalBlock.reset();
-            timer.Reset();
             MPI_Barrier(MPI_COMM_WORLD);
+            timer.Reset();
             globalBlock.sortData(useBuckets);
             sortTime += timer.ElapsedTimeAndReset();
             for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {
@@ -482,14 +484,17 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         LocalBlock localBlock(blockSize, blockOffset, totalSize);
         localBlock.loadData();
         loadTime = timer.ElapsedTimeAndReset();
+
+        // Synchronize once after loading
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        timer.Reset();
         localBlock.sortData(useBuckets);
         sortTime = timer.ElapsedTimeAndReset();
 
         std::cout << "Rank " << currProcess << ": Loaded (" << loadTime << ") and sorted ("
                   << sortTime << ") data in " << loadTime + sortTime << " seconds." << std::endl;
 
-        // Synchronize once after loading
-        MPI_Barrier(MPI_COMM_WORLD);
         communicationTime = 0.0;
         watershedTime = 0.0;
 
@@ -552,8 +557,8 @@ void whatershedMultipleRanks(int currProcess, vec3i numNodes, vec3i blockSize, v
         while (numRunsLeft >= 1) {
             numRunsLeft--;
             localBlock.reset();
-            timer.Reset();
             MPI_Barrier(MPI_COMM_WORLD);
+            timer.Reset();
             localBlock.sortData(useBuckets);
             sortTime += timer.ElapsedTimeAndReset();
             for (float currentH = hMax; currentH >= hMin - 1e-5; currentH -= hStep) {

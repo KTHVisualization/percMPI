@@ -85,9 +85,9 @@ function makeTestDuct
         if [[ $fullSort == 1 ]]
         then
             echo "Test with sorting"
-            echo -e "--fullSort" >> $output_file  
+            echo -e -n "--fullSort" >> $output_file  
         fi
-        echo -e "echo \"Done.\"" >> $output_file
+        echo -e "\necho \"Done.\"" >> $output_file
     # Run 9 more tests taking only timings
     for test in `seq 1 1 9`
     do
@@ -131,6 +131,7 @@ function makeTestIso512
     hSamples=${10} 
     num_procs=${11}
     build_dir=${12}
+    fullSort=${13}    
     # One global node + given number, make sure to round up
     if [[ $build_dir == "build_s" ]] 
     then 
@@ -140,7 +141,7 @@ function makeTestIso512
     else
     num_nodes=$(((($num_procs + 1) + ($num_procs_node-1)) / $num_procs_node))
     fi
-    job_name=$test_name"_n"$num_procs"_h"$hSamples
+    job_name=$test_name"_n"$num_procs"_h"$hSamples"_s"$fullSort
     num_procs_used=$(($num_procs+1))
     # evenly distribute the nodes
     if [[ $num_nodes == 1 ]]
@@ -173,9 +174,9 @@ function makeTestIso512
         if [[ $fullSort == 1 ]]
         then
             echo "Test with sorting"
-            echo -e "--fullSort" >> $output_file  
+            echo -n -e "--fullSort" >> $output_file  
         fi
-        echo -e "echo \"Done.\"" >> $output_file
+        echo -e "\necho \"Done.\"" >> $output_file
     # Run 9 more tests taking only timings
     for test in `seq 1 1 9`
     do
@@ -188,9 +189,9 @@ function makeTestIso512
             "--inputMode 3 --computeMode 0 --outputMode 1 --outputPrefix $test_name"\ >> $output_file
         if [[ $fullSort == 1 ]]
         then
-            echo -e "--fullSort" >> $output_file  
+            echo -e -n"--fullSort" >> $output_file  
         fi
-        echo -e "echo \"Done.\"" >> $output_file
+        echo -e "\necho \"Done.\"" >> $output_file
     done
     
     echo -e "echo -e \"---------------------\\\\n\"" >> $output_file
@@ -312,6 +313,46 @@ function makeTestMergeIso512
         echo -e "echo \"Done.\"" >> $output_file
     done
     
+    echo -e "echo -e \"---------------------\\\\n\"" >> $output_file
+    chmod a+x $output_file
+}
+
+function makeTestMergeDuct
+{
+    # test identifier
+    test_name=$1
+    datapath=../Data/duct180.vti
+    executablepath=./../FTC/build/standalone/FTCTree/cmd/ftcTreeCmd
+    num_procs=$2
+    job_name=$test_name"_n"$num_procs
+    output_file="./"$test_name"/"$job_name".sh"
+    mkdir -p $test_name
+    echo -e "#!/bin/bash -l\n# The -l above is required to get the full environment with modules\n" > $output_file
+    echo -e "# Set the name of the script\n#SBATCH -J $job_name\n" >> $output_file
+    echo -e "# Set the allocation to be charged for this job\n#SBATCH -A $account\n" >> $output_file
+    echo -e "# Set the allocated time for the job\n#SBATCH -t 01:00:00\n" >> $output_file
+    echo -e "# Set the node type to Haswell nodes only\n#SBATCH -C Haswell\n" >> $output_file
+    echo -e "# Set the number of nodes\n#SBATCH --nodes=1\n" >> $output_file
+    echo -e "# Set the number of MPI processes\n#SBATCH -n 1\n" >> $output_file
+    echo -e "# Set the number of MPI processes per node\n#SBATCH --ntasks-per-node=1\n" >> $output_file
+    echo -e "# Set the e-mail preferences for the user\n#SBATCH --mail-type=ALL\n#SBATCH --mail-user=$user_email\n" >> $output_file
+    echo -e "# Set the number of OpenMP processes\n#SBATCH -c $num_procs\n"  >> $output_file
+    echo -e "# Set outfile\n#SBATCH -o $job_name.out\n"  >> $output_file
+    echo -e "echo -e \"Running job \\\\\"$job_name\\\\\"\\\\n---------------------\"" >> $output_file
+
+    echo -e "export OMP_NUM_THREADS=$num_procs"  >> $output_file
+
+    echo -e "echo -n \"    Performing initial test... \"" >> $output_file
+    echo -e "aprun -n 1 -N 1 -d $num_procs $executablepath -g $datapath -d 3 -t $num_procs -f 0 -T 0" >> $output_file
+    echo -e "echo \"Done.\"" >> $output_file
+    # Run 10 tests taking only timings
+    for test in `seq 1 1 9` # Change for
+    do
+        echo -e "echo -n \"    Performing test #$test... \"" >> $output_file
+        echo -e "aprun -n 1 -N 1 -d $num_procs $executablepath -g $datapath -d 3 -t $num_procs -f 0 -T 0" >> $output_file
+        echo -e "echo \"Done.\"" >> $output_file
+    done
+
     echo -e "echo -e \"---------------------\\\\n\"" >> $output_file
     chmod a+x $output_file
 }
@@ -453,7 +494,7 @@ then
     num_procs=1
     fullSort=0
     echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-    makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s" 
+    makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s" $fullSort
     num_procs=1
     # Create tests for powers of two
     for tests in `seq 1 1 9`
@@ -469,7 +510,7 @@ then
             blockSizeZ=$((($blockSizeZ+1)/2))
         fi
         echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
+        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
     done
     # Create tests for not powers of two (to compare against merge tree
     num_procs=6 #2*3
@@ -477,29 +518,29 @@ then
     blockSizeY=171 
     blockSizeZ=512
     echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
+        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
     blockSizeX=256
     blockSizeY=103 
     blockSizeZ=512
     num_procs=10 #2*5
     echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"    
+        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort    
     blockSizeX=256
     blockSizeY=256 
     blockSizeZ=171
     num_procs=12 #2*2*3
     echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
+        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
     num_procs=14 #2*7
     blockSizeX=256
     blockSizeY=74 
     blockSizeZ=512
     echo "Generating strong scaling test for "$num_procs" processes with blocksize ("$blockSizeX $blockSizeY $blockSizeZ")."
-        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
+        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
 # Make the weak-scaling tests for the 180-duct
 elif [[ $test_type == 6 ]]
 then
-    test_name="weak_iso512"
+    test_name="weak_iso512_new"
     echo $test_name
     hMin=0.0
     hMax=4.0 
@@ -511,9 +552,10 @@ then
     totalSizeZ=$blockSizeZ
     num_procs=1
     hSamples=1000
+    fullSort=0
     # Test for the single block
     echo "Generating weak scaling test for "$num_procs" processes with total ("$totalSizeX $totalSizeY $totalSizeZ")."
-    makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s"
+    makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build_s" $fullSort
     num_procs=1
     for tests in `seq 1 1 6`
     do
@@ -528,12 +570,12 @@ then
             totalSizeZ=$(($totalSizeZ*2))
         fi
         echo "Generating weak scaling test for "$num_procs" processes with total ("$totalSizeX $totalSizeY $totalSizeZ")."
-        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build"
+        makeTestIso512 $test_name $totalSizeX $totalSizeY $totalSizeZ $blockSizeX $blockSizeY $blockSizeZ $hMin $hMax $hSamples $num_procs "build" $fullSort
     done
 # Make the strong-scaling tests for the iso512
 elif [[ $test_type == 7 ]]
 then
-    test_name="strong_iso4096"
+    test_name="strong_iso4096_new"
     echo $test_name
     hMin=0.0
     hMax=4.0 
@@ -588,5 +630,17 @@ then
     echo "Generating scaling test for "$num_procs" for merge tree computation."
     makeTestMergeIso512 $test_name $num_procs
     done
+elif [[ $test_type == 9 ]]
+then 
+    test_name="merge_duct180"
+    echo $test_name
+    echo "Generating scaling test for 1 for merge tree computation."
+    makeTestMergeDuct $test_name 1
+    for num_procs in `seq 2 2 16`
+    do
+    echo "Generating scaling test for "$num_procs" for merge tree computation."
+    makeTestMergeDuct $test_name $num_procs
+    done
+    makeTestMergeDuct $test_name 32
 fi
 

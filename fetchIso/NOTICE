@@ -1,0 +1,7 @@
+Notice of changes to the original source
+===
+
+The authors of this derivative work, Anke Friederici and Wiebke Köpp, have adapted and added to the original source in the following ways:
+* The cases `iso4096.c` and `isoTest.c` were added, using code from other files of the original source
+* The example files (`channel`, `mhd`, `mixing` and `turb`) were removed in their C and Fortran versions
+* The Makefile was adapted to mirror these changes

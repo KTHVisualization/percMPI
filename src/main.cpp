@@ -1105,7 +1105,7 @@ int main(int argc, char** argv) {
     }
 
     // TODO: Other input modes
-    if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE ||
+    if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE || inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE_WING ||
         inputMode == InputMode::VELOCITY_FILE) {
         if (!rmsFilename) {
             std::cerr << "RMS file name (--rmsFilename) has not been set." << std::endl;
@@ -1236,7 +1236,7 @@ int main(int argc, char** argv) {
             std::cout << "dataPath: \t\t" << baseFolder << std::endl;
             std::cout << "dataSize: \t\t" << dataSize << std::endl;
         }
-        if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE ||
+        if (inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE || inputMode == InputMode::COMBINED_VELOCITY_AVG_RMS_FILE_WING ||
             inputMode == InputMode::VELOCITY_FILE) {
             std::cout << "rmsFile: \t\t" << rmsFilename << std::endl;
         }

@@ -14,6 +14,10 @@ enum class InputMode {
     // Averages for u/w/v
     // Rms file for product of two components uv/uw/..
     COMBINED_VELOCITY_AVG_RMS_FILE = 0,
+    // Velocity as  timestep.x, timestep.y, timestep.z,
+    // Averages for u/w/v
+    // Rms file for product of uv
+    COMBINED_VELOCITY_AVG_RMS_FILE_WING = 1,
     // Run on velocity product directly
     VELOCITY_FILE = 2,
     // Rms in each component and avgs as single value (Isotropic dataset)
@@ -36,6 +40,7 @@ public:
     double* loadScalarData();
 
     double* loadBlock(const std::string& path, bool is2D = false) const;
+    float* loadBlockFloat(const std::string& path, bool is2D = false) const;
 
     double* normalizedFromComponents(const std::array<double*, 3> velocity,
                                      const std::array<double*, 3> average, const double* rms) const;
@@ -43,6 +48,7 @@ public:
     double* loadIsotrop() const;
     double* loadDuctWithoutNormalization();
     double* loadDuct();
+    double* loadWing();
     double* loadRandom() const;
 
     void getRmsTypeFromFilename(const std::string& rmsName);
